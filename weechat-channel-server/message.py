@@ -48,26 +48,14 @@ def make_private_pair(nick_a: str, nick_b: str) -> str:
     return "_".join(sorted([nick_a, nick_b]))
 
 
-# Backward-compatible alias
-make_dm_pair = make_private_pair
-
-
 def private_topic(pair: str) -> str:
     """Return the Zenoh topic for a private pair."""
     return f"wc/private/{pair}/messages"
 
 
-# Backward-compatible alias
-dm_topic = private_topic
-
-
 def channel_topic(channel_id: str) -> str:
     """Return the Zenoh topic for a channel."""
     return f"wc/channels/{channel_id}/messages"
-
-
-# Backward-compatible alias
-room_topic = channel_topic
 
 
 def presence_topic(nick: str) -> str:
