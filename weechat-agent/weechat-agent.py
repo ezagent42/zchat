@@ -40,7 +40,7 @@ def agent_init():
             "workspace": weechat.config_get_plugin("agent0_workspace"),
             "status": "running",
         }
-        # 为 agent0 创建 DM buffer
+        # 为 agent0 创建 private buffer
         weechat.command("", "/zenoh join @agent0")
 
     # 监听消息 signal，检测 Agent 的结构化命令输出
@@ -78,18 +78,21 @@ def create_agent(name, workspace):
         f"--dangerously-load-development-channels "
         f"plugin:weechat-channel"
     )
-    subprocess.Popen([
-        "tmux", "split-window", "-h",
-        "-t", TMUX_SESSION, cmd
-    ])
+    result = subprocess.run(
+        ["tmux", "split-window", "-h", "-P", "-F", "#{pane_id}",
+         "-t", TMUX_SESSION, cmd],
+        capture_output=True, text=True
+    )
+    pane_id = result.stdout.strip()
 
     # 2. 注册
     agents[name] = {
         "workspace": workspace,
         "status": "starting",
+        "pane_id": pane_id,
     }
 
-    # 3. 通知 weechat-zenoh 创建 DM buffer
+    # 3. 通知 weechat-zenoh 创建 private buffer
     weechat.command("", f"/zenoh join @{name}")
 
     weechat.prnt("", f"[agent] Created {name} in {workspace}")
@@ -107,10 +110,13 @@ def stop_agent(name):
         weechat.prnt("", f"[agent] Unknown agent: {name}")
         return
 
-    # 向 Claude Code 发送退出命令
-    subprocess.run([
-        "tmux", "send-keys", "-t", TMUX_SESSION, "C-c", ""
-    ], capture_output=True)
+    # 向 Claude Code 发送退出命令（target specific pane）
+    pane_id = agents[name].get("pane_id")
+    if pane_id:
+        subprocess.run(
+            ["tmux", "send-keys", "-t", pane_id, "C-c", ""],
+            capture_output=True
+        )
 
     agents[name]["status"] = "stopped"
     weechat.prnt("", f"[agent] Stopped {name}")
@@ -195,15 +201,15 @@ def agent_cmd_cb(data, buffer, args):
 
     elif cmd == "join" and len(argv) >= 3:
         agent_name = argv[1]
-        room = argv[2]
+        channel = argv[2]
         if agent_name not in agents:
             weechat.prnt(buffer, f"[agent] Unknown agent: {agent_name}")
         else:
             weechat.command("",
                 f"/zenoh send @{agent_name} "
-                f"Please join room {room} and monitor it for messages mentioning you.")
+                f"Please join channel {channel} and monitor it for messages mentioning you.")
             weechat.prnt(buffer,
-                f"[agent] Asked {agent_name} to join {room}")
+                f"[agent] Asked {agent_name} to join {channel}")
 
     else:
         weechat.prnt(buffer,
@@ -212,7 +218,7 @@ def agent_cmd_cb(data, buffer, args):
             "  /agent stop <n>\n"
             "  /agent restart <n>\n"
             "  /agent list\n"
-            "  /agent join <agent> <#room>")
+            "  /agent join <agent> <#channel>")
 
     return weechat.WEECHAT_RC_OK
 
@@ -247,12 +253,12 @@ if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
     weechat.hook_command("agent",
         "Manage Claude Code agents",
         "create <n> [--workspace <path>] || stop <n> || "
-        "restart <n> || list || join <agent> <#room>",
+        "restart <n> || list || join <agent> <#channel>",
         "  create: Launch new Claude Code instance\n"
         "    stop: Stop an agent (cannot stop agent0)\n"
         " restart: Restart an agent\n"
         "    list: List all agents and status\n"
-        "    join: Ask agent to join a room",
+        "    join: Ask agent to join a channel",
         "create || stop || restart || list || join",
         "agent_cmd_cb", "")
 
