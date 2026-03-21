@@ -1,5 +1,4 @@
 """Tests for weechat-channel-server/server.py notification injection."""
-import json
 import pytest
 from unittest.mock import AsyncMock
 

@@ -17,7 +17,6 @@ from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.shared.message import SessionMessage
 from mcp.types import JSONRPCMessage, JSONRPCNotification, Tool, TextContent
-from mcp import types
 
 from message import (
     MessageDedup, detect_mention, clean_mention,
