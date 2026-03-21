@@ -5,8 +5,6 @@ We test the pure logic functions extracted from the agent module.
 """
 
 import json
-import os
-import pytest
 
 
 class TestAgentCreateLogic:
