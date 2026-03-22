@@ -131,7 +131,7 @@ def _on_sidecar_fd(data, fd):
 
 def _handle_event(event: dict):
     """Process a single event from sidecar."""
-    global sidecar_connected
+    global sidecar_connected, my_nick
     etype = event.get("event")
 
     if etype == "ready":
