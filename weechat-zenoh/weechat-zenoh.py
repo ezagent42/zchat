@@ -2,97 +2,252 @@
 # weechat-zenoh.py
 
 """
-WeeChat Zenoh P2P 聊天插件
-提供 Zenoh 消息总线上的 channel/private 基础设施
+WeeChat Zenoh P2P 聊天插件 (sidecar architecture)
+Zenoh 操作委托给 zenoh_sidecar.py 子进程，通过 JSON Lines 通信
 """
 
 import weechat
 import json
-import time
-import uuid
 import os
+import subprocess
+import sys
+import time
 from collections import deque
 from helpers import target_to_buffer_label, parse_input
 
 SCRIPT_NAME = "weechat-zenoh"
 SCRIPT_AUTHOR = "Allen <ezagent42>"
-SCRIPT_VERSION = "0.1.0"
+SCRIPT_VERSION = "0.2.0"
 SCRIPT_LICENSE = "MIT"
-SCRIPT_DESC = "P2P chat over Zenoh for WeeChat"
+SCRIPT_DESC = "P2P chat over Zenoh for WeeChat (sidecar)"
 
-# --- 全局状态 ---
-zenoh_session = None
+# --- Global state ---
+sidecar_proc = None
+sidecar_fd_hook = None
+read_buffer = ""
+sidecar_connected = False
+pending_autojoin = ""     # targets to join on ready event
 msg_queue = deque()
 presence_queue = deque()
-subscribers = {}          # key → zenoh.Subscriber
-publishers = {}           # key → zenoh.Publisher
-liveliness_tokens = {}    # key → zenoh.LivelinessToken
 buffers = {}              # buffer_key → weechat buffer ptr
 my_nick = ""
-channels = set()          # 已加入的 channel
-privates = set()          # 已开启的 private
+channels = set()
+privates = set()
 
 
 # ============================================================
-# 初始化 / 反初始化
+# Sidecar IPC
+# ============================================================
+
+def _sidecar_path():
+    """Resolve zenoh_sidecar.py relative to this plugin."""
+    plugin_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(plugin_dir, "zenoh_sidecar.py")
+
+
+def _start_sidecar():
+    """Launch sidecar subprocess."""
+    global sidecar_proc, sidecar_fd_hook, read_buffer, sidecar_connected
+    read_buffer = ""
+    sidecar_connected = False
+
+    # stderr → log file
+    weechat_dir = weechat.info_get("weechat_dir", "")
+    log_dir = os.path.join(weechat_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = open(os.path.join(log_dir, "zenoh_sidecar.log"), "a")
+
+    sidecar_proc = subprocess.Popen(
+        [sys.executable, "-u", _sidecar_path()],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=log_file)
+    # Note: binary mode (no text=True) — os.read returns bytes,
+    # consistent with hook_fd usage. -u flag disables Python buffering.
+
+    # Monitor stdout with hook_fd
+    fd = sidecar_proc.stdout.fileno()
+    sidecar_fd_hook = weechat.hook_fd(fd, 1, 0, 0, "_on_sidecar_fd", "")
+
+
+def _stop_sidecar():
+    """Terminate sidecar subprocess."""
+    global sidecar_proc, sidecar_fd_hook, sidecar_connected
+    if sidecar_fd_hook:
+        weechat.unhook(sidecar_fd_hook)
+        sidecar_fd_hook = None
+    if sidecar_proc:
+        try:
+            sidecar_proc.stdin.close()
+        except Exception:
+            pass
+        sidecar_proc.terminate()
+        try:
+            sidecar_proc.wait(timeout=3)
+        except Exception:
+            sidecar_proc.kill()
+        sidecar_proc = None
+    sidecar_connected = False
+
+
+def _sidecar_send(cmd: dict):
+    """Send JSON command to sidecar stdin."""
+    if not sidecar_proc or sidecar_proc.poll() is not None:
+        weechat.prnt("", "[zenoh] Sidecar not running. Use /zenoh reconnect")
+        return
+    try:
+        sidecar_proc.stdin.write((json.dumps(cmd) + "\n").encode())
+        sidecar_proc.stdin.flush()
+    except (BrokenPipeError, OSError) as e:
+        weechat.prnt("", f"[zenoh] Sidecar write error: {e}")
+        _handle_sidecar_crash()
+
+
+def _sidecar_read_sync(timeout=2.0):
+    """Synchronous read until status_response arrives.
+    Non-status events encountered are dispatched to _handle_event."""
+    import select
+    global read_buffer
+    if not sidecar_proc:
+        return None
+    fd = sidecar_proc.stdout.fileno()
+    deadline = time.time() + timeout
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return None
+        ready, _, _ = select.select([fd], [], [], remaining)
+        if not ready:
+            return None
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            return None
+        read_buffer += chunk.decode("utf-8", errors="replace")
+        while "\n" in read_buffer:
+            line, read_buffer = read_buffer.split("\n", 1)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("event") == "status_response":
+                return event
+            # Non-status event — dispatch normally
+            _handle_event(event)
+
+
+def _on_sidecar_fd(data, fd):
+    """hook_fd callback — read available data, parse JSON lines."""
+    global read_buffer, sidecar_connected
+    try:
+        chunk = os.read(int(fd), 65536)
+    except OSError:
+        _handle_sidecar_crash()
+        return weechat.WEECHAT_RC_OK
+
+    if not chunk:
+        _handle_sidecar_crash()
+        return weechat.WEECHAT_RC_OK
+
+    read_buffer += chunk.decode("utf-8", errors="replace")
+    while "\n" in read_buffer:
+        line, read_buffer = read_buffer.split("\n", 1)
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        _handle_event(event)
+
+    return weechat.WEECHAT_RC_OK
+
+
+def _handle_event(event: dict):
+    """Process a single event from sidecar."""
+    global sidecar_connected
+    etype = event.get("event")
+
+    if etype == "ready":
+        sidecar_connected = True
+        weechat.prnt("",
+            f"[zenoh] Session opened, nick={my_nick}, "
+            f"zid={event.get('zid', '?')[:8]}...")
+        # Process pending autojoin
+        global pending_autojoin
+        if pending_autojoin:
+            for target in pending_autojoin.split(","):
+                target = target.strip()
+                if target:
+                    join(target)
+            pending_autojoin = ""
+
+    elif etype == "message":
+        msg = event.get("msg", {})
+        target = event.get("target", "")
+        msg["_target"] = target
+        msg_queue.append(msg)
+
+    elif etype == "presence":
+        presence_queue.append(event)
+
+    elif etype == "error":
+        weechat.prnt("", f"[zenoh] Sidecar error: {event.get('detail')}")
+
+
+def _handle_sidecar_crash():
+    """Called when sidecar stdout reaches EOF."""
+    global sidecar_connected
+    sidecar_connected = False
+    weechat.prnt("",
+        "[zenoh] Sidecar process crashed. Use /zenoh reconnect")
+    for buf in buffers.values():
+        weechat.prnt(buf,
+            "[zenoh] Connection lost. Use /zenoh reconnect")
+
+
+# ============================================================
+# Init / Deinit
 # ============================================================
 
 def zc_init():
-    global zenoh_session, my_nick
-    import zenoh
-
+    global my_nick
     my_nick = weechat.config_get_plugin("nick")
     if not my_nick:
+        import uuid
         my_nick = os.environ.get("USER", "user_%s" % uuid.uuid4().hex[:6])
         weechat.config_set_plugin("nick", my_nick)
 
-    # Zenoh client mode, connect to local zenohd
-    from helpers import build_zenoh_config
+    _start_sidecar()
+
     connect = weechat.config_get_plugin("connect")
-    config = build_zenoh_config(connect if connect else None)
+    cmd = {"cmd": "init", "nick": my_nick}
+    if connect:
+        cmd["connect"] = connect
+    _sidecar_send(cmd)
 
-    try:
-        zenoh_session = zenoh.open(config)
-    except Exception as e:
-        weechat.prnt("", f"[zenoh] Failed to open session: {e}")
-        return
-
-    # 全局在线状态
-    liveliness_tokens["_global"] = \
-        zenoh_session.liveliness().declare_token(f"wc/presence/{my_nick}")
-
-    # 队列轮询
+    # Timer for queue processing
     weechat.hook_timer(50, 0, 0, "poll_queues_cb", "")
 
-    # 自动加入
+    # Autojoin — deferred until ready event arrives
+    global pending_autojoin
     autojoin = weechat.config_get_plugin("autojoin")
     if autojoin:
-        for target in autojoin.split(","):
-            target = target.strip()
-            if target:
-                join(target)
-
-    weechat.prnt("", f"[zenoh] Session opened, nick={my_nick}")
+        pending_autojoin = autojoin
 
 
 def zc_deinit():
-    for token in liveliness_tokens.values():
-        token.undeclare()
-    for sub in subscribers.values():
-        sub.undeclare()
-    for pub in publishers.values():
-        pub.undeclare()
-    if zenoh_session:
-        zenoh_session.close()
+    _stop_sidecar()
     return weechat.WEECHAT_RC_OK
 
 
 # ============================================================
-# Channel / Private 管理
+# Channel / Private management
 # ============================================================
 
 def join(target):
-    """加入 #channel 或开启 @nick private"""
     if target.startswith("#"):
         join_channel(target.lstrip("#"))
     elif target.startswith("@"):
@@ -102,13 +257,11 @@ def join(target):
 
 
 def join_channel(channel_id):
-    import zenoh
-
     if channel_id in channels:
         weechat.prnt("", f"[zenoh] Already in #{channel_id}")
         return
 
-    # Buffer
+    # Create buffer locally
     buf = weechat.buffer_new(
         f"zenoh.#{channel_id}", "buffer_input_cb", "",
         "buffer_close_cb", "")
@@ -119,50 +272,15 @@ def join_channel(channel_id):
     weechat.buffer_set(buf, "localvar_set_target", channel_id)
     weechat.nicklist_add_nick(buf, "", my_nick, "default", "", "", 1)
     buffers[f"channel:{channel_id}"] = buf
-
-    # Zenoh pub/sub
-    msg_key = f"wc/channels/{channel_id}/messages"
-    publishers[f"channel:{channel_id}"] = zenoh_session.declare_publisher(msg_key)
-    subscribers[f"channel:{channel_id}"] = zenoh_session.declare_subscriber(
-        msg_key,
-        lambda sample, _cid=channel_id: _on_channel_msg(sample, _cid),
-
-    )
-
-    # Liveliness
-    token_key = f"wc/channels/{channel_id}/presence/{my_nick}"
-    liveliness_tokens[f"channel:{channel_id}"] = \
-        zenoh_session.liveliness().declare_token(token_key)
-
-    # 监听该 channel 的 presence 变化
-    zenoh_session.liveliness().declare_subscriber(
-        f"wc/channels/{channel_id}/presence/*",
-        lambda sample, _cid=channel_id: _on_channel_presence(sample, _cid),
-
-    )
-
-    # 查询当前在线的成员
-    try:
-        replies = zenoh_session.liveliness().get(
-            f"wc/channels/{channel_id}/presence/*")
-        for reply in replies:
-            nick = str(reply.ok.key_expr).rsplit("/", 1)[-1]
-            _add_nick(channel_id, nick)
-    except Exception:
-        pass
-
     channels.add(channel_id)
 
-    # 广播 join
-    _publish_event(f"channel:{channel_id}", "join", "")
+    # Tell sidecar
+    _sidecar_send({"cmd": "join_channel", "channel_id": channel_id})
     weechat.prnt(buf, f"-->\t{my_nick} joined #{channel_id}")
 
 
 def join_private(target_nick):
-    # Private key: 两个 nick 字母序排列
     pair = "_".join(sorted([my_nick, target_nick]))
-    private_key = f"private:{pair}"
-
     if pair in privates:
         return
 
@@ -177,21 +295,13 @@ def join_private(target_nick):
     weechat.buffer_set(buf, "localvar_set_private_pair", pair)
     weechat.nicklist_add_nick(buf, "", target_nick, "cyan", "", "", 1)
     weechat.nicklist_add_nick(buf, "", my_nick, "default", "", "", 1)
-    buffers[private_key] = buf
-
-    msg_key = f"wc/private/{pair}/messages"
-    publishers[private_key] = zenoh_session.declare_publisher(msg_key)
-    subscribers[private_key] = zenoh_session.declare_subscriber(
-        msg_key,
-        lambda sample, _pk=private_key: _on_private_msg(sample, _pk),
-
-    )
-
+    buffers[f"private:{pair}"] = buf
     privates.add(pair)
+
+    _sidecar_send({"cmd": "join_private", "target_nick": target_nick})
 
 
 def leave(target):
-    """离开 channel 或关闭 private"""
     if target.startswith("#"):
         leave_channel(target.lstrip("#"))
     elif target.startswith("@"):
@@ -199,56 +309,34 @@ def leave(target):
 
 
 def leave_channel(channel_id):
-    key = f"channel:{channel_id}"
     if channel_id not in channels:
         return
-    _publish_event(key, "leave", "")
-    _cleanup_key(key)
+    key = f"channel:{channel_id}"
+    _sidecar_send({"cmd": "leave_channel", "channel_id": channel_id})
+    if key in buffers:
+        weechat.buffer_close(buffers.pop(key))
     channels.discard(channel_id)
 
 
 def leave_private(target_nick):
     pair = "_".join(sorted([my_nick, target_nick]))
     key = f"private:{pair}"
-    _cleanup_key(key)
+    _sidecar_send({"cmd": "leave_private", "target_nick": target_nick})
+    if key in buffers:
+        weechat.buffer_close(buffers.pop(key))
     privates.discard(pair)
 
 
-def _cleanup_key(key):
-    if key in subscribers:
-        subscribers.pop(key).undeclare()
-    if key in publishers:
-        publishers.pop(key).undeclare()
-    if key in liveliness_tokens:
-        liveliness_tokens.pop(key).undeclare()
-    if key in buffers:
-        weechat.buffer_close(buffers.pop(key))
-
-
 # ============================================================
-# 消息发送
+# Message sending
 # ============================================================
-
-def _publish_event(pub_key, msg_type, body):
-    pub = publishers.get(pub_key)
-    if not pub:
-        return
-    event = json.dumps({
-        "id": uuid.uuid4().hex,
-        "nick": my_nick,
-        "type": msg_type,
-        "body": body,
-        "ts": time.time()
-    })
-    pub.put(event)
-
 
 def send_message(target, body):
-    """公共 API: 发送消息到指定 target"""
     if target.startswith("#"):
         channel_id = target.lstrip("#")
         key = f"channel:{channel_id}"
-        _publish_event(key, "msg", body)
+        _sidecar_send({"cmd": "send", "pub_key": key,
+                        "type": "msg", "body": body})
         buf = buffers.get(key)
         if buf:
             weechat.prnt(buf, f"{my_nick}\t{body}")
@@ -258,7 +346,8 @@ def send_message(target, body):
         key = f"private:{pair}"
         if pair not in privates:
             join_private(nick)
-        _publish_event(key, "msg", body)
+        _sidecar_send({"cmd": "send", "pub_key": key,
+                        "type": "msg", "body": body})
         buf = buffers.get(key)
         if buf:
             weechat.prnt(buf, f"{my_nick}\t{body}")
@@ -279,7 +368,8 @@ def buffer_input_cb(data, buffer, input_data):
     else:
         return weechat.WEECHAT_RC_OK
 
-    _publish_event(pub_key, msg_type, body)
+    _sidecar_send({"cmd": "send", "pub_key": pub_key,
+                    "type": msg_type, "body": body})
     if msg_type == "action":
         weechat.prnt(buffer, f" *\t{my_nick} {body}")
     else:
@@ -302,41 +392,10 @@ def buffer_close_cb(data, buffer):
 
 
 # ============================================================
-# 消息接收 (Zenoh callback → deque → hook_timer)
+# Queue polling (unchanged logic)
 # ============================================================
 
-def _on_channel_msg(sample, channel_id):
-    try:
-        msg = json.loads(sample.payload.to_string())
-        if msg.get("nick") != my_nick:
-            msg["_target"] = f"channel:{channel_id}"
-            msg_queue.append(msg)
-    except Exception:
-        pass
-
-
-def _on_private_msg(sample, private_key):
-    try:
-        msg = json.loads(sample.payload.to_string())
-        if msg.get("nick") != my_nick:
-            msg["_target"] = private_key
-            msg_queue.append(msg)
-    except Exception:
-        pass
-
-
-def _on_channel_presence(sample, channel_id):
-    nick = str(sample.key_expr).rsplit("/", 1)[-1]
-    kind = str(sample.kind)
-    presence_queue.append({
-        "channel_id": channel_id,
-        "nick": nick,
-        "online": "PUT" in kind
-    })
-
-
 def poll_queues_cb(data, remaining_calls):
-    # 消息
     for _ in range(200):
         try:
             msg = msg_queue.popleft()
@@ -376,14 +435,12 @@ def poll_queues_cb(data, remaining_calls):
             except (json.JSONDecodeError, KeyError):
                 pass
 
-        # Signal 供其他脚本消费
         buffer_label = target_to_buffer_label(target, my_nick)
         weechat.hook_signal_send("zenoh_message_received",
             weechat.WEECHAT_HOOK_SIGNAL_STRING,
             json.dumps({"buffer": buffer_label, "nick": nick,
                         "body": body, "type": msg_type}))
 
-    # Presence
     for _ in range(100):
         try:
             ev = presence_queue.popleft()
@@ -406,7 +463,7 @@ def poll_queues_cb(data, remaining_calls):
 
 
 # ============================================================
-# Nicklist helpers
+# Nicklist helpers (unchanged)
 # ============================================================
 
 def _add_nick(channel_id, nick):
@@ -423,7 +480,7 @@ def _remove_nick(channel_id, nick):
 
 
 # ============================================================
-# /zenoh 命令
+# /zenoh command
 # ============================================================
 
 def zenoh_cmd_cb(data, buffer, args):
@@ -448,28 +505,7 @@ def zenoh_cmd_cb(data, buffer, args):
         my_nick = argv[1]
         weechat.config_set_plugin("nick", my_nick)
         weechat.prnt("", f"[zenoh] Nick changed: {old} → {my_nick}")
-
-        # Broadcast nick change to all joined channels
-        nick_body = json.dumps({"old": old, "new": my_nick})
-        for cid in channels:
-            _publish_event(f"channel:{cid}", "nick", nick_body)
-
-        # Update global liveliness token
-        if "_global" in liveliness_tokens:
-            liveliness_tokens["_global"].undeclare()
-        liveliness_tokens["_global"] = \
-            zenoh_session.liveliness().declare_token(f"wc/presence/{my_nick}")
-
-        # Update per-channel liveliness tokens
-        for cid in channels:
-            tok_key = f"channel:{cid}"
-            if tok_key in liveliness_tokens:
-                liveliness_tokens[tok_key].undeclare()
-            liveliness_tokens[tok_key] = \
-                zenoh_session.liveliness().declare_token(
-                    f"wc/channels/{cid}/presence/{my_nick}")
-
-        # Warn about open privates (pair keys contain old nick)
+        _sidecar_send({"cmd": "set_nick", "nick": my_nick})
         if privates:
             weechat.prnt("",
                 f"[zenoh] Warning: {len(privates)} open private(s) still "
@@ -490,31 +526,55 @@ def zenoh_cmd_cb(data, buffer, args):
         send_message(target, body)
 
     elif cmd == "status":
-        try:
-            info = zenoh_session.info
-            zid = str(info.zid())
-            routers = list(info.routers_zid())
-            peers = list(info.peers_zid())
+        _sidecar_send({"cmd": "status"})
+        event = _sidecar_read_sync(timeout=2.0)
+        if event and event.get("event") == "status_response":
             weechat.prnt(buffer,
-                f"[zenoh] zid={zid[:8]}... nick={my_nick}\n"
-                f"  mode=client  channels={len(channels)} privates={len(privates)}\n"
-                f"  routers={len(routers)} peers={len(peers)}\n"
-                f"  session={'open' if zenoh_session else 'closed'}")
-        except Exception as e:
+                f"[zenoh] zid={event['zid'][:8]}... nick={my_nick}\n"
+                f"  mode=client  channels={event.get('channels', 0)} "
+                f"privates={event.get('privates', 0)}\n"
+                f"  routers={len(event.get('routers', []))} "
+                f"peers={len(event.get('peers', []))}\n"
+                f"  sidecar=running")
+        else:
             weechat.prnt(buffer,
                 f"[zenoh] nick={my_nick} channels={len(channels)} "
-                f"privates={len(privates)} session={'open' if zenoh_session else 'closed'}\n"
-                f"  (info unavailable: {e})")
+                f"privates={len(privates)} sidecar="
+                f"{'running' if sidecar_proc and sidecar_proc.poll() is None else 'stopped'}")
+
+    elif cmd == "reconnect":
+        weechat.prnt("", "[zenoh] Reconnecting...")
+        _stop_sidecar()
+        _start_sidecar()
+        connect = weechat.config_get_plugin("connect")
+        cmd_init = {"cmd": "init", "nick": my_nick}
+        if connect:
+            cmd_init["connect"] = connect
+        _sidecar_send(cmd_init)
+        # Build rejoin targets from local state
+        saved_channels = set(channels)
+        saved_privates = set(privates)
+        channels.clear()
+        privates.clear()
+        rejoin_targets = [f"#{cid}" for cid in saved_channels]
+        for pair in saved_privates:
+            nicks = pair.split("_")
+            other = [n for n in nicks if n != my_nick]
+            if other:
+                rejoin_targets.append(f"@{other[0]}")
+        # Queue for autojoin on ready event
+        global pending_autojoin
+        pending_autojoin = ",".join(rejoin_targets)
 
     else:
         weechat.prnt(buffer,
-            "[zenoh] Usage: /zenoh <join|leave|nick|list|send|status>")
+            "[zenoh] Usage: /zenoh <join|leave|nick|list|send|status|reconnect>")
 
     return weechat.WEECHAT_RC_OK
 
 
 # ============================================================
-# 插件注册
+# Plugin registration
 # ============================================================
 
 if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
@@ -530,14 +590,15 @@ if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
     weechat.hook_command("zenoh",
         "Zenoh P2P chat",
         "join <#channel|@nick> || leave [target] || nick <n> || "
-        "list || send <target> <msg> || status",
-        "  join: Join channel or open private\n"
-        " leave: Leave channel or close private\n"
-        "  nick: Change nickname\n"
-        "  list: List joined channels and privates\n"
-        "  send: Send message programmatically\n"
-        "status: Show connection status",
-        "join || leave || nick || list || send || status",
+        "list || send <target> <msg> || status || reconnect",
+        "    join: Join channel or open private\n"
+        "   leave: Leave channel or close private\n"
+        "    nick: Change nickname\n"
+        "    list: List joined channels and privates\n"
+        "    send: Send message programmatically\n"
+        "  status: Show connection status\n"
+        "reconnect: Restart sidecar and rejoin",
+        "join || leave || nick || list || send || status || reconnect",
         "zenoh_cmd_cb", "")
 
     zc_init()
