@@ -206,43 +206,36 @@ def stop_agent(name):
 
     pane_id = agents[name].get("pane_id")
     if pane_id:
-        # Send /exit to claude's tmux pane (non-blocking)
+        # Send /exit to claude's tmux pane (non-blocking).
+        # When claude exits, its channel-server closes the Zenoh session,
+        # which invalidates liveliness tokens. The presence offline event
+        # triggers on_presence_signal_cb → _finalize_stop.
         subprocess.run(
             ["tmux", "send-keys", "-t", pane_id, "/exit", "Enter"],
             capture_output=True
         )
-        # Poll for exit asynchronously via hook_timer (don't block WeeChat)
-        weechat.hook_timer(1000, 0, 15, "_stop_poll_cb",
-                          json.dumps({"name": name, "pane_id": pane_id}))
+        agents[name]["status"] = "stopping"
         weechat.prnt("", f"[agent] Stopping {name}...")
+
+        # Timeout: if presence event doesn't arrive in 15s, force cleanup
+        weechat.hook_timer(15000, 0, 1, "_stop_timeout_cb",
+                          json.dumps({"name": name, "pane_id": pane_id}))
     else:
         _finalize_stop(name, "")
 
 
-def _stop_poll_cb(data, remaining_calls):
-    """Non-blocking timer callback to poll agent pane exit."""
+def _stop_timeout_cb(data, remaining_calls):
+    """Timeout fallback if presence offline event never arrives."""
     info = json.loads(data)
     name = info["name"]
-    pane_id = info["pane_id"]
-
-    result = subprocess.run(
-        ["tmux", "display-message", "-t", pane_id,
-         "-p", "#{pane_current_command}"],
-        capture_output=True, text=True
-    )
-    pane_gone = result.returncode != 0
-    cmd = result.stdout.strip()
-    shell_returned = cmd in ("zsh", "bash", "sh")
-
-    if pane_gone or shell_returned or int(remaining_calls) == 0:
-        _finalize_stop(name, pane_id)
-        return weechat.WEECHAT_RC_OK
-
+    if name in agents and agents[name].get("status") == "stopping":
+        weechat.prnt("", f"[agent] {name} did not exit gracefully, forcing stop")
+        _finalize_stop(name, info.get("pane_id", ""))
     return weechat.WEECHAT_RC_OK
 
 
 def _finalize_stop(name, pane_id):
-    """Clean up after agent stop."""
+    """Clean up after agent stop: kill pane, remove config, update status."""
     if pane_id:
         subprocess.run(
             ["tmux", "kill-pane", "-t", pane_id],
@@ -289,7 +282,13 @@ def on_presence_signal_cb(data, signal, signal_data):
         nick = ev.get("nick", "")
         online = ev.get("online", False)
         if nick in agents:
-            agents[nick]["status"] = "running" if online else "offline"
+            if online:
+                agents[nick]["status"] = "running"
+            elif agents[nick].get("status") == "stopping":
+                # Agent went offline after /agent stop — complete the stop
+                _finalize_stop(nick, agents[nick].get("pane_id", ""))
+            else:
+                agents[nick]["status"] = "offline"
     except Exception:
         pass
     return weechat.WEECHAT_RC_OK
