@@ -136,11 +136,10 @@ def _handle_event(event: dict):
 
     if etype == "ready":
         sidecar_connected = True
-        # Re-check nick: -r flag may have changed it while sidecar was starting
-        current_nick = weechat.config_get_plugin("nick")
-        if current_nick and current_nick != my_nick:
-            my_nick = current_nick
-            _sidecar_send({"cmd": "set_nick", "nick": my_nick})
+        # Always sync nick to sidecar: -r flag or hook_config may have
+        # changed my_nick after init sent the wrong one to sidecar.
+        # set_nick is idempotent so this is safe even when nick matches.
+        _sidecar_send({"cmd": "set_nick", "nick": my_nick})
         weechat.prnt("",
             f"[zenoh] Session opened, nick={my_nick}, "
             f"zid={event.get('zid', '?')[:8]}...")
