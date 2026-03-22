@@ -204,24 +204,24 @@ def stop_agent(name):
         weechat.prnt("", f"[agent] Unknown agent: {name}")
         return
 
-    pane_id = agents[name].get("pane_id")
-    if pane_id:
-        # Send /exit to claude's tmux pane (non-blocking).
-        # When claude exits, its channel-server closes the Zenoh session,
-        # which invalidates liveliness tokens. The presence offline event
-        # triggers on_presence_signal_cb → _finalize_stop.
-        subprocess.run(
-            ["tmux", "send-keys", "-t", pane_id, "/exit", "Enter"],
-            capture_output=True
-        )
-        agents[name]["status"] = "stopping"
-        weechat.prnt("", f"[agent] Stopping {name}...")
+    # Request shutdown via Zenoh private message.
+    # Don't use tmux send-keys — agent may be mid-task and send-keys
+    # would forcibly interrupt. Instead, send a message asking the agent
+    # to report status and exit when ready.
+    weechat.command("",
+        f"/zenoh send @{name} "
+        f"You have been requested to stop. "
+        f"Please report your current status, save any work, "
+        f"and then run /exit to shut down.")
+    agents[name]["status"] = "stopping"
+    weechat.prnt("", f"[agent] Stopping {name} (shutdown requested via message)...")
 
-        # Timeout: if presence event doesn't arrive in 15s, force cleanup
-        weechat.hook_timer(15000, 0, 1, "_stop_timeout_cb",
-                          json.dumps({"name": name, "pane_id": pane_id}))
-    else:
-        _finalize_stop(name, "")
+    # When agent exits, its Zenoh session closes → liveliness token expires
+    # → on_presence_signal_cb detects offline → _finalize_stop kills pane.
+    # Timeout fallback if agent doesn't exit within 60s.
+    pane_id = agents[name].get("pane_id", "")
+    weechat.hook_timer(60000, 0, 1, "_stop_timeout_cb",
+                      json.dumps({"name": name, "pane_id": pane_id}))
 
 
 def _stop_timeout_cb(data, remaining_calls):
@@ -229,8 +229,9 @@ def _stop_timeout_cb(data, remaining_calls):
     info = json.loads(data)
     name = info["name"]
     if name in agents and agents[name].get("status") == "stopping":
-        weechat.prnt("", f"[agent] {name} did not exit gracefully, forcing stop")
-        _finalize_stop(name, info.get("pane_id", ""))
+        weechat.prnt("",
+            f"[agent] {name} has not exited after 60s. "
+            f"Use '/agent kill {name.split(':')[-1]}' to force stop.")
     return weechat.WEECHAT_RC_OK
 
 
@@ -313,6 +314,16 @@ def agent_cmd_cb(data, buffer, args):
     elif cmd == "stop" and len(argv) >= 2:
         stop_agent(argv[1])
 
+    elif cmd == "kill" and len(argv) >= 2:
+        name = scoped_name(argv[1])
+        if name not in agents:
+            weechat.prnt(buffer, f"[agent] Unknown agent: {name}")
+        elif name == PRIMARY_AGENT:
+            weechat.prnt(buffer, f"[agent] Cannot kill {PRIMARY_AGENT}")
+        else:
+            weechat.prnt(buffer, f"[agent] Force killing {name}...")
+            _finalize_stop(name, agents[name].get("pane_id", ""))
+
     elif cmd == "restart" and len(argv) >= 2:
         name = scoped_name(argv[1])
         if name in agents:
@@ -346,7 +357,8 @@ def agent_cmd_cb(data, buffer, args):
         weechat.prnt(buffer,
             "[agent] Commands:\n"
             "  /agent create <n> [--workspace <path>]\n"
-            "  /agent stop <n>\n"
+            "  /agent stop <n>    — request graceful shutdown via message\n"
+            "  /agent kill <n>    — force kill pane immediately\n"
             "  /agent restart <n>\n"
             "  /agent list\n"
             "  /agent join <agent> <#channel>")
@@ -384,10 +396,11 @@ if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
 
     weechat.hook_command("agent",
         "Manage Claude Code agents",
-        "create <n> [--workspace <path>] || stop <n> || "
+        "create <n> [--workspace <path>] || stop <n> || kill <n> || "
         "restart <n> || list || join <agent> <#channel>",
         "  create: Launch new Claude Code instance (name auto-scoped to user)\n"
-        "    stop: Stop an agent (cannot stop primary agent)\n"
+        "    stop: Request graceful shutdown via message\n"
+        "    kill: Force kill agent pane immediately\n"
         " restart: Restart an agent\n"
         "    list: List all agents and status\n"
         "    join: Ask agent to join a channel",
