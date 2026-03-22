@@ -48,7 +48,7 @@ class TestPrivatePairSorting:
         assert make_private_pair("bob", "alice") == "alice_bob"
 
     def test_pair_with_agent(self):
-        assert make_private_pair("agent0", "zara") == "agent0_zara"
+        assert make_private_pair("alice:agent0", "zara") == "alice:agent0_zara"
 
     def test_pair_symmetric(self):
         assert make_private_pair("x", "y") == make_private_pair("y", "x")
@@ -62,7 +62,7 @@ class TestTopicFormats:
         assert private_topic("alice_bob") == "wc/private/alice_bob/messages"
 
     def test_presence_topic(self):
-        assert presence_topic("agent0") == "wc/presence/agent0"
+        assert presence_topic("alice:agent0") == "wc/presence/alice:agent0"
 
     def test_channel_presence_format(self):
         # Channel presence follows: wc/channels/{channel}/presence/{nick}

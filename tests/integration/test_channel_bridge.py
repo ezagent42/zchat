@@ -21,8 +21,8 @@ class TestChannelBridge:
         """Publish a private message and verify the agent's filter logic accepts it."""
         from message import make_private_pair
 
-        agent_name = "agent0"
-        sender = "alice"
+        agent_name = "alice:agent0"
+        sender = "bob"
         pair = make_private_pair(agent_name, sender)
         topic = f"wc/private/{pair}/messages"
 
@@ -61,7 +61,7 @@ class TestChannelBridge:
 
     def test_private_not_for_agent_ignored(self, zenoh_session):
         """Privates between other users should not be received by agent."""
-        agent_name = "agent0"
+        agent_name = "alice:agent0"
 
         received = []
         def filter_private(sample):
@@ -77,15 +77,15 @@ class TestChannelBridge:
         )
         time.sleep(0.5)
 
-        # Private between alice and bob -- agent0 not involved
+        # Private between bob and carol -- alice:agent0 not involved
         msg = json.dumps({
             "id": "other-001",
-            "nick": "alice",
+            "nick": "bob",
             "type": "msg",
-            "body": "hey bob",
+            "body": "hey carol",
             "ts": time.time(),
         })
-        zenoh_session.put("wc/private/alice_bob/messages", msg)
+        zenoh_session.put("wc/private/bob_carol/messages", msg)
 
         time.sleep(1.0)
         assert len(received) == 0
@@ -100,7 +100,7 @@ class TestChannelBridge:
         time.sleep(0.5)
 
         # Simulate what the reply tool does
-        agent_name = "agent0"
+        agent_name = "alice:agent0"
         reply_msg = json.dumps({
             "id": os.urandom(8).hex(),
             "nick": agent_name,
@@ -115,5 +115,5 @@ class TestChannelBridge:
             time.sleep(0.1)
 
         assert len(received) == 1
-        assert received[0]["nick"] == "agent0"
+        assert received[0]["nick"] == "alice:agent0"
         assert received[0]["body"] == "Here are the files"

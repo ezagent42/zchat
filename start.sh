@@ -56,12 +56,12 @@ tmux new-session -d -s "$SESSION" -x 220 -y 50
 
 # --- Pane 0: Claude Code (agent0) with channel plugin ---
 tmux send-keys -t "$SESSION" \
-  "cd '$WORKSPACE' && AGENT_NAME=agent0 claude \
+  "cd '$WORKSPACE' && AGENT_NAME='$USERNAME:agent0' claude \
     --dangerously-skip-permissions \
     --dangerously-load-development-channels \
     plugin:weechat-channel" Enter
 
-echo -n "  Waiting for agent0..."
+echo -n "  Waiting for $USERNAME:agent0..."
 sleep 5
 echo " done"
 

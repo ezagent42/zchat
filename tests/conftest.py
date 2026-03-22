@@ -78,5 +78,5 @@ def mock_zenoh_session():
 
 @pytest.fixture
 def agent_name():
-    """Default agent name for tests."""
-    return "agent0"
+    """Default agent name for tests (scoped to creator per issue #2)."""
+    return "alice:agent0"

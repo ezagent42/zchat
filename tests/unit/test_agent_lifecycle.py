@@ -33,29 +33,29 @@ class TestAgentCreateLogic:
         assert server["command"] == "uv"
         assert server["env"]["AGENT_NAME"] == name
 
-    def test_agent0_cannot_be_stopped(self):
-        """Verify the stop-agent0 guard logic."""
-        # This tests the condition used in stop_agent()
-        name = "agent0"
-        assert name == "agent0"  # This would trigger the guard
+    def test_primary_agent_cannot_be_stopped(self):
+        """Verify the stop-primary-agent guard logic."""
+        primary = "alice:agent0"
+        name = "alice:agent0"
+        assert name == primary  # This would trigger the guard
 
     def test_duplicate_agent_detection(self):
         """Verify duplicate agent names are detected."""
-        agents = {"agent0": {"status": "running"}}
-        name = "agent0"
+        agents = {"alice:agent0": {"status": "running"}}
+        name = "alice:agent0"
         assert name in agents
 
     def test_agent_status_tracking(self):
         """Test agent status update from presence signals."""
-        agents = {"agent0": {"status": "running", "workspace": "/tmp"}}
+        agents = {"alice:agent0": {"status": "running", "workspace": "/tmp"}}
 
         # Simulate presence signal
-        ev = {"nick": "agent0", "online": False}
+        ev = {"nick": "alice:agent0", "online": False}
         nick = ev["nick"]
         if nick in agents:
             agents[nick]["status"] = "running" if ev["online"] else "offline"
 
-        assert agents["agent0"]["status"] == "offline"
+        assert agents["alice:agent0"]["status"] == "offline"
 
     def test_structured_command_parsing(self):
         """Test parsing of agent's structured command output."""

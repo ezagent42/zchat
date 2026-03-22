@@ -4,7 +4,8 @@ import os
 import pytest
 from unittest.mock import MagicMock
 
-os.environ["AGENT_NAME"] = "agent0"
+# Patch AGENT_NAME before importing tools (scoped to creator per issue #2)
+os.environ["AGENT_NAME"] = "alice:agent0"
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "weechat-channel-server"))
@@ -23,9 +24,9 @@ class TestReplyTool:
         assert "Sent" in result[0].text
         mock_zenoh.put.assert_called_once()
         key = mock_zenoh.put.call_args[0][0]
-        assert key == "wc/private/agent0_alice/messages"
+        assert key == "wc/private/alice_alice:agent0/messages"
         msg = json.loads(mock_zenoh.put.call_args[0][1])
-        assert msg["nick"] == "agent0"
+        assert msg["nick"] == "alice:agent0"
         assert msg["body"] == "hello"
 
     @pytest.mark.asyncio

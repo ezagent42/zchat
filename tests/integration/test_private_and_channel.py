@@ -14,9 +14,9 @@ pytestmark = pytest.mark.integration
 
 
 class TestPrivateRouting:
-    def test_agent0_receives_own_private(self, zenoh_session):
-        """Messages to agent0's private pair are received."""
-        pair = make_private_pair("agent0", "alice")
+    def test_agent_receives_own_private(self, zenoh_session):
+        """Messages to alice:agent0's private pair are received."""
+        pair = make_private_pair("alice:agent0", "bob")
         topic = f"wc/private/{pair}/messages"
         received = []
 
@@ -27,7 +27,7 @@ class TestPrivateRouting:
         time.sleep(0.5)
 
         zenoh_session.put(topic, json.dumps({
-            "id": "r-001", "nick": "alice", "type": "msg",
+            "id": "r-001", "nick": "bob", "type": "msg",
             "body": "hello", "ts": time.time(),
         }))
 
@@ -37,54 +37,55 @@ class TestPrivateRouting:
 
         assert len(received) == 1
 
-    def test_agent1_does_not_receive_agent0_private(self, zenoh_session):
-        """agent1 should not receive privates addressed to agent0."""
-        agent0_pair = make_private_pair("agent0", "alice")
-        agent0_topic = f"wc/private/{agent0_pair}/messages"
+    def test_other_agent_does_not_receive_private(self, zenoh_session):
+        """bob:agent1 should not receive privates addressed to alice:agent0."""
+        target_pair = make_private_pair("alice:agent0", "carol")
+        target_topic = f"wc/private/{target_pair}/messages"
 
-        agent1_received = []
+        other_received = []
 
-        def agent1_filter(sample):
+        def other_filter(sample):
             key = str(sample.key_expr)
             pair = key.split("/")[2]
-            if "agent1" in pair.split("_"):
-                agent1_received.append(True)
+            if "bob:agent1" in pair.split("_"):
+                other_received.append(True)
 
         zenoh_session.declare_subscriber(
-            "wc/private/*/messages", agent1_filter        )
+            "wc/private/*/messages", other_filter
+        )
         time.sleep(0.5)
 
-        zenoh_session.put(agent0_topic, json.dumps({
-            "id": "r-002", "nick": "alice", "type": "msg",
-            "body": "for agent0 only", "ts": time.time(),
+        zenoh_session.put(target_topic, json.dumps({
+            "id": "r-002", "nick": "carol", "type": "msg",
+            "body": "for alice:agent0 only", "ts": time.time(),
         }))
 
         time.sleep(1.0)
-        assert len(agent1_received) == 0
+        assert len(other_received) == 0
 
 
 class TestChannelMentionFiltering:
     def test_mention_triggers_forwarding(self):
-        """Channel message with @agent0 should be forwarded."""
-        body = "@agent0 list files"
-        assert detect_mention(body, "agent0") is True
-        cleaned = clean_mention(body, "agent0")
+        """Channel message with @alice:agent0 should be forwarded."""
+        body = "@alice:agent0 list files"
+        assert detect_mention(body, "alice:agent0") is True
+        cleaned = clean_mention(body, "alice:agent0")
         assert cleaned == "list files"
 
     def test_no_mention_not_forwarded(self):
         """Channel message without @mention should not be forwarded."""
         body = "hello everyone, nice day"
-        assert detect_mention(body, "agent0") is False
+        assert detect_mention(body, "alice:agent0") is False
 
     def test_wrong_agent_mention_not_forwarded(self):
-        """@agent1 mention should not trigger agent0."""
-        body = "@agent1 do something"
-        assert detect_mention(body, "agent0") is False
+        """@bob:agent1 mention should not trigger alice:agent0."""
+        body = "@bob:agent1 do something"
+        assert detect_mention(body, "alice:agent0") is False
 
     def test_mention_in_channel_roundtrip(self, zenoh_session):
         """End-to-end: channel message with @mention is received and cleaned."""
         topic = "wc/channels/general/messages"
-        agent_name = "agent0"
+        agent_name = "alice:agent0"
         forwarded = []
 
         def channel_handler(sample):
@@ -101,8 +102,8 @@ class TestChannelMentionFiltering:
         time.sleep(0.5)
 
         zenoh_session.put(topic, json.dumps({
-            "id": "rm-001", "nick": "alice", "type": "msg",
-            "body": "@agent0 what files changed?", "ts": time.time(),
+            "id": "rm-001", "nick": "carol", "type": "msg",
+            "body": "@alice:agent0 what files changed?", "ts": time.time(),
         }))
 
         deadline = time.time() + 2.0
