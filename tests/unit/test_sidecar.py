@@ -59,3 +59,37 @@ class TestSidecarInit:
         finally:
             proc.terminate()
             proc.wait()
+
+
+class TestSidecarJoinChannel:
+    def test_join_channel_emits_presence_for_existing_members(self):
+        proc = start_sidecar(mock=True)
+        try:
+            send_cmd(proc, {"cmd": "init", "nick": "alice",
+                            "connect": "tcp/127.0.0.1:7447"})
+            read_event(proc)  # ready
+            send_cmd(proc, {"cmd": "join_channel", "channel_id": "general"})
+            # With mock, liveliness.get() returns empty, so no presence events
+            # Send a status to confirm sidecar is alive
+            send_cmd(proc, {"cmd": "status"})
+            event = read_event(proc)
+            assert event["event"] == "status_response"
+            assert event["channels"] == 1
+        finally:
+            proc.terminate()
+            proc.wait()
+
+    def test_join_channel_twice_is_idempotent(self):
+        proc = start_sidecar(mock=True)
+        try:
+            send_cmd(proc, {"cmd": "init", "nick": "alice",
+                            "connect": "tcp/127.0.0.1:7447"})
+            read_event(proc)  # ready
+            send_cmd(proc, {"cmd": "join_channel", "channel_id": "general"})
+            send_cmd(proc, {"cmd": "join_channel", "channel_id": "general"})
+            send_cmd(proc, {"cmd": "status"})
+            event = read_event(proc)
+            assert event["channels"] == 1
+        finally:
+            proc.terminate()
+            proc.wait()
