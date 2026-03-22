@@ -2,18 +2,6 @@
 
 ZENOH_DEFAULT_ENDPOINT = "tcp/127.0.0.1:7447"
 
-def build_zenoh_config(connect: str | None = None):
-    """Build Zenoh client config. Connects to local zenohd by default."""
-    import zenoh
-    import json
-    config = zenoh.Config()
-    config.insert_json5("mode", '"client"')
-    if connect:
-        config.insert_json5("connect/endpoints", json.dumps(connect.split(",")))
-    else:
-        config.insert_json5("connect/endpoints", f'["{ZENOH_DEFAULT_ENDPOINT}"]')
-    return config
-
 
 def target_to_buffer_label(target: str, my_nick: str) -> str:
     """Convert internal target key to WeeChat-style buffer label.
