@@ -62,9 +62,13 @@ sleep 2
 # Pane: alice:agent0 (claude, interactive) — right side
 PANE_AGENT0=$(split_pane -h "$PANE_ALICE")
 tmux send-keys -t "$PANE_AGENT0" \
-    "cd $PROJECT_DIR && AGENT_NAME='alice:agent0' claude $CLAUDE_FLAGS --mcp-config $MCP_CONFIG $CLAUDE_CHANNEL_FLAGS" Enter
+    "cd $PROJECT_DIR && AGENT_NAME='alice:agent0' claude $CLAUDE_FLAGS $CLAUDE_CHANNEL_FLAGS" Enter
 
-if wait_for_pane "$PANE_AGENT0" "Claude Code" 20; then
+# Auto-confirm the development channels warning prompt
+sleep 3
+tmux send-keys -t "$PANE_AGENT0" Enter
+
+if wait_for_pane "$PANE_AGENT0" "Listening for channel" 20; then
     pass "alice:agent0: claude started"
 else
     fail "alice:agent0: claude failed to start"; exit 1

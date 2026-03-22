@@ -55,7 +55,8 @@ cleanup() {
     done
     sleep 2
     tmux kill-session -t "$TMUX_SESSION" 2>/dev/null
-    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR" "$MCP_CONFIG"
+    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR"
+    rm -f "$PROJECT_DIR/.mcp.json"  # cleanup generated config
 }
 trap cleanup EXIT
 
@@ -70,15 +71,18 @@ install_weechat_plugins() {
 }
 
 create_mcp_config() {
-    local agent_name="$1"
-    cat > "$MCP_CONFIG" << MCPEOF
+    local agent_name="$1" target_dir="${2:-$PROJECT_DIR}"
+    # Write .mcp.json in the working directory so that
+    # --dangerously-load-development-channels server:weechat-channel
+    # can find the server by name.
+    cat > "$target_dir/.mcp.json" << MCPEOF
 {
   "mcpServers": {
     "weechat-channel": {
       "type": "stdio",
       "command": "uv",
       "args": ["run", "--project", "$PROJECT_DIR/weechat-channel-server", "python3", "$PROJECT_DIR/weechat-channel-server/server.py"],
-      "env": { "AGENT_NAME": "$agent_name" }
+      "env": { "AGENT_NAME": "$agent_name", "AUTOJOIN_CHANNELS": "general" }
     }
   }
 }
