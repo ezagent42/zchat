@@ -1,6 +1,6 @@
 """Integration test: Zenoh pub/sub round-trip.
 
-Requires a real Zenoh session (peer mode, localhost).
+Requires a real Zenoh session (client mode, connects to local zenohd).
 """
 
 import json
@@ -78,6 +78,14 @@ class TestZenohPubSub:
 
         assert len(received) == 1
         assert received[0]["body"] == "private message"
+
+    def test_client_sees_router(self, zenoh_sessions):
+        """Verify client session can see the zenohd router."""
+        session_a, session_b = zenoh_sessions
+        routers_a = list(session_a.info.routers_zid())
+        routers_b = list(session_b.info.routers_zid())
+        assert len(routers_a) >= 1, "Client A should see at least one router"
+        assert len(routers_b) >= 1, "Client B should see at least one router"
 
     def test_liveliness_token(self, zenoh_sessions):
         session_a, session_b = zenoh_sessions
