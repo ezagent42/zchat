@@ -17,9 +17,10 @@ weechat-agent/
 
 | 函数 | 职责 |
 |------|------|
-| `agent_init()` | 注册 agent0（start.sh 预创建）、hook signal |
-| `create_agent(name, workspace)` | 在 tmux 中创建新 pane，启动 Claude Code + channel plugin，记录 pane_id |
-| `stop_agent(name)` | 向指定 pane_id 发送 `C-c` 终止进程（agent0 不可停止） |
+| `agent_init()` | 注册 PRIMARY_AGENT（start.sh 预创建）、hook signal |
+| `scoped_name(name)` | 给 agent 名加 `{USERNAME}:` 前缀（如 `alice:agent0`） |
+| `create_agent(name, workspace)` | 在 tmux 中创建新 pane，启动 Claude Code + channel plugin，捕获并记录 pane_id |
+| `stop_agent(name)` | 向指定 pane_id 发送 `C-c` 定向终止进程（PRIMARY_AGENT 不可停止） |
 | `on_message_signal_cb()` | 监听 `zenoh_message_received`，解析 Agent 的结构化命令输出 |
 | `on_presence_signal_cb()` | 监听 `zenoh_presence_changed`，追踪 Agent 在线状态 |
 | `agent_cmd_cb()` | `/agent` 命令分发器 |
@@ -28,13 +29,13 @@ weechat-agent/
 
 ```python
 # 创建 private buffer → 执行 weechat-zenoh 命令
-weechat.command("", "/zenoh join @agent0")
+weechat.command("", "/zenoh join @alice:agent0")
 
 # 监听消息
 weechat.hook_signal("zenoh_message_received", "on_msg_signal_cb", "")
 
 # 发送消息给 agent
-weechat.command("", "/zenoh send @agent0 hello")
+weechat.command("", "/zenoh send @alice:agent0 hello")
 ```
 
 ## tmux Pane 管理
@@ -45,8 +46,17 @@ weechat.command("", "/zenoh send @agent0 hello")
 - Agent 信息存储在 `agents[name] = {"workspace": ..., "status": ..., "pane_id": ...}`
 - `stop_agent()` 使用 `tmux send-keys -t {pane_id} C-c` 定向终止，不会影响其他 pane
 
-## agent0 特殊性
+## Scoped Agent Naming
+
+Agent 名称带用户前缀，格式 `{username}:agent0`：
+
+- `scoped_name(name)` 自动添加 `{USERNAME}:` 前缀
+- `PRIMARY_AGENT` 变量存储主 agent 全名（如 `alice:agent0`）
+- start.sh 传递 `AGENT_NAME='$USERNAME:agent0'` 环境变量
+- 同一台机器上多用户不会 agent 名冲突
+
+## PRIMARY_AGENT 特殊性
 
 - 由 `start.sh` 创建，不通过 `create_agent()` 流程
-- `/agent stop agent0` 会被拒绝
+- `/agent stop {username}:agent0` 会被拒绝（不是硬编码的 "agent0"，而是 `PRIMARY_AGENT` 变量）
 - 重启系统时通过 `./start.sh` 重新创建

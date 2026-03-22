@@ -6,13 +6,16 @@
 
 ## 系统架构
 
-三个独立可组合的组件：
+四个独立可组合的组件：
 
 | 组件 | 类型 | 职责 |
 |------|------|------|
+| **zenohd** | 本地 Zenoh 路由 | 消息中转。start.sh 自动启动在 `tcp/127.0.0.1:7447`，跨 session 持续运行 |
 | **weechat-zenoh** | WeeChat Python 插件 | P2P channel/private 通信，在线状态追踪。对所有参与者一视同仁 |
 | **weechat-channel-server** | Claude Code plugin (MCP server) | 桥接 Claude Code ↔ Zenoh。只知道 Zenoh topic 和 MCP 协议 |
 | **weechat-agent** | WeeChat Python 插件 | Agent 生命周期管理。通过 WeeChat 命令和 signal 与 weechat-zenoh 交互 |
+
+所有 Zenoh session 使用 client mode（`mode: "client"`, `connect: ["tcp/127.0.0.1:7447"]`），通过本地 zenohd 路由通信。
 
 ## 消息协议
 
