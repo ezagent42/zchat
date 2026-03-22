@@ -201,15 +201,14 @@ def stop_agent(name):
         weechat.prnt("", f"[agent] Unknown agent: {name}")
         return
 
+    # Send shutdown message to agent via Zenoh (not tmux send-keys)
+    weechat.command("",
+        f"/zenoh send @{name} Please exit now. Run /exit to shut down.")
+
     pane_id = agents[name].get("pane_id")
     if pane_id:
-        # Send /exit to claude (graceful shutdown)
-        subprocess.run(
-            ["tmux", "send-keys", "-t", pane_id, "/exit", "Enter"],
-            capture_output=True
-        )
         # Wait for claude to exit (pane returns to shell or closes)
-        for _ in range(10):
+        for _ in range(15):
             time.sleep(1)
             result = subprocess.run(
                 ["tmux", "display-message", "-t", pane_id,
@@ -221,7 +220,7 @@ def stop_agent(name):
             cmd = result.stdout.strip()
             if cmd in ("zsh", "bash", "sh"):
                 break  # claude exited, shell returned
-        # Kill the pane
+        # Kill the pane (cleanup if claude didn't exit gracefully)
         subprocess.run(
             ["tmux", "kill-pane", "-t", pane_id],
             capture_output=True
