@@ -159,6 +159,27 @@ class TestSidecarNick:
             proc.terminate()
             proc.wait()
 
+    def test_set_nick_updates_after_channel_join(self):
+        """set_nick after init+join updates the nick for message filtering.
+
+        Simulates the -r flag race: sidecar starts with wrong nick,
+        then receives set_nick with the correct one.
+        """
+        proc = start_sidecar(mock=True)
+        try:
+            send_cmd(proc, {"cmd": "init", "nick": "defaultuser",
+                            "connect": "tcp/127.0.0.1:7447"})
+            read_event(proc)  # ready
+            send_cmd(proc, {"cmd": "join_channel", "channel_id": "general"})
+            # Simulate -r flag setting the correct nick after init
+            send_cmd(proc, {"cmd": "set_nick", "nick": "alice"})
+            send_cmd(proc, {"cmd": "status"})
+            event = read_event(proc)
+            assert event["nick"] == "alice"
+        finally:
+            proc.terminate()
+            proc.wait()
+
 
 class TestSidecarBuildConfig:
     def test_init_with_custom_connect(self):

@@ -185,6 +185,18 @@ def _handle_sidecar_crash():
             "[zenoh] Connection lost. Use /zenoh reconnect")
 
 
+def _on_nick_config_changed(data, option, value):
+    """hook_config callback — nick changed externally (e.g. via -r flag)."""
+    global my_nick
+    if value and value != my_nick:
+        old = my_nick
+        my_nick = value
+        if sidecar_connected:
+            _sidecar_send({"cmd": "set_nick", "nick": my_nick})
+            weechat.prnt("", f"[zenoh] Nick changed: {old} → {my_nick}")
+    return weechat.WEECHAT_RC_OK
+
+
 # ============================================================
 # Init / Deinit
 # ============================================================
@@ -204,6 +216,10 @@ def zc_init():
     if connect:
         cmd["connect"] = connect
     _sidecar_send(cmd)
+
+    # React to nick changes (e.g. from -r flag after plugin init)
+    weechat.hook_config("plugins.var.python.weechat-zenoh.nick",
+                        "_on_nick_config_changed", "")
 
     # Timer for queue processing
     weechat.hook_timer(50, 0, 0, "poll_queues_cb", "")
