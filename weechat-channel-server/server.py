@@ -131,7 +131,16 @@ def create_server():
     server = Server("weechat-channel")
     return server
 
-def register_tools(server: Server, zenoh_session):
+def register_tools(server: Server, state: dict):
+    """Register MCP tools eagerly. Zenoh session is resolved lazily from state
+    dict on first tool call, so tools are available before Zenoh connects."""
+
+    def _get_zenoh():
+        session = state.get("zenoh_session")
+        if session is None:
+            raise RuntimeError("Zenoh session not initialized yet")
+        return session
+
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
         return [
@@ -162,6 +171,7 @@ def register_tools(server: Server, zenoh_session):
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
+        zenoh_session = _get_zenoh()
         if name == "reply":
             return await _handle_reply(zenoh_session, arguments)
         elif name == "join_channel":
@@ -201,6 +211,9 @@ async def main():
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
     server = create_server()
+    # Shared state dict — tools resolve zenoh_session lazily from here
+    state: dict = {}
+    register_tools(server, state)
     init_opts = InitializationOptions(
         server_name=f"weechat-channel-{AGENT_NAME}",
         server_version="0.1.0",
@@ -212,7 +225,7 @@ async def main():
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await anyio.sleep(2)
         zenoh_session, joined_channels = setup_zenoh(queue, loop)
-        register_tools(server, zenoh_session)
+        state["zenoh_session"] = zenoh_session
         print(f"[channel-server] {AGENT_NAME} ready on Zenoh", file=sys.stderr)
         try:
             async with anyio.create_task_group() as tg:

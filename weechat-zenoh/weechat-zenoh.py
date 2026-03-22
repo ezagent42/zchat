@@ -41,7 +41,7 @@ privates = set()
 
 def _sidecar_path():
     """Resolve zenoh_sidecar.py relative to this plugin."""
-    plugin_dir = os.path.dirname(os.path.abspath(__file__))
+    plugin_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(plugin_dir, "zenoh_sidecar.py")
 
 
@@ -57,8 +57,11 @@ def _start_sidecar():
     os.makedirs(log_dir, exist_ok=True)
     log_file = open(os.path.join(log_dir, "zenoh_sidecar.log"), "a")
 
+    # sys.executable inside WeeChat points to the WeeChat binary, not python3.
+    import shutil
+    python_bin = shutil.which("python3") or "python3"
     sidecar_proc = subprocess.Popen(
-        [sys.executable, "-u", _sidecar_path()],
+        [python_bin, "-u", _sidecar_path()],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=log_file)
     log_file.close()  # Popen dupes the fd; close parent's copy
