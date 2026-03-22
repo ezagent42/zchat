@@ -64,11 +64,14 @@ async def poll_zenoh_queue(queue: asyncio.Queue, write_stream):
 
 def setup_zenoh(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
     """Initialize Zenoh session and subscribe to messages."""
+    ZENOH_DEFAULT_ENDPOINT = "tcp/127.0.0.1:7447"
     zenoh_config = zenoh.Config()
-    zenoh_config.insert_json5("mode", '"peer"')
+    zenoh_config.insert_json5("mode", '"client"')
     connect = os.environ.get("ZENOH_CONNECT")
     if connect:
         zenoh_config.insert_json5("connect/endpoints", json.dumps(connect.split(",")))
+    else:
+        zenoh_config.insert_json5("connect/endpoints", f'["{ZENOH_DEFAULT_ENDPOINT}"]')
     zenoh_session = zenoh.open(zenoh_config)
     zenoh_session.liveliness().declare_token(f"wc/presence/{AGENT_NAME}")
     dedup = MessageDedup()

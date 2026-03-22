@@ -46,14 +46,10 @@ def zc_init():
         my_nick = os.environ.get("USER", "user_%s" % uuid.uuid4().hex[:6])
         weechat.config_set_plugin("nick", my_nick)
 
-    # Zenoh peer mode, multicast scouting
-    config = zenoh.Config()
-    config.insert_json5("mode", '"peer"')
-
+    # Zenoh client mode, connect to local zenohd
+    from helpers import build_zenoh_config
     connect = weechat.config_get_plugin("connect")
-    if connect:
-        config.insert_json5("connect/endpoints",
-                            json.dumps(connect.split(",")))
+    config = build_zenoh_config(connect if connect else None)
 
     try:
         zenoh_session = zenoh.open(config)
@@ -501,7 +497,7 @@ def zenoh_cmd_cb(data, buffer, args):
             peers = list(info.peers_zid())
             weechat.prnt(buffer,
                 f"[zenoh] zid={zid[:8]}... nick={my_nick}\n"
-                f"  mode=peer  channels={len(channels)} privates={len(privates)}\n"
+                f"  mode=client  channels={len(channels)} privates={len(privates)}\n"
                 f"  routers={len(routers)} peers={len(peers)}\n"
                 f"  session={'open' if zenoh_session else 'closed'}")
         except Exception as e:
