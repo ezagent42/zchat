@@ -208,8 +208,20 @@ def stop_agent(name):
             ["tmux", "send-keys", "-t", pane_id, "/exit", "Enter"],
             capture_output=True
         )
-        # Wait briefly for claude to exit, then kill the pane
-        time.sleep(3)
+        # Wait for claude to exit (pane returns to shell or closes)
+        for _ in range(10):
+            time.sleep(1)
+            result = subprocess.run(
+                ["tmux", "display-message", "-t", pane_id,
+                 "-p", "#{pane_current_command}"],
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                break  # pane already gone
+            cmd = result.stdout.strip()
+            if cmd in ("zsh", "bash", "sh"):
+                break  # claude exited, shell returned
+        # Kill the pane
         subprocess.run(
             ["tmux", "kill-pane", "-t", pane_id],
             capture_output=True
