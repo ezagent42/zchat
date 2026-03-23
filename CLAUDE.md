@@ -51,8 +51,8 @@ pytest -m integration tests/       # Integration 测试（真实 Zenoh peer）
 
 ### 添加 MCP Tool
 
-1. 在 `weechat-channel-server/tools.py` 添加 async 函数
-2. 在 `server.py` 中通过 `@server.list_tools()` / `@server.call_tool()` 注册
+1. 在 `server.py` 的 `register_tools()` 中添加 `@server.list_tools()` entry 和 `@server.call_tool()` handler
+2. 在模块顶层实现 `_handle_<toolname>()` 函数
 3. 在 `tests/unit/test_tools.py` 添加测试
 
 详见 [docs/dev/channel-server.md](docs/dev/channel-server.md#添加-mcp-tool)
