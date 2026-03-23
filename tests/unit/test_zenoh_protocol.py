@@ -4,7 +4,7 @@ import json
 import uuid
 import time
 
-from message import make_private_pair, private_topic, channel_topic, presence_topic
+from wc_protocol.topics import make_private_pair, private_topic, channel_topic, presence_topic
 
 
 class TestMessageJsonSchema:

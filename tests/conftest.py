@@ -6,6 +6,8 @@ import sys
 import os
 import pytest
 
+# Add project root for wc_protocol
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # Add weechat-channel-server to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                 "..", "weechat-channel-server"))

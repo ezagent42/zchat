@@ -1,7 +1,6 @@
 """Tests for weechat-zenoh signal format and input parsing."""
-import sys, os, json
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "weechat-zenoh"))
-from helpers import target_to_buffer_label, parse_input
+import json
+from wc_protocol.topics import target_to_buffer_label, parse_input
 
 class TestTargetToBufferLabel:
     def test_channel_format(self):

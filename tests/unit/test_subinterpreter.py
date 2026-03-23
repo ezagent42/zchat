@@ -39,11 +39,13 @@ def test_weechat_zenoh_no_pyo3_imports():
         f"WeeChat's subinterpreter. Move these to zenoh_sidecar.py.")
 
 
-def test_helpers_no_pyo3_imports():
-    """helpers.py must not import any PyO3-based module."""
-    helpers_file = os.path.join(PLUGIN_DIR, "helpers.py")
-    imports = _get_imports(helpers_file)
-    bad = imports & PYO3_MODULES
-    assert not bad, (
-        f"helpers.py imports PyO3 modules {bad} which crash in "
-        f"WeeChat's subinterpreter.")
+def test_wc_protocol_no_pyo3_imports():
+    """wc_protocol/ must not import any PyO3-based module."""
+    protocol_dir = os.path.join(os.path.dirname(__file__), "..", "..", "wc_protocol")
+    for fname in os.listdir(protocol_dir):
+        if fname.endswith(".py"):
+            imports = _get_imports(os.path.join(protocol_dir, fname))
+            bad = imports & PYO3_MODULES
+            assert not bad, (
+                f"wc_protocol/{fname} imports PyO3 modules {bad} which crash in "
+                f"WeeChat's subinterpreter.")

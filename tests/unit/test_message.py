@@ -4,12 +4,9 @@ from message import (
     MessageDedup,
     detect_mention,
     clean_mention,
-    make_private_pair,
-    private_topic,
-    channel_topic,
-    presence_topic,
     chunk_message,
 )
+from wc_protocol.topics import make_private_pair, private_topic, channel_topic, presence_topic
 
 
 class TestMessageDedup:

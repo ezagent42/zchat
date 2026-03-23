@@ -10,6 +10,13 @@ import sys
 import uuid
 import time
 import threading
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from wc_protocol.topics import (
+    make_private_pair, channel_topic, private_topic,
+    presence_topic, channel_presence_topic, channel_presence_glob,
+)
+from wc_protocol.config import build_zenoh_config_dict
 
 # Support --mock flag for testing
 _use_mock = "--mock" in sys.argv
@@ -19,7 +26,6 @@ if _use_mock:
 else:
     import zenoh
 
-ZENOH_DEFAULT_ENDPOINT = "tcp/127.0.0.1:7447"
 
 # --- Global state ---
 session = None
@@ -42,11 +48,11 @@ def emit(event: dict):
 
 
 def build_config(connect: str | None = None):
-    """Build Zenoh client config."""
+    """Build Zenoh client config from wc_protocol dict."""
+    cfg = build_zenoh_config_dict(connect)
     config = zenoh.Config()
-    config.insert_json5("mode", '"client"')
-    endpoints = connect.split(",") if connect else [ZENOH_DEFAULT_ENDPOINT]
-    config.insert_json5("connect/endpoints", json.dumps(endpoints))
+    config.insert_json5("mode", f'"{cfg["mode"]}"')
+    config.insert_json5("connect/endpoints", json.dumps(cfg["connect/endpoints"]))
     return config
 
 
@@ -65,7 +71,7 @@ def handle_init(params: dict):
 
     # Global liveliness
     liveliness_tokens["_global"] = \
-        session.liveliness().declare_token(f"wc/presence/{my_nick}")
+        session.liveliness().declare_token(presence_topic(my_nick))
 
     emit({"event": "ready", "zid": zid})
 
@@ -96,7 +102,7 @@ def handle_join_channel(params: dict):
         return
 
     key = f"channel:{channel_id}"
-    msg_key = f"wc/channels/{channel_id}/messages"
+    msg_key = channel_topic(channel_id)
 
     publishers[key] = session.declare_publisher(msg_key)
     subscribers[key] = session.declare_subscriber(
@@ -104,18 +110,18 @@ def handle_join_channel(params: dict):
         lambda sample, _cid=channel_id: _on_channel_msg(sample, _cid))
 
     # Liveliness
-    token_key = f"wc/channels/{channel_id}/presence/{my_nick}"
+    token_key = channel_presence_topic(channel_id, my_nick)
     liveliness_tokens[key] = \
         session.liveliness().declare_token(token_key)
 
     liveliness_subs[key] = session.liveliness().declare_subscriber(
-        f"wc/channels/{channel_id}/presence/*",
+        channel_presence_glob(channel_id),
         lambda sample, _cid=channel_id: _on_channel_presence(sample, _cid))
 
     # Query current members
     try:
         replies = session.liveliness().get(
-            f"wc/channels/{channel_id}/presence/*")
+            channel_presence_glob(channel_id))
         for reply in replies:
             nick = str(reply.ok.key_expr).rsplit("/", 1)[-1]
             emit({"event": "presence", "channel_id": channel_id,
@@ -177,13 +183,13 @@ def _on_private_msg(sample, private_key):
 
 def handle_join_private(params: dict):
     target_nick = params["target_nick"]
-    pair = "_".join(sorted([my_nick, target_nick]))
+    pair = make_private_pair(my_nick, target_nick)
     key = f"private:{pair}"
 
     if pair in privates:
         return
 
-    msg_key = f"wc/private/{pair}/messages"
+    msg_key = private_topic(pair)
     publishers[key] = session.declare_publisher(msg_key)
     subscribers[key] = session.declare_subscriber(
         msg_key,
@@ -194,7 +200,7 @@ def handle_join_private(params: dict):
 
 def handle_leave_private(params: dict):
     target_nick = params["target_nick"]
-    pair = "_".join(sorted([my_nick, target_nick]))
+    pair = make_private_pair(my_nick, target_nick)
     key = f"private:{pair}"
     _cleanup_key(key)
     privates.discard(pair)
@@ -218,7 +224,7 @@ def handle_set_nick(params: dict):
     if "_global" in liveliness_tokens:
         liveliness_tokens["_global"].undeclare()
     liveliness_tokens["_global"] = \
-        session.liveliness().declare_token(f"wc/presence/{my_nick}")
+        session.liveliness().declare_token(presence_topic(my_nick))
 
     # Update per-channel liveliness
     for cid in channels:
@@ -227,7 +233,7 @@ def handle_set_nick(params: dict):
             liveliness_tokens[tok_key].undeclare()
         liveliness_tokens[tok_key] = \
             session.liveliness().declare_token(
-                f"wc/channels/{cid}/presence/{my_nick}")
+                channel_presence_topic(cid, my_nick))
 
 
 def handle_status(params: dict):

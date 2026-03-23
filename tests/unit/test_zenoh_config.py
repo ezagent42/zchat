@@ -1,18 +1,24 @@
-"""Verify build_zenoh_config was removed from helpers (moved to sidecar)."""
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "weechat-zenoh"))
-import helpers
+"""Verify wc_protocol.config has no zenoh import (PyO3 safe)."""
+import importlib
 
 
-def test_build_zenoh_config_removed_from_helpers():
-    assert not hasattr(helpers, "build_zenoh_config"), \
-        "build_zenoh_config should be in zenoh_sidecar.py, not helpers.py"
+def test_config_has_no_zenoh_import():
+    """wc_protocol.config must not import zenoh (PyO3 incompatible)."""
+    import ast
+    source = importlib.util.find_spec("wc_protocol.config").origin
+    with open(source) as f:
+        tree = ast.parse(f.read())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert alias.name.split(".")[0] != "zenoh"
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            assert node.module.split(".")[0] != "zenoh"
 
 
-def test_helpers_has_no_zenoh_import():
-    """helpers.py must not import zenoh (PyO3 incompatible)."""
-    import importlib
-    source = importlib.util.find_spec("helpers").origin
+def test_topics_has_no_zenoh_import():
+    """wc_protocol.topics must not import zenoh (PyO3 incompatible)."""
+    source = importlib.util.find_spec("wc_protocol.topics").origin
     with open(source) as f:
         content = f.read()
     assert "import zenoh" not in content

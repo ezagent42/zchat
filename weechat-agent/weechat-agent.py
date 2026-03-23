@@ -11,6 +11,10 @@ import json
 import os
 import subprocess
 import tempfile
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from wc_protocol.naming import scoped_name as protocol_scoped_name
+from wc_protocol.signals import SIGNAL_MESSAGE_RECEIVED, SIGNAL_PRESENCE_CHANGED
 
 SCRIPT_NAME = "weechat-agent"
 SCRIPT_AUTHOR = "Allen <ezagent42>"
@@ -28,9 +32,7 @@ PRIMARY_AGENT = ""         # 主 agent 全名（如 alice:agent0）
 
 def scoped_name(name):
     """给 agent 名称加上用户名前缀（如已有前缀则不重复添加）。"""
-    if ":" in name:
-        return name
-    return f"{USERNAME}:{name}"
+    return protocol_scoped_name(name, USERNAME)
 
 
 # ============================================================
@@ -59,11 +61,11 @@ def agent_init():
         weechat.command("", f"/zenoh join @{PRIMARY_AGENT}")
 
     # 监听消息 signal，检测 Agent 的结构化命令输出
-    weechat.hook_signal("zenoh_message_received",
+    weechat.hook_signal(SIGNAL_MESSAGE_RECEIVED,
                         "on_message_signal_cb", "")
 
     # 监听 presence signal，更新 Agent 状态
-    weechat.hook_signal("zenoh_presence_changed",
+    weechat.hook_signal(SIGNAL_PRESENCE_CHANGED,
                         "on_presence_signal_cb", "")
 
 

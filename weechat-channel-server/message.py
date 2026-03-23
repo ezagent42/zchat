@@ -43,26 +43,6 @@ def clean_mention(body: str, agent_name: str) -> str:
     return body.replace(f"@{agent_name}", "").strip()
 
 
-def make_private_pair(nick_a: str, nick_b: str) -> str:
-    """Create a sorted private pair key from two nicknames."""
-    return "_".join(sorted([nick_a, nick_b]))
-
-
-def private_topic(pair: str) -> str:
-    """Return the Zenoh topic for a private pair."""
-    return f"wc/private/{pair}/messages"
-
-
-def channel_topic(channel_id: str) -> str:
-    """Return the Zenoh topic for a channel."""
-    return f"wc/channels/{channel_id}/messages"
-
-
-def presence_topic(nick: str) -> str:
-    """Return the Zenoh topic for global presence."""
-    return f"wc/presence/{nick}"
-
-
 def chunk_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> list[str]:
     """Split a message into chunks, breaking at paragraph boundaries."""
     if len(text) <= max_length:

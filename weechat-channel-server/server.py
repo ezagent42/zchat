@@ -8,6 +8,9 @@ import json
 import os
 import sys
 import time
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from wc_protocol.config import build_zenoh_config_dict
+from wc_protocol.topics import make_private_pair, channel_topic, private_topic, presence_topic, channel_presence_topic
 from datetime import datetime, timezone
 
 import anyio
@@ -18,10 +21,7 @@ from mcp.server.models import InitializationOptions
 from mcp.shared.message import SessionMessage
 from mcp.types import JSONRPCMessage, JSONRPCNotification, Tool, TextContent
 
-from message import (
-    MessageDedup, detect_mention, clean_mention,
-    make_private_pair, chunk_message,
-)
+from message import MessageDedup, detect_mention, clean_mention, chunk_message
 
 AGENT_NAME = os.environ.get("AGENT_NAME", "agent0")
 
@@ -64,16 +64,12 @@ async def poll_zenoh_queue(queue: asyncio.Queue, write_stream):
 
 def setup_zenoh(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
     """Initialize Zenoh session and subscribe to messages."""
-    ZENOH_DEFAULT_ENDPOINT = "tcp/127.0.0.1:7447"
+    cfg = build_zenoh_config_dict(os.environ.get("ZENOH_CONNECT"))
     zenoh_config = zenoh.Config()
-    zenoh_config.insert_json5("mode", '"client"')
-    connect = os.environ.get("ZENOH_CONNECT")
-    if connect:
-        zenoh_config.insert_json5("connect/endpoints", json.dumps(connect.split(",")))
-    else:
-        zenoh_config.insert_json5("connect/endpoints", f'["{ZENOH_DEFAULT_ENDPOINT}"]')
+    zenoh_config.insert_json5("mode", f'"{cfg["mode"]}"')
+    zenoh_config.insert_json5("connect/endpoints", json.dumps(cfg["connect/endpoints"]))
     zenoh_session = zenoh.open(zenoh_config)
-    zenoh_session.liveliness().declare_token(f"wc/presence/{AGENT_NAME}")
+    zenoh_session.liveliness().declare_token(presence_topic(AGENT_NAME))
     dedup = MessageDedup()
     joined_channels: dict[str, object] = {}
 
@@ -113,7 +109,7 @@ def setup_zenoh(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
             channel = str(sample.key_expr).split("/")[2]
             print(f"[channel-server] [#{channel}] {msg.get('nick', '?')}: {body}", file=sys.stderr)
             if channel not in joined_channels:
-                token = zenoh_session.liveliness().declare_token(f"wc/channels/{channel}/presence/{AGENT_NAME}")
+                token = zenoh_session.liveliness().declare_token(channel_presence_topic(channel, AGENT_NAME))
                 joined_channels[channel] = token
             loop.call_soon_threadsafe(queue.put_nowait, (msg, f"#{channel}"))
         except Exception as e:
@@ -129,7 +125,7 @@ def setup_zenoh(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
             channel = channel.strip().lstrip("#")
             if channel and channel not in joined_channels:
                 token = zenoh_session.liveliness().declare_token(
-                    f"wc/channels/{channel}/presence/{AGENT_NAME}")
+                    channel_presence_topic(channel, AGENT_NAME))
                 joined_channels[channel] = token
                 print(f"[channel-server] Auto-joined #{channel}", file=sys.stderr)
 
@@ -218,15 +214,15 @@ async def _handle_reply(zenoh_session, arguments: dict) -> list[TextContent]:
         })
         if chat_id.startswith("#"):
             channel = chat_id.lstrip("#")
-            zenoh_session.put(f"wc/channels/{channel}/messages", msg)
+            zenoh_session.put(channel_topic(channel), msg)
         else:
             pair = make_private_pair(AGENT_NAME, chat_id)
-            zenoh_session.put(f"wc/private/{pair}/messages", msg)
+            zenoh_session.put(private_topic(pair), msg)
     return [TextContent(type="text", text=f"Sent to {chat_id}")]
 
 async def _handle_join_channel(zenoh_session, arguments: dict) -> list[TextContent]:
     channel = arguments["channel_name"]
-    zenoh_session.liveliness().declare_token(f"wc/channels/{channel}/presence/{AGENT_NAME}")
+    zenoh_session.liveliness().declare_token(channel_presence_topic(channel, AGENT_NAME))
     return [TextContent(type="text", text=f"Joined #{channel}")]
 
 # ============================================================

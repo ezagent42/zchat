@@ -46,6 +46,8 @@ python3 -c "import zenoh" 2>/dev/null || {
 WC_DIR="${WEECHAT_HOME:-$HOME/.local/share/weechat}"
 mkdir -p "$WC_DIR/python/autoload"
 cp "$SCRIPT_DIR/weechat-zenoh/weechat-zenoh.py" "$WC_DIR/python/"
+cp "$SCRIPT_DIR/weechat-zenoh/zenoh_sidecar.py" "$WC_DIR/python/"
+cp -r "$SCRIPT_DIR/wc_protocol" "$WC_DIR/python/"
 cp "$SCRIPT_DIR/weechat-agent/weechat-agent.py" "$WC_DIR/python/"
 ln -sf "../weechat-zenoh.py" "$WC_DIR/python/autoload/"
 ln -sf "../weechat-agent.py" "$WC_DIR/python/autoload/"

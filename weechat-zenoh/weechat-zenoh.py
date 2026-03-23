@@ -12,7 +12,10 @@ import os
 import subprocess
 import sys
 from collections import deque
-from helpers import target_to_buffer_label, parse_input
+import shutil
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from wc_protocol.topics import target_to_buffer_label, parse_input, make_private_pair, extract_other_nick
+from wc_protocol.signals import SIGNAL_MESSAGE_SENT, SIGNAL_MESSAGE_RECEIVED, SIGNAL_PRESENCE_CHANGED
 
 SCRIPT_NAME = "weechat-zenoh"
 SCRIPT_AUTHOR = "Allen <ezagent42>"
@@ -58,7 +61,6 @@ def _start_sidecar():
     log_file = open(os.path.join(log_dir, "zenoh_sidecar.log"), "a")
 
     # sys.executable inside WeeChat points to the WeeChat binary, not python3.
-    import shutil
     python_bin = shutil.which("python3") or "python3"
     sidecar_proc = subprocess.Popen(
         [python_bin, "-u", _sidecar_path()],
@@ -280,7 +282,7 @@ def join_channel(channel_id):
 
 
 def join_private(target_nick):
-    pair = "_".join(sorted([my_nick, target_nick]))
+    pair = make_private_pair(my_nick, target_nick)
     if pair in privates:
         return
 
@@ -319,7 +321,7 @@ def leave_channel(channel_id):
 
 
 def leave_private(target_nick):
-    pair = "_".join(sorted([my_nick, target_nick]))
+    pair = make_private_pair(my_nick, target_nick)
     key = f"private:{pair}"
     _sidecar_send({"cmd": "leave_private", "target_nick": target_nick})
     if key in buffers:
@@ -342,7 +344,7 @@ def send_message(target, body):
             weechat.prnt(buf, f"{my_nick}\t{body}")
     elif target.startswith("@"):
         nick = target.lstrip("@")
-        pair = "_".join(sorted([my_nick, nick]))
+        pair = make_private_pair(my_nick, nick)
         key = f"private:{pair}"
         if pair not in privates:
             join_private(nick)
@@ -374,7 +376,7 @@ def buffer_input_cb(data, buffer, input_data):
         weechat.prnt(buffer, f" *\t{my_nick} {body}")
     else:
         weechat.prnt(buffer, f"{my_nick}\t{body}")
-    weechat.hook_signal_send("zenoh_message_sent",
+    weechat.hook_signal_send(SIGNAL_MESSAGE_SENT,
         weechat.WEECHAT_HOOK_SIGNAL_STRING,
         json.dumps({"buffer": buffer_label, "nick": my_nick,
                     "body": body, "type": msg_type}))
@@ -407,10 +409,9 @@ def poll_queues_cb(data, remaining_calls):
             # Auto-open private buffer when receiving a private message
             if target.startswith("private:"):
                 pair = target.split(":", 1)[1]
-                nicks = pair.split("_")
-                other = [n for n in nicks if n != my_nick]
-                if other:
-                    join_private(other[0])
+                other_nick = extract_other_nick(pair, my_nick)
+                if other_nick != pair:
+                    join_private(other_nick)
                     buf = buffers.get(target)
             if not buf:
                 continue
@@ -445,7 +446,7 @@ def poll_queues_cb(data, remaining_calls):
                 pass
 
         buffer_label = target_to_buffer_label(target, my_nick)
-        weechat.hook_signal_send("zenoh_message_received",
+        weechat.hook_signal_send(SIGNAL_MESSAGE_RECEIVED,
             weechat.WEECHAT_HOOK_SIGNAL_STRING,
             json.dumps({"buffer": buffer_label, "nick": nick,
                         "body": body, "type": msg_type}))
@@ -464,7 +465,7 @@ def poll_queues_cb(data, remaining_calls):
             buf = buffers.get(f"channel:{channel_id}")
             if buf:
                 weechat.prnt(buf, f"<--\t{nick} went offline")
-        weechat.hook_signal_send("zenoh_presence_changed",
+        weechat.hook_signal_send(SIGNAL_PRESENCE_CHANGED,
             weechat.WEECHAT_HOOK_SIGNAL_STRING,
             json.dumps(ev))
 
@@ -555,10 +556,9 @@ def zenoh_cmd_cb(data, buffer, args):
         privates.clear()
         rejoin_targets = [f"#{cid}" for cid in saved_channels]
         for pair in saved_privates:
-            nicks = pair.split("_")
-            other = [n for n in nicks if n != my_nick]
-            if other:
-                rejoin_targets.append(f"@{other[0]}")
+            other_nick = extract_other_nick(pair, my_nick)
+            if other_nick != pair:
+                rejoin_targets.append(f"@{other_nick}")
         # Queue for autojoin on ready event
         global pending_autojoin
         pending_autojoin = ",".join(rejoin_targets)
