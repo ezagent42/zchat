@@ -195,69 +195,23 @@ fi
 pause
 
 # ============================================================
-# Phase 6: graceful stop agent1 (/agent stop)
+# Phase 6: stop agent1 via tmux /exit
 # ============================================================
-step "Phase 6: /agent stop agent1 (graceful)"
+step "Phase 6: stop agent1 (switch to pane, /exit)"
 
-tmux send-keys -t "$PANE_ALICE" "/agent stop agent1" Enter
+info "Sending /exit to agent1's pane..."
+AGENT1_PANE=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | \
+    grep -v "$PANE_ALICE" | grep -v "$PANE_BOB" | grep -v "$PANE_AGENT0" | tail -1)
 
-# stop_agent sends Zenoh message requesting agent to exit.
-# Agent should respond, save work, and /exit. Presence offline
-# event triggers pane cleanup. Wait up to 60s.
-if wait_for_pane "$PANE_ALICE" "Stopped" 60; then
-    pass "agent1: graceful stop confirmed"
-elif grep -q "Stopped" "$ALICE_WC_DIR/logs/"*.weechatlog 2>/dev/null; then
-    pass "agent1: graceful stop confirmed (via log)"
+if [ -n "$AGENT1_PANE" ]; then
+    tmux send-keys -t "$AGENT1_PANE" "/exit" Enter
+    if wait_for_pane "$PANE_ALICE" "offline" 30; then
+        pass "agent1: exited and offline notification received"
+    else
+        info "agent1: /exit sent but offline notification not detected in pane"
+    fi
 else
-    fail "agent1: did not exit gracefully (agent should respond to stop message)"
-fi
-
-# Verify pane was cleaned up
-PANES_AFTER_STOP=$(tmux list-panes -t "$TMUX_SESSION" | wc -l | tr -d ' ')
-if [ "$PANES_AFTER_STOP" -lt "$TOTAL_PANES" ]; then
-    pass "agent1: tmux pane closed (count=$PANES_AFTER_STOP)"
-else
-    info "agent1: tmux pane may still exist (count=$PANES_AFTER_STOP)"
-fi
-
-pause
-
-# ============================================================
-# Phase 7: create agent2, then force kill (/agent kill)
-# ============================================================
-step "Phase 7: /agent create agent2 + /agent kill agent2"
-
-tmux send-keys -t "$PANE_ALICE" "/agent create agent2 --workspace $PROJECT_DIR" Enter
-sleep 5
-
-tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "agent2"; then
-    pass "agent2: created and listed"
-else
-    fail "agent2: not found in /agent list"
-fi
-
-PANES_BEFORE_KILL=$(tmux list-panes -t "$TMUX_SESSION" | wc -l | tr -d ' ')
-
-# Force kill — no graceful shutdown, immediate pane termination
-tmux send-keys -t "$PANE_ALICE" "/agent kill agent2" Enter
-sleep 3
-
-if wait_for_pane "$PANE_ALICE" "Stopped.*agent2" 5; then
-    pass "agent2: force killed"
-elif pane_contains "$PANE_ALICE" "Stopped"; then
-    pass "agent2: force killed"
-else
-    fail "agent2: kill not confirmed"
-fi
-
-PANES_AFTER_KILL=$(tmux list-panes -t "$TMUX_SESSION" | wc -l | tr -d ' ')
-if [ "$PANES_AFTER_KILL" -lt "$PANES_BEFORE_KILL" ]; then
-    pass "agent2: tmux pane closed (count=$PANES_AFTER_KILL)"
-else
-    info "agent2: tmux pane may still exist (count=$PANES_AFTER_KILL)"
+    fail "agent1: pane not found"
 fi
 
 # ============================================================

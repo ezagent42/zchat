@@ -11,21 +11,19 @@ import json
 import os
 import subprocess
 import tempfile
-import time
 
 SCRIPT_NAME = "weechat-agent"
 SCRIPT_AUTHOR = "Allen <ezagent42>"
-SCRIPT_VERSION = "0.1.0"
+SCRIPT_VERSION = "0.2.0"
 SCRIPT_LICENSE = "MIT"
 SCRIPT_DESC = "Claude Code agent lifecycle management for WeeChat"
 
 # --- 全局状态 ---
-agents = {}                # name → { workspace, tmux_pane, status }
+agents = {}                # name → { workspace, pane_id, status }
 CHANNEL_PLUGIN_DIR = ""    # weechat-channel-server plugin 路径
 TMUX_SESSION = ""          # tmux session 名称
 USERNAME = ""              # 当前用户名（用于 agent 名称作用域）
 PRIMARY_AGENT = ""         # 主 agent 全名（如 alice:agent0）
-next_pane_id = 1
 
 
 def scoped_name(name):
@@ -58,7 +56,6 @@ def agent_init():
             "status": "running",
             "pane_id": agent0_pane,
         }
-        # 为 agent0 创建 private buffer
         weechat.command("", f"/zenoh join @{PRIMARY_AGENT}")
 
     # 监听消息 signal，检测 Agent 的结构化命令输出
@@ -160,8 +157,7 @@ def create_agent(name, workspace):
         f"--permission-mode bypassPermissions "
         f"--dangerously-load-development-channels server:weechat-channel"
     )
-    # Split vertically from the last agent pane (right column),
-    # so agents stack below agent0.
+    # Split vertically from the last agent pane (right column)
     target = _last_agent_pane() or TMUX_SESSION
     result = subprocess.run(
         ["tmux", "split-window", "-v", "-P", "-F", "#{pane_id}",
@@ -170,7 +166,6 @@ def create_agent(name, workspace):
     )
     pane_id = result.stdout.strip()
 
-    # 注册
     agents[name] = {
         "workspace": agent_workspace,
         "status": "starting",
@@ -180,10 +175,14 @@ def create_agent(name, workspace):
     # Auto-confirm the --dangerously-load-development-channels prompt
     weechat.hook_timer(3000, 0, 1, "_auto_confirm_cb", pane_id)
 
-    # 通知 weechat-zenoh 创建 private buffer
+    # 创建 private buffer
     weechat.command("", f"/zenoh join @{name}")
 
-    weechat.prnt("", f"[agent] Created {name} in {agent_workspace}")
+    weechat.prnt("",
+        f"[agent] Created {name}\n"
+        f"  workspace: {agent_workspace}\n"
+        f"  pane: {pane_id}\n"
+        f"  tmux: Ctrl+b then arrow keys to navigate")
 
 
 def _auto_confirm_cb(data, remaining_calls):
@@ -194,80 +193,6 @@ def _auto_confirm_cb(data, remaining_calls):
         capture_output=True
     )
     return weechat.WEECHAT_RC_OK
-
-
-# ============================================================
-# Agent 停止
-# ============================================================
-
-def stop_agent(name):
-    name = scoped_name(name)
-    if name == PRIMARY_AGENT:
-        weechat.prnt("", f"[agent] Cannot stop {PRIMARY_AGENT}")
-        return
-    if name not in agents:
-        weechat.prnt("", f"[agent] Unknown agent: {name}")
-        return
-
-    # Two-phase shutdown:
-    # 1. Send Zenoh message so agent can save work and report status
-    # 2. After delay, send /exit via tmux (claude can't execute /exit from chat)
-    weechat.command("",
-        f"/zenoh send @{name} "
-        f"You have been requested to stop. "
-        f"Please report your current status and save any work.")
-    agents[name]["status"] = "stopping"
-    weechat.prnt("", f"[agent] Stopping {name} (saving work, will exit in 10s)...")
-
-    # After 10s, send /exit via tmux to actually quit claude
-    pane_id = agents[name].get("pane_id", "")
-    weechat.hook_timer(10000, 0, 1, "_send_exit_cb",
-                      json.dumps({"name": name, "pane_id": pane_id}))
-
-
-def _send_exit_cb(data, remaining_calls):
-    """Send /exit to agent's tmux pane after grace period."""
-    info = json.loads(data)
-    name = info["name"]
-    pane_id = info["pane_id"]
-
-    if name not in agents or agents[name].get("status") != "stopping":
-        return weechat.WEECHAT_RC_OK  # already stopped
-
-    if pane_id:
-        subprocess.run(
-            ["tmux", "send-keys", "-t", pane_id, "/exit", "Enter"],
-            capture_output=True
-        )
-    # Presence offline event will trigger _finalize_stop.
-    # Timeout fallback if agent doesn't exit within 30s after /exit.
-    weechat.hook_timer(30000, 0, 1, "_stop_timeout_cb",
-                      json.dumps({"name": name, "pane_id": pane_id}))
-    return weechat.WEECHAT_RC_OK
-
-
-def _stop_timeout_cb(data, remaining_calls):
-    """Timeout fallback if presence offline event never arrives."""
-    info = json.loads(data)
-    name = info["name"]
-    if name in agents and agents[name].get("status") == "stopping":
-        weechat.prnt("",
-            f"[agent] {name} has not exited after 60s. "
-            f"Use '/agent kill {name.split(':')[-1]}' to force stop.")
-    return weechat.WEECHAT_RC_OK
-
-
-def _finalize_stop(name, pane_id):
-    """Clean up after agent stop: kill pane, remove workspace, update status."""
-    if pane_id:
-        subprocess.run(
-            ["tmux", "kill-pane", "-t", pane_id],
-            capture_output=True
-        )
-    _cleanup_agent_workspace(name)
-    if name in agents:
-        agents[name]["status"] = "stopped"
-    weechat.prnt("", f"[agent] Stopped {name}")
 
 
 # ============================================================
@@ -299,7 +224,7 @@ def on_message_signal_cb(data, signal, signal_data):
 
 
 def on_presence_signal_cb(data, signal, signal_data):
-    """监听 presence 变化，更新 Agent 状态"""
+    """监听 presence 变化，更新 Agent 状态并通知用户"""
     try:
         ev = json.loads(signal_data)
         nick = ev.get("nick", "")
@@ -307,11 +232,12 @@ def on_presence_signal_cb(data, signal, signal_data):
         if nick in agents:
             if online:
                 agents[nick]["status"] = "running"
-            elif agents[nick].get("status") == "stopping":
-                # Agent went offline after /agent stop — complete the stop
-                _finalize_stop(nick, agents[nick].get("pane_id", ""))
             else:
                 agents[nick]["status"] = "offline"
+                # Clean up workspace when agent goes offline
+                _cleanup_agent_workspace(nick)
+                weechat.prnt("",
+                    f"[agent] {nick} is now offline")
     except Exception:
         pass
     return weechat.WEECHAT_RC_OK
@@ -333,35 +259,14 @@ def agent_cmd_cb(data, buffer, args):
                 workspace = argv[i + 1]
         create_agent(name, workspace)
 
-    elif cmd == "stop" and len(argv) >= 2:
-        stop_agent(argv[1])
-
-    elif cmd == "kill" and len(argv) >= 2:
-        name = scoped_name(argv[1])
-        if name not in agents:
-            weechat.prnt(buffer, f"[agent] Unknown agent: {name}")
-        elif name == PRIMARY_AGENT:
-            weechat.prnt(buffer, f"[agent] Cannot kill {PRIMARY_AGENT}")
-        else:
-            weechat.prnt(buffer, f"[agent] Force killing {name}...")
-            _finalize_stop(name, agents[name].get("pane_id", ""))
-
-    elif cmd == "restart" and len(argv) >= 2:
-        name = scoped_name(argv[1])
-        if name in agents:
-            ws = agents[name]["workspace"]
-            stop_agent(name)
-            del agents[name]
-            weechat.hook_timer(2000, 0, 1, "restart_timer_cb",
-                              json.dumps({"name": name, "workspace": ws}))
-
     elif cmd == "list":
         if not agents:
             weechat.prnt(buffer, "[agent] No agents")
         else:
             for name, info in agents.items():
+                pane_id = info.get('pane_id', '?')
                 weechat.prnt(buffer,
-                    f"  {name}\t{info['status']}\t{info['workspace']}")
+                    f"  {name}\t{info['status']}\t{pane_id}\t{info['workspace']}")
 
     elif cmd == "join" and len(argv) >= 3:
         agent_name = scoped_name(argv[1])
@@ -378,12 +283,11 @@ def agent_cmd_cb(data, buffer, args):
     else:
         weechat.prnt(buffer,
             "[agent] Commands:\n"
-            "  /agent create <n> [--workspace <path>]\n"
-            "  /agent stop <n>    — request graceful shutdown via message\n"
-            "  /agent kill <n>    — force kill pane immediately\n"
-            "  /agent restart <n>\n"
-            "  /agent list\n"
-            "  /agent join <agent> <#channel>")
+            "  /agent create <n> [--workspace <path>]  — launch new agent\n"
+            "  /agent list                             — list agents and panes\n"
+            "  /agent join <agent> <#channel>          — ask agent to join channel\n"
+            "\n"
+            "To stop an agent: switch to its tmux pane and type /exit")
 
     return weechat.WEECHAT_RC_OK
 
@@ -396,8 +300,6 @@ def restart_timer_cb(data, remaining_calls):
 
 def agent_deinit():
     for name in list(agents.keys()):
-        if name != PRIMARY_AGENT:
-            stop_agent(name)
         _cleanup_agent_workspace(name)
     return weechat.WEECHAT_RC_OK
 
@@ -418,15 +320,13 @@ if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
 
     weechat.hook_command("agent",
         "Manage Claude Code agents",
-        "create <n> [--workspace <path>] || stop <n> || kill <n> || "
-        "restart <n> || list || join <agent> <#channel>",
-        "  create: Launch new Claude Code instance (name auto-scoped to user)\n"
-        "    stop: Request graceful shutdown via message\n"
-        "    kill: Force kill agent pane immediately\n"
-        " restart: Restart an agent\n"
-        "    list: List all agents and status\n"
-        "    join: Ask agent to join a channel",
-        "create || stop || restart || list || join",
+        "create <n> [--workspace <path>] || list || join <agent> <#channel>",
+        "  create: Launch new Claude Code instance\n"
+        "    list: List agents, status, and pane IDs\n"
+        "    join: Ask agent to join a channel\n"
+        "\n"
+        "  To stop: go to agent's tmux pane, type /exit",
+        "create || list || join",
         "agent_cmd_cb", "")
 
     agent_init()

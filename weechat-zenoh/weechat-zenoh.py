@@ -404,7 +404,16 @@ def poll_queues_cb(data, remaining_calls):
         target = msg.get("_target", "")
         buf = buffers.get(target)
         if not buf:
-            continue
+            # Auto-open private buffer when receiving a private message
+            if target.startswith("private:"):
+                pair = target.split(":", 1)[1]
+                nicks = pair.split("_")
+                other = [n for n in nicks if n != my_nick]
+                if other:
+                    join_private(other[0])
+                    buf = buffers.get(target)
+            if not buf:
+                continue
         nick = msg.get("nick", "???")
         body = msg.get("body", "")
         msg_type = msg.get("type", "msg")
