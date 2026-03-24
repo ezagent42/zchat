@@ -1,18 +1,19 @@
-# UX Improvements Design — P0 + P1
+# UX Improvements Design — P0 + P1 + P2
 
 **Date**: 2026-03-24
-**Scope**: Command registry infrastructure, system message protocol, and critical UX fixes
+**Scope**: Command registry infrastructure, system message protocol, critical UX fixes, and enhancement features
 
 ## Overview
 
-Two-phase improvement to weechat-claude's user-facing experience:
+Three-phase improvement to weechat-claude's user-facing experience:
 
 - **P0 (Infrastructure)**: Command registry with decorator pattern + system message protocol
 - **P1 (Critical UX)**: Agent readiness notification, `/agent stop`, join confirmation, send failure feedback, malformed JSON warning
+- **P2 (Enhancements)**: Richer agent/channel info, new commands, export, quality-of-life improvements
 
-All P1 items depend on P0 infrastructure.
+All P1 items depend on P0 infrastructure. P2 items depend on P0 + P1.
 
-> **Note**: P1 issue numbers (#1, #3, #4, #5, #7, #13) reference the full UX audit list from the brainstorming session. Items #2, #6, #8-#12 are deferred to P2.
+> **Note**: Issue numbers (#1–#14) reference the full UX audit list from the brainstorming session.
 
 ---
 
@@ -164,6 +165,8 @@ Current message format only supports user-level types (`msg`, `action`, `join`, 
 | `sys.stop_confirmed` | agent → user | `{}` | Agent confirms will stop |
 | `sys.join_request` | user → agent | `{"channel": "#dev"}` | Request agent join channel |
 | `sys.join_confirmed` | agent → user | `{"channel": "#dev"}` | Agent confirms joined |
+| `sys.status_request` | user → agent | `{}` | Request agent status (P2) |
+| `sys.status_response` | agent → user | `{"channels": [...], "messages_sent": N, "messages_received": N}` | Agent status reply (P2) |
 
 ### Message Routing
 
@@ -342,49 +345,339 @@ Do not print raw content (may be large). Only indicate source.
 
 ---
 
-## Command Summary After P0+P1
+## P2: Enhancement Features
+
+### #2 `/agent list` Enhanced Output
+
+**Problem**: Current output only shows name, status, pane, workspace. No uptime or channel membership info.
+
+**Solution**: Enrich the list output with uptime and joined channels:
+
+```
+[agent] Agents:
+  alice:agent0   running  12m  %41  #general, #dev     /tmp/wc-agent-alice-agent0
+  alice:helper   running   3m  %42  #dev               /tmp/wc-agent-alice-helper
+  alice:writer   offline   —   —    —                   /tmp/wc-agent-alice-writer
+```
+
+**Implementation**:
+- Uptime: computed from `created_at` timestamp (added in P1 #1)
+- Channel membership: requires new `sys.status_request` / `sys.status_response` to query agent's `joined_channels` set from channel-server. Alternatively, track locally in weechat-agent by listening to `sys.join_confirmed` events.
+- Recommended approach: track locally — when weechat-agent receives `sys.join_confirmed` on a private buffer, record the channel in the agent's local state. This avoids an extra round-trip and works even if the agent is temporarily unresponsive.
+
+---
+
+### #6 `/zenoh leave` Error on Non-existent Target
+
+**Problem**: `leave_channel()` silently returns if `channel_id not in channels`. Same for `leave_private()`.
+
+**Solution**: Return `CommandResult.error()` when target doesn't exist:
+
+```
+[zenoh] Error: not in #nonexistent
+[zenoh] Error: no private chat with @unknown
+```
+
+**Implementation**: In the registry-based handlers, check membership before sending leave command:
+
+```python
+@zenoh_registry.command(name="leave", ...)
+def cmd_zenoh_leave(buffer, args):
+    target = args.get("target") or current_buffer_target(buffer)
+    if target.startswith("#"):
+        channel_id = target.lstrip("#")
+        if channel_id not in channels:
+            return CommandResult.error(f"not in #{channel_id}")
+        leave_channel(channel_id)
+    elif target.startswith("@"):
+        nick = target.lstrip("@")
+        pair = make_private_pair(my_nick, nick)
+        if pair not in privates:
+            return CommandResult.error(f"no private chat with @{nick}")
+        leave_private(nick)
+    else:
+        return CommandResult.error(f"invalid target: {target} (use #channel or @nick)")
+    return CommandResult.ok(f"Left {target}")
+```
+
+---
+
+### #8 Presence Summary on Join
+
+**Status**: Mostly covered by P1 #5 — the `joined` event from sidecar already includes `members` list and displays online count.
+
+**Remaining work**: Display the member list when count is small (≤ 10):
+
+```
+[zenoh] Joined #dev (3 members online: alice, bob, alice:agent0)
+```
+
+When count > 10, keep the summary form:
+
+```
+[zenoh] Joined #general (24 members online)
+```
+
+**Implementation**: Conditional formatting in the `joined` event handler based on `len(members)`.
+
+---
+
+### #9 `/agent status <name>`
+
+**Problem**: No way to get detailed info about a single agent.
+
+**Solution**: New command that queries the agent via sys message and shows combined local + remote state:
+
+```
+[agent] alice:helper
+  status:    running
+  uptime:    12m 34s
+  pane:      %42
+  workspace: /tmp/wc-agent-alice-helper
+  channels:  #dev, #general
+  messages:  sent 23, received 47
+```
+
+**Implementation**:
+1. New sys message pair: `sys.status_request` → `sys.status_response`
+2. `sys.status_response` body:
+
+```json
+{
+  "channels": ["dev", "general"],
+  "messages_sent": 23,
+  "messages_received": 47
+}
+```
+
+3. Channel-server tracks message counters (simple integer increments in `reply()` and subscriber callback)
+4. WeeChat-agent merges local state (status, uptime, pane, workspace) with remote response
+
+**Timeout**: If agent doesn't respond within 3s, display local-only info with note:
+
+```
+[agent] alice:helper (agent not responding — showing local info only)
+  status:    running
+  uptime:    12m 34s
+  pane:      %42
+  workspace: /tmp/wc-agent-alice-helper
+```
+
+**New sys message types** to add to the protocol table:
+
+| type | direction | body | purpose |
+|------|-----------|------|---------|
+| `sys.status_request` | user → agent | `{}` | Request agent status |
+| `sys.status_response` | agent → user | `{"channels": [...], "messages_sent": N, "messages_received": N}` | Agent status reply |
+
+---
+
+### #10 `/zenoh who <#channel>`
+
+**Problem**: No way to see channel members with online/offline status from the command line (only the nicklist sidebar).
+
+**Solution**: New zenoh command:
+
+```
+[zenoh] #general members:
+  ● alice          (online)
+  ● alice:agent0   (online)
+  ● bob            (online)
+  ○ carol          (offline)
+```
+
+**Implementation**:
+- New sidecar command: `{"cmd": "who", "channel_id": "general"}`
+- Sidecar queries liveliness tokens for `wc/channels/{channel_id}/presence/*` and returns:
+
+```json
+{"event": "who_response", "channel_id": "general", "members": [
+  {"nick": "alice", "online": true},
+  {"nick": "alice:agent0", "online": true},
+  {"nick": "bob", "online": true},
+  {"nick": "carol", "online": false}
+]}
+```
+
+- `●` / `○` indicators for online/offline (works in all terminal emulators with UTF-8)
+- If not in the channel: `CommandResult.error("not in #general")`
+
+---
+
+### #11 `/agent restart <name>`
+
+**Problem**: Restarting an agent requires manual `/agent stop` + `/agent create`.
+
+**Solution**: Convenience command that chains stop → wait for offline → create with same config:
+
+```python
+@agent_registry.command(
+    name="restart",
+    args="<name>",
+    description="Restart an agent (stop then re-create with same config)",
+)
+def cmd_agent_restart(buffer, args):
+    name = scoped(args.get("name"))
+    agent = agents.get(name)
+    if not agent:
+        return CommandResult.error(f"Unknown agent: {name}")
+    if name == PRIMARY_AGENT:
+        return CommandResult.error(f"{name} is the primary agent and cannot be restarted")
+
+    # Save config before stop
+    workspace = agent["workspace"]
+
+    # Trigger stop, schedule re-create on offline callback
+    agent["pending_restart"] = True
+    cmd_agent_stop(buffer, args)
+    return CommandResult.ok(f"Restarting {name}...")
+```
+
+**Flow**:
+1. `/agent restart helper`
+2. Sets `pending_restart = True` on agent entry
+3. Triggers `/agent stop` flow (sys.stop_request → tmux /exit)
+4. In `on_presence_signal_cb`, when agent goes offline and `pending_restart` is True:
+   - Clears the flag
+   - Calls `create_agent(name, workspace)` with saved config
+5. User sees:
+
+```
+[agent] alice:helper is shutting down...
+[agent] alice:helper is now offline
+[agent] Restarting alice:helper...
+[agent] Created alice:helper
+  workspace: /tmp/wc-agent-alice-helper
+  pane: %43
+[agent] alice:helper is now ready (took 4.8s)
+```
+
+---
+
+### #12 Message Delivery Confirmation
+
+**Problem**: No feedback that a message was actually received by anyone.
+
+**Solution**: Lightweight read-receipt via sys protocol. Opt-in, not default (to avoid noise).
+
+**Design**: When an agent receives a message addressed to it (mention or private), the channel-server automatically sends a `sys.ack` with the message ID as `ref_id`:
+
+```json
+{"type": "sys.ack", "body": {"status": "ok"}, "ref_id": "original_msg_id"}
+```
+
+WeeChat plugin tracks pending message IDs. On receiving ack, updates the message display with a subtle indicator (e.g., `✓` suffix on the timestamp or nick column). If no ack within 30s, no indicator shown (absence of confirmation, not an error).
+
+**Scope limitation**: Only agent-to-user confirmations. Human-to-human delivery confirmation is not in scope (would require protocol changes on all clients).
+
+**Implementation**:
+- Channel-server: in subscriber callback, after processing a message, publish `sys.ack` on the sender's private topic
+- WeeChat: track last N message IDs in a dict `{msg_id: (buffer, line_ptr)}`. On `sys.ack`, update display if line still visible.
+- No config for now — always enabled for agent messages
+
+---
+
+### #14 Friendly Error for Missing `channel_plugin_dir`
+
+**Problem**: Current error says `Use /set plugins.var.python.weechat-agent.channel_plugin_dir` but doesn't suggest the likely path.
+
+**Solution**: Auto-detect common locations and suggest:
+
+```python
+def _suggest_channel_plugin_dir():
+    """Try to find weechat-channel-server relative to this plugin."""
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "weechat-channel-server"),
+        os.path.expanduser("~/Workspace/weechat-claude/weechat-channel-server"),
+    ]
+    for path in candidates:
+        if os.path.isdir(path) and os.path.isfile(os.path.join(path, "server.py")):
+            return os.path.realpath(path)
+    return None
+```
+
+Output when not configured:
+
+```
+[agent] Error: channel_plugin_dir not set.
+  Detected: /Users/alice/Workspace/weechat-claude/weechat-channel-server
+  Run: /set plugins.var.python.weechat-agent.channel_plugin_dir /Users/alice/Workspace/weechat-claude/weechat-channel-server
+```
+
+If auto-detect fails:
+
+```
+[agent] Error: channel_plugin_dir not set.
+  Run: /set plugins.var.python.weechat-agent.channel_plugin_dir /path/to/weechat-channel-server
+```
+
+---
+
+### P2-export: Registry Export (Future)
+
+**Status**: Not implemented. Code should include a `# TODO: export.py — OpenAPI / JSON Schema / plain text export` comment in `wc_registry/__init__.py` to mark the extension point.
+
+**Future scope**: `to_json_schema()`, `to_openapi()`, `to_text()` methods on `CommandRegistry`, iterating registered `CommandSpec` entries. No file created for now.
+
+---
+
+## Command Summary After P0+P1+P2
 
 ### `/agent` commands
 
-| command | args | description |
-|---------|------|-------------|
-| `create` | `<name> [--workspace <path>]` | Launch a new agent |
-| `stop` | `<name>` | Stop a running agent (not agent0) |
-| `list` | — | List agents with status, pane, workspace |
-| `join` | `<agent> <#channel>` | Ask agent to join channel (with confirmation) |
-| `help` | — | Show all agent commands (auto-generated) |
+| command | args | description | phase |
+|---------|------|-------------|-------|
+| `create` | `<name> [--workspace <path>]` | Launch a new agent | P0 (registry migration) |
+| `stop` | `<name>` | Stop a running agent (not agent0) | P1 |
+| `list` | — | List agents with status, uptime, channels, pane, workspace | P0 (registry) + P2 (enhanced) |
+| `join` | `<agent> <#channel>` | Ask agent to join channel (with confirmation) | P1 |
+| `status` | `<name>` | Show detailed single-agent info | P2 |
+| `restart` | `<name>` | Stop then re-create agent with same config | P2 |
+| `help` | — | Show all agent commands (auto-generated) | P0 |
 
 ### `/zenoh` commands
 
-| command | args | description |
-|---------|------|-------------|
-| `join` | `<#channel\|@nick>` | Join channel or private (with completion confirmation) |
-| `leave` | `[target]` | Leave channel or private |
-| `nick` | `<newname>` | Change nickname |
-| `list` | — | List joined channels and privates |
-| `status` | — | Show connection status |
-| `reconnect` | — | Reconnect sidecar |
-| `send` | `<target> <msg>` | Send message programmatically |
-| `help` | — | Show all zenoh commands (auto-generated) |
+| command | args | description | phase |
+|---------|------|-------------|-------|
+| `join` | `<#channel\|@nick>` | Join channel or private (with completion confirmation) | P1 |
+| `leave` | `[target]` | Leave channel or private (with error on invalid target) | P0 (registry) + P2 (error) |
+| `nick` | `<newname>` | Change nickname | P0 (registry migration) |
+| `list` | — | List joined channels and privates | P0 (registry migration) |
+| `status` | — | Show connection status | P0 (registry migration) |
+| `reconnect` | — | Reconnect sidecar | P0 (registry migration) |
+| `send` | `<target> <msg>` | Send message programmatically | P0 (registry migration) |
+| `who` | `<#channel>` | List channel members with online/offline status | P2 |
+| `help` | — | Show all zenoh commands (auto-generated) | P0 |
 
 ---
 
 ## Files to Create/Modify
 
 ### New files
-- `wc_registry/__init__.py` — CommandRegistry + @command decorator
+- `wc_registry/__init__.py` — CommandRegistry + @command decorator (with `# TODO: export.py` comment)
 - `wc_registry/types.py` — CommandParam, CommandSpec, CommandResult, ParsedArgs
 - `wc_protocol/sys_messages.py` — System message helpers
 
 ### Modified files
-- `weechat-agent/weechat-agent.py` — Refactor to use registry, add stop command, sys message handling, readiness notification, join confirmation
-- `weechat-zenoh/weechat-zenoh.py` — Refactor to use registry, handle joined ack, send failure feedback, sys message routing
-- `weechat-zenoh/sidecar.py` — Add joined event, send_failed event, msg_id tracking
-- `weechat-channel-server/server.py` — Handle sys.stop_request, sys.join_request, sys.stop_confirmed reply
+- `weechat-agent/weechat-agent.py`:
+  - P0: Refactor to use registry
+  - P1: Add stop command, sys message handling, readiness notification, join confirmation
+  - P2: Enhanced list (uptime + channels), status command, restart command, friendly config error
+- `weechat-zenoh/weechat-zenoh.py`:
+  - P0: Refactor to use registry
+  - P1: Handle joined ack, send failure feedback, sys message routing
+  - P2: Leave error on invalid target, who command, presence summary formatting
+- `weechat-zenoh/zenoh_sidecar.py`:
+  - P1: Add joined event, send_failed event, msg_id tracking
+  - P2: Add who command handler (liveliness query)
+- `weechat-channel-server/server.py`:
+  - P1: Handle sys.stop_request, sys.join_request
+  - P2: Handle sys.status_request, track message counters, send sys.ack for delivery confirmation
 - `wc_protocol/messages.py` — Add ref_id field support (if not already there)
 
 ### Test files
 - `tests/unit/test_registry.py` — Registry, decorator, dispatch, validation, help generation
 - `tests/unit/test_sys_messages.py` — System message creation, parsing, is_sys_message
-- `tests/unit/test_agent_commands.py` — Agent stop/join edge cases (mocked Zenoh)
-- `tests/integration/test_sys_roundtrip.py` — sys.stop_request → sys.stop_confirmed round-trip over real Zenoh
+- `tests/unit/test_agent_commands.py` — Agent stop/join/restart/status edge cases (mocked Zenoh)
+- `tests/unit/test_zenoh_commands.py` — Leave error, who command (mocked sidecar)
+- `tests/integration/test_sys_roundtrip.py` — sys message round-trips over real Zenoh
