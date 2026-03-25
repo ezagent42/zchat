@@ -26,7 +26,7 @@ Fundamental architecture simplification: replace the custom Zenoh-based messagin
              │ IRC
              ▼
 ┌────────────────────────────┐
-│ IRC Server                 │  ← Any: Libera.Chat, ergod local, corporate
+│ IRC Server                 │  ← Any: Libera.Chat, ergo local, corporate
 │ (public or local)          │
 └──┬─────────┬─────────┬─────┘
    │ IRC     │ IRC     │ IRC
@@ -45,8 +45,8 @@ Fundamental architecture simplification: replace the custom Zenoh-based messagin
 
 | Component | Responsibility | Dependencies |
 |-----------|---------------|-------------|
-| IRC Server | Message routing, presence (JOIN/PART/QUIT), channel management | System install (ergod) or public server |
-| `wc-agent` CLI | Agent lifecycle: create, stop, list, restart, status | Python, `tomli` |
+| IRC Server | Message routing, presence (JOIN/PART/QUIT), channel management | System install (ergo) or public server |
+| `wc-agent` CLI | Agent lifecycle: create, stop, list, restart, status | Python 3.11+ (uses `tomllib` from stdlib) |
 | `weechat-channel-server` | MCP server for Claude, IRC client for message send/receive | `irc`, `mcp[cli]` |
 | `commands.json` | OpenAPI 3.1 schema defining all wc-agent commands | — |
 | `weechat-claude.toml` | Shared config: IRC server address, default channels, username | — |
@@ -68,10 +68,10 @@ Fundamental architecture simplification: replace the custom Zenoh-based messagin
 
 | Component | Change |
 |-----------|--------|
-| `wc_protocol/naming.py` | Unchanged — agent name scoping still needed |
-| `wc_protocol/sys_messages.py` | Transport changes from Zenoh to IRC PRIVMSG, JSON format unchanged |
+| `wc_protocol/naming.py` | **Change separator from `:` to `-`** — IRC RFC 2812 forbids `:` in nicks. `alice-agent0` → `alice-agent0`. `AGENT_SEPARATOR = "-"` |
+| `wc_protocol/sys_messages.py` | Transport changes from Zenoh to IRC PRIVMSG. Sys messages prefixed with `__wc_sys:` to avoid collision with user text. JSON format unchanged. |
 | `weechat-channel-server/server.py` | Zenoh client → IRC client |
-| `weechat-channel-server/message.py` | Unchanged — dedup, mention detection, chunking |
+| `weechat-channel-server/message.py` | Remove message dedup (IRC does not have message IDs; dedup was Zenoh-specific). Mention detection and chunking unchanged. |
 
 ---
 
@@ -104,10 +104,11 @@ username = ""                 # Empty = use $USER
       "command": "uv",
       "args": ["run", "--project", "<channel-server-dir>", "python3", "<channel-server-dir>/server.py"],
       "env": {
-        "AGENT_NAME": "alice:agent0",
+        "AGENT_NAME": "alice-agent0",
         "IRC_SERVER": "192.168.1.100",
         "IRC_PORT": "6667",
-        "IRC_CHANNELS": "#general"
+        "IRC_CHANNELS": "#general",
+        "IRC_TLS": "false"
       }
     }
   }
@@ -239,6 +240,12 @@ Defines all `wc-agent` commands. Consumed by:
           }
         }
       }
+    },
+    "/agent/shutdown": {
+      "post": {
+        "summary": "Stop all agents and local IRC server",
+        "operationId": "agent.shutdown"
+      }
     }
   }
 }
@@ -251,13 +258,13 @@ Defines all `wc-agent` commands. Consumed by:
 ### Interface
 
 ```bash
-wc-agent start [--config weechat-claude.toml]   # Start local ergod + primary agent (agent0)
+wc-agent start [--config weechat-claude.toml]   # Start local ergo + primary agent (agent0)
 wc-agent create <name> [--workspace <path>]      # Create new agent
 wc-agent stop <name>                             # Graceful stop
 wc-agent restart <name>                          # Stop + re-create
 wc-agent list                                    # List agents with status
 wc-agent status <name>                           # Detailed agent info
-wc-agent shutdown                                # Stop all agents + local ergod
+wc-agent shutdown                                # Stop all agents + local ergo
 ```
 
 ### Internal Design
@@ -278,7 +285,7 @@ wc-agent/
 
 ```json
 {
-  "alice:agent0": {
+  "alice-agent0": {
     "workspace": "/tmp/wc-agent-alice-agent0",
     "pane_id": "%41",
     "pid": 12345,
@@ -297,20 +304,20 @@ Status is derived from:
 ### Agent Lifecycle: create
 
 1. Read `weechat-claude.toml` for IRC server info
-2. Scope name: `helper` → `alice:helper`
+2. Scope name: `helper` → `alice-helper`
 3. Create workspace: `/tmp/wc-agent-alice-helper/`
 4. Generate `.mcp.json` with IRC env vars
 5. Spawn tmux pane: `tmux split-window -v ... claude --dangerously-load-development-channels server:weechat-channel`
 6. Auto-confirm development channels prompt (3s timer)
 7. Save to `agents.json`
-8. Print: `Created alice:helper (pane: %42, workspace: /tmp/...)`
+8. Print: `Created alice-helper (pane: %42, workspace: /tmp/...)`
 
 ### Agent Lifecycle: stop
 
 1. Look up agent in `agents.json`
 2. If agent is running, send sys.stop_request via IRC PRIVMSG:
-   - `wc-agent` has a temporary IRC connection for sys messages
-   - Or reuse a persistent connection (irc_monitor)
+   - Uses persistent IRC monitor connection (started with `wc-agent start`)
+   - If monitor not running, falls back to direct tmux force-stop
 3. Wait up to 5s for sys.stop_confirmed
 4. If no response, force: `tmux send-keys -t <pane> /exit Enter`
 5. Wait for pane to close
@@ -376,7 +383,12 @@ def on_privmsg(connection, event):
     """Handle private messages and sys messages."""
     nick = event.source.nick
     body = event.arguments[0]
-    msg = json.loads(body) if body.startswith("{") else {"nick": nick, "body": body, "type": "msg"}
+    # Sys messages use __wc_sys: prefix to avoid collision with user text
+    SYS_PREFIX = "__wc_sys:"
+    if body.startswith(SYS_PREFIX):
+        msg = json.loads(body[len(SYS_PREFIX):])
+    else:
+        msg = {"nick": nick, "body": body, "type": "msg"}
 
     if is_sys_message(msg):
         _handle_sys_message(msg, nick, connection)
@@ -409,20 +421,20 @@ def _handle_sys_message(msg, sender_nick, connection):
     msg_type = msg.get("type", "")
     if msg_type == "sys.stop_request":
         reply = make_sys_message(AGENT_NAME, "sys.stop_confirmed", {}, ref_id=msg["id"])
-        connection.privmsg(sender_nick, json.dumps(reply))
+        connection.privmsg(sender_nick, f"__wc_sys:{json.dumps(reply)}")
     elif msg_type == "sys.join_request":
         channel = msg.get("body", {}).get("channel", "").lstrip("#")
         if channel:
             connection.join(f"#{channel}")
             reply = make_sys_message(AGENT_NAME, "sys.join_confirmed", {"channel": f"#{channel}"}, ref_id=msg["id"])
-            connection.privmsg(sender_nick, json.dumps(reply))
+            connection.privmsg(sender_nick, f"__wc_sys:{json.dumps(reply)}")
     elif msg_type == "sys.status_request":
         reply = make_sys_message(AGENT_NAME, "sys.status_response", {
             "channels": list(joined_channels),
             "messages_sent": _msg_counter["sent"],
             "messages_received": _msg_counter["received"],
         }, ref_id=msg["id"])
-        connection.privmsg(sender_nick, json.dumps(reply))
+        connection.privmsg(sender_nick, f"__wc_sys:{json.dumps(reply)}")
 ```
 
 ### Presence (replaces Zenoh liveliness)
@@ -448,8 +460,8 @@ alice types "hello everyone" in WeeChat #general
 ### User @mentions agent
 
 ```
-alice: "@alice:agent0 what is the capital of France?"
-  → IRC PRIVMSG #general :@alice:agent0 what is the capital of France?
+alice: "@alice-agent0 what is the capital of France?"
+  → IRC PRIVMSG #general :@alice-agent0 what is the capital of France?
   → agent0 channel-server on_pubmsg
   → detect_mention() → match
   → clean_mention() → "what is the capital of France?"
@@ -465,14 +477,14 @@ alice: "@alice:agent0 what is the capital of France?"
 $ wc-agent create helper
 
 1. Read weechat-claude.toml → IRC server = 192.168.1.100:6667
-2. Scope: helper → alice:helper
+2. Scope: helper → alice-helper
 3. Create /tmp/wc-agent-alice-helper/
 4. Generate .mcp.json with IRC_SERVER=192.168.1.100
 5. tmux split-window → claude starts
-6. channel-server connects to IRC as alice:helper
+6. channel-server connects to IRC as alice-helper
 7. channel-server JOINs #general
-8. All IRC clients see: "alice:helper has joined #general"
-9. wc-agent prints: "Created alice:helper (pane: %42)"
+8. All IRC clients see: "alice-helper has joined #general"
+9. wc-agent prints: "Created alice-helper (pane: %42)"
 ```
 
 ### wc-agent stops agent
@@ -480,23 +492,23 @@ $ wc-agent create helper
 ```
 $ wc-agent stop helper
 
-1. Look up alice:helper in agents.json
+1. Look up alice-helper in agents.json
 2. Connect to IRC temporarily (or reuse monitor connection)
-3. PRIVMSG alice:helper :{"type":"sys.stop_request",...}
+3. PRIVMSG alice-helper :__wc_sys:{"type":"sys.stop_request",...}
 4. channel-server receives → replies sys.stop_confirmed
 5. wc-agent receives confirmation
 6. tmux send-keys -t %42 /exit Enter
 7. claude exits → channel-server disconnects → IRC QUIT
-8. All clients see: "alice:helper has quit"
+8. All clients see: "alice-helper has quit"
 9. wc-agent cleans up workspace, updates agents.json
-10. Prints: "Stopped alice:helper"
+10. Prints: "Stopped alice-helper"
 ```
 
 ### Private message to agent
 
 ```
-alice in WeeChat: /msg alice:agent0 help me review this code
-  → IRC PRIVMSG alice:agent0 :help me review this code
+alice in WeeChat: /msg alice-agent0 help me review this code
+  → IRC PRIVMSG alice-agent0 :help me review this code
   → channel-server on_privmsg
   → Not sys message → MCP notification → Claude
   → Claude calls reply tool
@@ -531,7 +543,7 @@ server = "192.168.1.100"
 port = 6667
 ```
 
-- `wc-agent start` auto-launches ergod if not running
+- `wc-agent start` auto-launches ergo if not running
 - Offline capable
 - Full control over server config
 
@@ -561,8 +573,8 @@ install_weechat_plugins() {
 }
 
 start_infrastructure() {
-    # Start local ergod for testing
-    ergod --config "$E2E_DIR/ergod-test.toml" &
+    # Start local ergo for testing
+    ergo --config "$E2E_DIR/ergo-test.toml" &
     ERGOD_PID=$!
     sleep 1
 
@@ -580,7 +592,7 @@ cleanup() {
 
 ### e2e-test.sh changes
 
-- Phase 0: Start ergod + `wc-agent start` (replaces plugin installation)
+- Phase 0: Start ergo + `wc-agent start` (replaces plugin installation)
 - Phase 1: WeeChat connects to local IRC (`/server add test localhost; /connect test; /join #general`)
 - Phase 2-4: Unchanged (user types in IRC channel, agent responds)
 - Phase 5: `wc-agent create agent1` in separate terminal (replaces `/agent create`)
@@ -610,15 +622,15 @@ username = "alice"
 - `wc-agent/sys_protocol.py` — sys message send/receive over IRC
 - `commands.json` — OpenAPI 3.1 command schema
 - `weechat-claude.toml` — Shared config (with example)
-- `ergod.toml` — Default local IRC server config
+- `ergo.toml` — Default local IRC server config
 
 ### Files to modify
 - `weechat-channel-server/server.py` — Zenoh → IRC client
 - `wc_protocol/sys_messages.py` — No format change, document IRC transport
-- `start.sh` — Launch ergod + wc-agent instead of tmux + plugins
+- `start.sh` — Launch ergo + wc-agent instead of tmux + plugins
 - `stop.sh` — `wc-agent shutdown`
 - `tests/e2e/e2e-test.sh` — Adapt to IRC + CLI
-- `tests/e2e/helpers.sh` — Simplify plugin install, add ergod startup
+- `tests/e2e/helpers.sh` — Simplify plugin install, add ergo startup
 
 ### Files to delete
 - `weechat-zenoh/weechat-zenoh.py`
@@ -636,8 +648,68 @@ username = "alice"
 
 ### Dependencies to add
 - `irc` (Python IRC client library, for channel-server + wc-agent)
-- `tomli` (TOML parser, for config)
-- `ergod` (system install, local IRC server)
+- `tomllib` (stdlib in Python 3.11+, no external dependency)
+- `ergo` (system install, local IRC server — `brew install ergochat/tap/ergo` or equivalent)
+
+---
+
+## Failure Modes
+
+### IRC Server Unreachable
+
+**channel-server**: Retry with exponential backoff (1s, 2s, 4s, ..., max 60s). During disconnection, Claude receives no messages. On reconnect, rejoin all channels. MCP notification to Claude: `"IRC connection lost, reconnecting..."` so it knows not to attempt replies.
+
+**wc-agent**: Commands that require IRC (stop with graceful sys protocol) fall back to direct tmux force-stop. Print warning: `"IRC unreachable, using force stop."`
+
+### Nick Collision (ERR_NICKNAMEINUSE 433)
+
+**channel-server**: If `alice-agent0` is taken, append suffix: `alice-agent0_`, `alice-agent0__`, etc. (max 3 retries). Log the actual nick used. If all retries fail, exit with clear error.
+
+**wc-agent**: When creating agent, check IRC nick availability first (via monitor connection). If taken, fail fast: `"Nick alice-helper is already in use on IRC server."`
+
+### PRIVMSG Length Limit
+
+IRC PRIVMSG has ~512 byte line limit (~400 usable after protocol overhead). Constraints:
+- **Sys messages**: All sys payloads MUST fit in a single PRIVMSG. Validated at construction time in `make_sys_message()`. The `sys.status_response` channels list is truncated if it would exceed the limit.
+- **Chat messages**: Already handled by `chunk_message()` in `message.py` (4000 char chunks, well within IRC limits per line).
+
+### Agent Process Crash
+
+If a claude process crashes (tmux pane exits unexpectedly):
+- `wc-agent list` detects via pid/pane check → marks as `offline`
+- channel-server IRC connection drops → other users see QUIT
+- No automatic restart (user must explicitly `wc-agent restart`)
+
+---
+
+## wc-agent IRC Connection Strategy
+
+`wc-agent` maintains a **persistent IRC connection** via `irc_monitor.py` (started with `wc-agent start`, stopped with `wc-agent shutdown`). This connection:
+- Nick: `__wc-agent` (or configurable)
+- Joins no channels (sys-only, PRIVMSG communication)
+- Used for: sending sys.stop_request, sys.join_request, receiving confirmations
+- Monitors agent nicks via WHO/WHOIS for status checks
+
+This avoids the race condition of connecting on demand — the monitor is always ready.
+
+---
+
+## Migration Checklist Additions
+
+### Tests to create
+- `tests/unit/test_wc_agent_cli.py` — CLI arg parsing, config loading
+- `tests/unit/test_agent_manager.py` — Agent lifecycle (mocked tmux/IRC)
+- `tests/unit/test_channel_server_irc.py` — IRC message handling, mention detection, sys protocol
+- `tests/integration/test_irc_roundtrip.py` — Message send/receive via real IRC server
+
+### Documentation to update
+- `CLAUDE.md` — New architecture, terminology (`-` separator), commands
+- `docs/dev/` — Updated component docs
+
+### Dependency files
+- `wc-agent/pyproject.toml` — New package
+- `weechat-channel-server/pyproject.toml` — Replace `eclipse-zenoh` with `irc`
+- `wc_protocol/__init__.py` — Update after deleting signals.py, topics.py, config.py
 
 ---
 
@@ -648,7 +720,7 @@ Not in scope for this migration. Documented for future reference.
 When multi-site federation is needed, a Zenoh transport adapter can bridge IRC S2S protocol over Zenoh P2P:
 
 ```
-ergod (site A) ←→ zenoh-irc-transport ←── Zenoh ──→ zenoh-irc-transport ←→ ergod (site B)
+ergo (site A) ←→ zenoh-irc-transport ←── Zenoh ──→ zenoh-irc-transport ←→ ergo (site B)
 ```
 
 This preserves IRC's native nick/channel/presence synchronization while gaining Zenoh's NAT traversal and P2P discovery. The adapter is a thin TCP-to-Zenoh bridge, not a message-level translator.
