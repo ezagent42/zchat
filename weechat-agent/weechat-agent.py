@@ -15,6 +15,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
 from wc_protocol.naming import scoped_name as protocol_scoped_name
 from wc_protocol.signals import SIGNAL_MESSAGE_RECEIVED, SIGNAL_PRESENCE_CHANGED
+from wc_registry import CommandRegistry
+from wc_registry.types import CommandParam, CommandResult, ParsedArgs
 
 SCRIPT_NAME = "weechat-agent"
 SCRIPT_AUTHOR = "Allen <ezagent42>"
@@ -139,15 +141,8 @@ def _last_agent_pane():
 # ============================================================
 
 def create_agent(name, workspace):
-    name = scoped_name(name)
-    if name in agents:
-        weechat.prnt("", f"[agent] {name} already exists")
-        return
-
+    """Create and register an agent. Caller must pass already-scoped name and handle output."""
     if not CHANNEL_PLUGIN_DIR:
-        weechat.prnt("",
-            "[agent] Error: channel_plugin_dir not set. "
-            "Use /set plugins.var.python.weechat-agent.channel_plugin_dir")
         return
 
     # Create isolated workspace with .mcp.json for this agent
@@ -180,12 +175,6 @@ def create_agent(name, workspace):
     # 创建 private buffer
     weechat.command("", f"/zenoh join @{name}")
 
-    weechat.prnt("",
-        f"[agent] Created {name}\n"
-        f"  workspace: {agent_workspace}\n"
-        f"  pane: {pane_id}\n"
-        f"  tmux: Ctrl+b then arrow keys to navigate")
-
 
 def _auto_confirm_cb(data, remaining_calls):
     """Auto-confirm the development channels warning prompt."""
@@ -213,10 +202,12 @@ def on_message_signal_cb(data, signal, signal_data):
             try:
                 cmd = json.loads(body.strip())
                 if cmd.get("action") == "create_agent":
-                    create_agent(
-                        cmd["name"],
-                        cmd.get("workspace", os.getcwd())
-                    )
+                    scoped = scoped_name(cmd["name"])
+                    if scoped not in agents and CHANNEL_PLUGIN_DIR:
+                        create_agent(
+                            scoped,
+                            cmd.get("workspace", os.getcwd())
+                        )
             except (json.JSONDecodeError, KeyError):
                 pass
 
@@ -249,54 +240,90 @@ def on_presence_signal_cb(data, signal, signal_data):
 # /agent 命令
 # ============================================================
 
+agent_registry = CommandRegistry(prefix="agent")
+
+
+@agent_registry.command(
+    name="create",
+    args="<name> [--workspace <path>]",
+    description="Launch new Claude Code instance",
+    params=[
+        CommandParam("name", required=True, help="Agent name (without username prefix)"),
+        CommandParam("--workspace", required=False, help="Custom workspace path"),
+    ],
+)
+def cmd_agent_create(buffer, args: ParsedArgs) -> CommandResult:
+    name = args.get("name")
+    workspace = args.get("--workspace", os.getcwd())
+    scoped = scoped_name(name)
+    if scoped in agents:
+        return CommandResult.error(f"{scoped} already exists")
+    if not CHANNEL_PLUGIN_DIR:
+        return CommandResult.error(
+            "channel_plugin_dir not set. "
+            "Use /set plugins.var.python.weechat-agent.channel_plugin_dir"
+        )
+    create_agent(scoped, workspace)
+    agent = agents[scoped]
+    return CommandResult.ok(
+        f"Created {scoped}\n"
+        f"  workspace: {agent['workspace']}\n"
+        f"  pane: {agent['pane_id']}\n"
+        f"  tmux: Ctrl+b then arrow keys to navigate"
+    )
+
+
+@agent_registry.command(
+    name="list",
+    args="",
+    description="List agents, status, and pane IDs",
+    params=[],
+)
+def cmd_agent_list(buffer, args: ParsedArgs) -> CommandResult:
+    if not agents:
+        return CommandResult.ok("No agents")
+    lines = []
+    for name, info in agents.items():
+        lines.append(f"  {name}\t{info['status']}\t{info.get('pane_id', '—')}\t{info['workspace']}")
+    return CommandResult.ok("\n".join(lines))
+
+
+@agent_registry.command(
+    name="join",
+    args="<agent> <channel>",
+    description="Ask agent to join a channel",
+    params=[
+        CommandParam("agent", required=True, help="Agent name"),
+        CommandParam("channel", required=True, help="Channel name (e.g. #dev)"),
+    ],
+)
+def cmd_agent_join(buffer, args: ParsedArgs) -> CommandResult:
+    agent_name = scoped_name(args.get("agent"))
+    channel = args.get("channel")
+    if agent_name not in agents:
+        return CommandResult.error(f"Unknown agent: {agent_name}")
+    weechat.command("",
+        f'/zenoh send @{agent_name} '
+        f'Please join channel {channel} and monitor it for messages mentioning you.')
+    return CommandResult.ok(f"Asked {agent_name} to join {channel}")
+
+
 def agent_cmd_cb(data, buffer, args):
-    argv = args.split()
-    cmd = argv[0] if argv else "help"
-
-    if cmd == "create" and len(argv) >= 2:
-        name = argv[1]
-        workspace = os.getcwd()
-        for i, a in enumerate(argv):
-            if a == "--workspace" and i + 1 < len(argv):
-                workspace = argv[i + 1]
-        create_agent(name, workspace)
-
-    elif cmd == "list":
-        if not agents:
-            weechat.prnt(buffer, "[agent] No agents")
-        else:
-            for name, info in agents.items():
-                pane_id = info.get('pane_id', '?')
-                weechat.prnt(buffer,
-                    f"  {name}\t{info['status']}\t{pane_id}\t{info['workspace']}")
-
-    elif cmd == "join" and len(argv) >= 3:
-        agent_name = scoped_name(argv[1])
-        channel = argv[2]
-        if agent_name not in agents:
-            weechat.prnt(buffer, f"[agent] Unknown agent: {agent_name}")
-        else:
-            weechat.command("",
-                f"/zenoh send @{agent_name} "
-                f"Please join channel {channel} and monitor it for messages mentioning you.")
-            weechat.prnt(buffer,
-                f"[agent] Asked {agent_name} to join {channel}")
-
+    """WeeChat hook callback — delegates to registry."""
+    result = agent_registry.dispatch(buffer, args)
+    prefix = "[agent]"
+    if result.success:
+        weechat.prnt(buffer, f"{prefix} {result.message}")
     else:
-        weechat.prnt(buffer,
-            "[agent] Commands:\n"
-            "  /agent create <n> [--workspace <path>]  — launch new agent\n"
-            "  /agent list                             — list agents and panes\n"
-            "  /agent join <agent> <#channel>          — ask agent to join channel\n"
-            "\n"
-            "To stop an agent: switch to its tmux pane and type /exit")
-
+        weechat.prnt(buffer, f"{prefix} Error: {result.message}")
     return weechat.WEECHAT_RC_OK
 
 
 def restart_timer_cb(data, remaining_calls):
     info = json.loads(data)
-    create_agent(info["name"], info["workspace"])
+    scoped = scoped_name(info["name"])
+    if scoped not in agents and CHANNEL_PLUGIN_DIR:
+        create_agent(scoped, info["workspace"])
     return weechat.WEECHAT_RC_OK
 
 
@@ -322,13 +349,9 @@ if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
 
     weechat.hook_command("agent",
         "Manage Claude Code agents",
-        "create <n> [--workspace <path>] || list || join <agent> <#channel>",
-        "  create: Launch new Claude Code instance\n"
-        "    list: List agents, status, and pane IDs\n"
-        "    join: Ask agent to join a channel\n"
-        "\n"
-        "  To stop: go to agent's tmux pane, type /exit",
-        "create || list || join",
+        agent_registry.weechat_help_args(),
+        "",
+        agent_registry.weechat_completion(),
         "agent_cmd_cb", "")
 
     agent_init()
