@@ -84,6 +84,7 @@ TOMLEOF
 start_ergo() {
     # Start ergo on unique port with isolated data dir
     mkdir -p "$E2E_ERGO_DIR"
+    rm -f "$E2E_ERGO_DIR/ircd.lock"  # Remove stale lock
 
     # Copy languages if needed
     local ergo_system_dir="$HOME/.local/share/ergo"

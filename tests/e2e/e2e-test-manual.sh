@@ -97,6 +97,7 @@ if [ -n "$E2E_ERGO_PID" ] && kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
     echo "  ergo already running (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
 else
     mkdir -p "$E2E_ERGO_DIR"
+    rm -f "$E2E_ERGO_DIR/ircd.lock"  # Remove stale lock from previous run
     [ -d "$HOME/.local/share/ergo/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ] && \
         cp -r "$HOME/.local/share/ergo/languages" "$E2E_ERGO_DIR/"
     ergo defaultconfig > "$E2E_ERGO_DIR/ergo.yaml" 2>/dev/null
