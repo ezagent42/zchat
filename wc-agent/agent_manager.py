@@ -125,6 +125,7 @@ class AgentManager:
                         "IRC_CHANNELS": channels_str,
                         "IRC_TLS": str(self.irc_tls).lower(),
                         "WC_TMUX_SESSION": self.tmux_session,
+                        "WC_PROJECT_DIR": os.path.dirname(self._state_file),
                         "no_proxy": f"localhost,127.0.0.1,{self.irc_server}",
                         "NO_PROXY": f"localhost,127.0.0.1,{self.irc_server}",
                     },
@@ -186,15 +187,52 @@ class AgentManager:
             return "running"
         return "offline"
 
+    def send(self, name: str, text: str):
+        """Send text to agent's tmux pane."""
+        name = self.scoped(name)
+        agent = self._agents.get(name)
+        if not agent:
+            raise ValueError(f"Unknown agent: {name}")
+        pane = agent.get("pane_id")
+        if not pane or not self._check_alive(name) == "running":
+            raise ValueError(f"{name} is not running")
+        subprocess.run(["tmux", "send-keys", "-t", pane, text, "Enter"],
+                       capture_output=True)
+
+    @classmethod
+    def from_env(cls) -> "AgentManager":
+        """Create AgentManager from environment variables (for use in channel-server)."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        return cls(
+            irc_server=os.environ.get("IRC_SERVER", "127.0.0.1"),
+            irc_port=int(os.environ.get("IRC_PORT", "6667")),
+            irc_tls=os.environ.get("IRC_TLS", "false").lower() == "true",
+            channel_server_dir=os.path.join(script_dir, "..", "weechat-channel-server"),
+            username=os.environ.get("AGENT_NAME", "agent0").split("-")[0],
+            default_channels=[f"#{ch}" for ch in os.environ.get("IRC_CHANNELS", "general").split(",")],
+            tmux_session=os.environ.get("WC_TMUX_SESSION", "weechat-claude"),
+            state_file=os.path.join(os.environ.get("WC_PROJECT_DIR", os.path.expanduser("~/.wc-agent/projects/default")), "state.json"),
+        )
+
     def _load_state(self):
         if os.path.isfile(self._state_file):
             try:
                 with open(self._state_file) as f:
-                    self._agents = json.load(f)
+                    data = json.load(f)
+                self._agents = data.get("agents", data)
             except (json.JSONDecodeError, OSError):
                 self._agents = {}
 
     def _save_state(self):
         os.makedirs(os.path.dirname(self._state_file), exist_ok=True)
+        # Read existing state to preserve "irc" key written by IrcManager
+        existing = {}
+        if os.path.isfile(self._state_file):
+            try:
+                with open(self._state_file) as f:
+                    existing = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
+        existing["agents"] = self._agents
         with open(self._state_file, "w") as f:
-            json.dump(self._agents, f, indent=2)
+            json.dump(existing, f, indent=2)
