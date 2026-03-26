@@ -53,6 +53,16 @@ def test_second_agent(wc_agent, irc_probe):
 
 @pytest.mark.e2e
 @pytest.mark.order(6)
+def test_agent_to_agent(wc_agent, irc_probe):
+    """Phase 6: agent0 sends message mentioning agent1 in #general."""
+    wc_agent("agent", "send", "agent0",
+             'Use the reply MCP tool to send "hey @alice-agent1 are you there?" to #general')
+    msg = irc_probe.wait_for_message("alice-agent1", timeout=15)
+    assert msg is not None, "agent0 message mentioning agent1 not seen in #general"
+
+
+@pytest.mark.e2e
+@pytest.mark.order(7)
 def test_agent_stop(wc_agent, irc_probe):
     """Phase 6: wc-agent agent stop → agent leaves IRC."""
     wc_agent("agent", "stop", "agent1")
@@ -60,8 +70,8 @@ def test_agent_stop(wc_agent, irc_probe):
 
 
 @pytest.mark.e2e
-@pytest.mark.order(7)
+@pytest.mark.order(8)
 def test_shutdown(wc_agent, irc_probe):
-    """Phase 7: wc-agent shutdown → all agents gone."""
+    """Phase 8: wc-agent shutdown → all agents gone."""
     wc_agent("shutdown")
     assert irc_probe.wait_for_nick_gone("alice-agent0", timeout=10), "agent0 still on IRC"
