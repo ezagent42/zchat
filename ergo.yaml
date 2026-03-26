@@ -1,0 +1,49 @@
+# ergo.yaml — Local IRC server for WeeChat-Claude
+network:
+    name: "wc-local"
+
+server:
+    name: "localhost"
+    listeners:
+        ":6667": {}
+    max-sendq: 96k
+    ip-cloaking:
+        enabled: false
+
+accounts:
+    registration:
+        enabled: false
+    authentication-enabled: false
+
+channels:
+    default-modes: "+nt"
+    registration:
+        enabled: false
+
+limits:
+    nicklen: 32
+    channellen: 64
+    topiclen: 390
+    line-len:
+        tags: 512
+        rest: 512
+
+history:
+    enabled: true
+    channel-length: 256
+    client-length: 100
+    autoresize-window: 0
+    autoreplay-on-join: 0
+    chathistory-maxmessages: 100
+    znc-maxmessages: 0
+    restrictions:
+        expire-time: 168h
+        query-cutoff: none
+        grace-period: 1h
+
+datastore:
+    path: ""
+    autoupgrade: true
+
+logging:
+    enabled: false
