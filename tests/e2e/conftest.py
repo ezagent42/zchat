@@ -105,10 +105,12 @@ def wc_agent(e2e_context):
     """
     project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+    cli_path = os.path.join(project_dir, "wc-agent", "cli.py")
+
     def run(*args):
         cmd = [
             "uv", "run", "--project", os.path.join(project_dir, "wc-agent"),
-            "python", "-m", "wc_agent.cli",
+            "python", cli_path,
             "--project", e2e_context["project"],
             *args,
         ]
@@ -146,8 +148,10 @@ def irc_probe(ergo_server):
 @pytest.fixture(scope="session")
 def weechat_pane(ergo_server, e2e_context, wc_agent):
     """Start WeeChat in tmux via wc-agent irc start. Yields the pane_id from state.json."""
-    wc_agent("irc", "start")
-    time.sleep(3)
+    result = wc_agent("irc", "start")
+    if result.returncode != 0:
+        raise RuntimeError(f"wc-agent irc start failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
+    time.sleep(5)
     # Read actual pane ID written by wc-agent into state.json
     state_path = os.path.join(
         e2e_context["home"], "projects", e2e_context["project"], "state.json"

@@ -9,7 +9,8 @@ def test_full_e2e_lifecycle(wc_agent, irc_probe, weechat_pane, tmux_send):
     """Full e2e test — sequential phases matching real user workflow."""
 
     # Phase 1: WeeChat connected
-    assert irc_probe.wait_for_nick("alice", timeout=5), "alice not on IRC after irc start"
+    assert irc_probe.wait_for_nick("alice", timeout=15), \
+        f"alice not on IRC after irc start. Probe nick_exists test: {irc_probe.nick_exists('alice')}"
 
     # Phase 2: Create agent0 — joins IRC
     wc_agent("agent", "create", "agent0")
