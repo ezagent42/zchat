@@ -43,6 +43,50 @@ wc-agent shutdown                      # Stop all agents + WeeChat + ergo
 | — | `wc-agent irc status` | **New** |
 | — | `wc-agent agent send <name> <text>` | **New** |
 
+## Cross-File Impact
+
+### `server.py` `_handle_create_agent` MCP tool
+
+**Current**: Calls `wc-agent/cli.py` as subprocess: `[sys.executable, cli_path, "create", name]`
+**Change**: Replace with direct import of `AgentManager`. No CLI subprocess — use the Python library directly since channel-server can import it.
+
+```python
+async def _handle_create_agent(arguments: dict) -> list[TextContent]:
+    from wc_agent.agent_manager import AgentManager
+    # Build manager from env vars (IRC_SERVER, etc. are already available)
+    # Call manager.create(scoped_name) directly
+```
+
+This eliminates: CLI path resolution, subprocess overhead, Typer dependency in channel-server.
+
+### `start.sh`
+
+**Current**: `python3 wc-agent/cli.py start --workspace $WORKSPACE` (single command does everything)
+**Change**: Three separate commands:
+```bash
+wc-agent irc daemon start
+wc-agent irc start
+wc-agent agent create agent0 --workspace "$WORKSPACE"
+```
+
+### `stop.sh`
+
+**Current**: `python3 wc-agent/cli.py shutdown`
+**Change**: `wc-agent shutdown` — unchanged behavior, shutdown is kept as convenience command.
+
+### E2E tests (`e2e-test.sh`, `e2e-test-manual.sh`, `helpers.sh`)
+
+All `wc-agent` invocations need `irc`/`agent` subgroup prefix:
+- `create agent1` → `agent create agent1`
+- `stop agent1` → `agent stop agent1`
+- `list` → `agent list`
+- `start` → `irc daemon start` + `irc start` + `agent create agent0`
+
+### Unit tests
+
+- `test_channel_server_irc.py`: Remove `test_create_agent_tool_cli_path` (no longer uses CLI path)
+- `test_agent_manager.py`: Tests remain valid — AgentManager API unchanged
+
 ## Implementation: Typer
 
 ```python
