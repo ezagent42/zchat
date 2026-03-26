@@ -237,10 +237,12 @@ def project_use(name: str):
 
 @project_app.command("remove")
 def project_remove(name: str):
-    """Remove a project and its state."""
+    """Remove a project and its state. Refuses if agents are running."""
+    # Check state.json for running agents → error if any
+    # Otherwise: shutil.rmtree(project_dir)
 
 @project_app.command("show")
-def project_show(name: str = typer.Argument(None)):
+def project_show(name: Optional[str] = typer.Argument(None)):
     """Show project config."""
 ```
 
@@ -268,7 +270,8 @@ def irc_daemon_stop():
 def irc_start():
     """Start WeeChat in tmux, auto-connect to IRC."""
     # Create/reuse tmux session
-    # tmux send-keys: weechat -r '/server add wc-local <server>/<port> -notls -nicks=<nick>; /connect; /join #general'
+    # tls_flag = "" if config tls else "-notls"
+    # tmux send-keys: weechat -r '/server add wc-local <server>/<port> {tls_flag} -nicks=<nick>; /connect; /join #general'
     # Save weechat pane_id to state
 
 @irc_app.command("stop")
@@ -288,7 +291,7 @@ def irc_status():
 
 ```python
 @agent_app.command("create")
-def agent_create(name: str, workspace: str = None):
+def agent_create(name: str, workspace: str = None, channels: str = typer.Option(None, help="Comma-separated channels to join")):
     """Create and launch a new agent."""
     # AgentManager.create(name, workspace)
 
@@ -321,17 +324,10 @@ def agent_restart(name: str):
 
 ### shutdown command
 
-Typer doesn't support mixing `@app.command()` with `app.add_typer()` on the same app. Solution: `shutdown` is a subgroup with `invoke_without_command=True`:
-
 ```python
-# shutdown as a subgroup that invokes immediately
+# Typer >=0.9 supports mixing @app.command() with add_typer()
 @app.command("shutdown")
-# Actually, use Click's underlying group mechanism:
-shutdown_app = typer.Typer(invoke_without_command=True)
-app.add_typer(shutdown_app, name="shutdown")
-
-@shutdown_app.callback(invoke_without_command=True)
-def shutdown():
+def shutdown(ctx: typer.Context):
     """Stop all agents + WeeChat + ergo."""
     # agent_manager: stop all agents
     # irc_stop(): send /quit to WeeChat pane
@@ -397,15 +393,18 @@ When `server.py` directly imports `AgentManager`, it must pass the already-scope
 # In server.py _handle_create_agent:
 from wc_agent.agent_manager import AgentManager
 
-# Extract username from parent agent name
-username = AGENT_NAME.split("-")[0]  # alice-agent0 → alice
-scoped = scoped_name(name, username)  # agent2 → alice-agent2
+# Factory method builds from env vars available in channel-server
+mgr = AgentManager.from_env()
+# from_env() reads: IRC_SERVER, IRC_PORT, IRC_TLS, IRC_CHANNELS,
+#   AGENT_NAME (for username extraction), WC_TMUX_SESSION
+# channel_server_dir derived from __file__
+# state_file derived from WC_PROJECT_DIR env var
 
-# Create manager and call create() with scoped name
-# AgentManager.create() will see "-" in name and skip re-scoping
-mgr = AgentManager(...)
+scoped = scoped_name(name, username)
 mgr.create(scoped, ...)
 ```
+
+Note: `AgentManager._write_mcp_json()` must also set `WC_PROJECT_DIR` in the child agent's `.mcp.json` env, pointing to the project directory so child agents know where state lives.
 
 ## Entry Point
 
@@ -419,7 +418,7 @@ requires-python = ">=3.11"
 dependencies = ["typer[all]>=0.9.0"]
 
 [project.scripts]
-wc-agent = "cli:app"
+wc-agent = "wc_agent.cli:app"
 ```
 
 For development, run directly: `python3 wc-agent/cli.py` (Typer supports `if __name__ == "__main__": app()`)
@@ -451,6 +450,12 @@ The current `~/.local/state/wc-agent/agents.json` will be replaced by `state.jso
 ```
 
 Merged from current separate `agents.json` — now includes IRC state too.
+
+### State File Schema Change
+
+`AgentManager._load_state` must read from `data["agents"]`, `_save_state` must write `{"irc": {...}, "agents": {...}}`.
+The `"irc"` key is written by `irc_manager.py` (daemon pid, weechat pane_id).
+`AgentManager` only reads/writes the `"agents"` key.
 
 ## Command Output Examples
 
