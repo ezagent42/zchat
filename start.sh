@@ -1,96 +1,44 @@
 #!/bin/bash
-# start.sh — 启动 WeeChat-Claude 完整系统
+# start.sh — Start WeeChat-Claude system
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORKSPACE="${1:-$(pwd)}"
-USERNAME="${2:-$(whoami)}"
+PROJECT="${2:-local}"
 SESSION="weechat-claude"
 
 echo "╔══════════════════════════════════════╗"
 echo "║       WeeChat-Claude Launcher        ║"
 echo "╚══════════════════════════════════════╝"
 echo "  Workspace: $WORKSPACE"
-echo "  Username:  $USERNAME"
+echo "  Project:   $PROJECT"
 
-# --- 依赖检查 ---
+# --- Dependency check ---
 MISSING=""
-for cmd in claude uv weechat tmux zenohd; do
+for cmd in claude uv weechat tmux; do
   command -v "$cmd" &>/dev/null || MISSING="$MISSING $cmd"
 done
 if [ -n "$MISSING" ]; then
   echo "Missing:$MISSING"; exit 1
 fi
 
-# --- 确保 zenohd 运行 (localhost only) ---
-if ! pgrep -x zenohd &>/dev/null; then
-  echo "  Starting zenohd..."
-  zenohd -l tcp/127.0.0.1:7447 &>/dev/null &
-  sleep 1
-  if ! pgrep -x zenohd &>/dev/null; then
-    echo "Error: zenohd failed to start"; exit 1
-  fi
+# Ensure deps
+echo "  Syncing deps..."
+(cd "$SCRIPT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
+(cd "$SCRIPT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
+
+WC_AGENT="uv run --project $SCRIPT_DIR/wc-agent python -m wc_agent.cli --project $PROJECT --tmux-session $SESSION"
+
+# Create project if it doesn't exist
+if ! $WC_AGENT project show &>/dev/null; then
+  echo "  Creating project '$PROJECT'..."
+  $WC_AGENT project create "$PROJECT"
 fi
 
-# --- 确保 channel-server 依赖 ---
-echo "  Syncing channel-server deps..."
-(cd "$SCRIPT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || uv sync)
+# Start IRC + WeeChat + agent0
+$WC_AGENT irc daemon start
+$WC_AGENT irc start
+$WC_AGENT agent create agent0 --workspace "$WORKSPACE"
 
-# --- 确保 WeeChat Python 能 import zenoh ---
-python3 -c "import zenoh" 2>/dev/null || {
-  echo "  Installing eclipse-zenoh for system Python..."
-  uv pip install --system eclipse-zenoh --quiet
-}
-
-# --- 安装 WeeChat 脚本 ---
-WC_DIR="${WEECHAT_HOME:-$HOME/.local/share/weechat}"
-mkdir -p "$WC_DIR/python/autoload"
-cp "$SCRIPT_DIR/weechat-zenoh/weechat-zenoh.py" "$WC_DIR/python/"
-cp "$SCRIPT_DIR/weechat-zenoh/zenoh_sidecar.py" "$WC_DIR/python/"
-cp -r "$SCRIPT_DIR/wc_protocol" "$WC_DIR/python/"
-cp "$SCRIPT_DIR/weechat-agent/weechat-agent.py" "$WC_DIR/python/"
-ln -sf "../weechat-zenoh.py" "$WC_DIR/python/autoload/"
-ln -sf "../weechat-agent.py" "$WC_DIR/python/autoload/"
-
-# --- 创建 tmux session ---
-tmux kill-session -t "$SESSION" 2>/dev/null || true
-tmux new-session -d -s "$SESSION" -x 220 -y 50
-
-# --- 生成 agent0 MCP config ---
-MCP_CONFIG="/tmp/wc-mcp-${USERNAME}-agent0.json"
-cat > "$MCP_CONFIG" << MCPEOF
-{
-  "mcpServers": {
-    "weechat-channel": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "--project", "$SCRIPT_DIR/weechat-channel-server", "python3", "$SCRIPT_DIR/weechat-channel-server/server.py"],
-      "env": { "AGENT_NAME": "$USERNAME:agent0", "AUTOJOIN_CHANNELS": "general" }
-    }
-  }
-}
-MCPEOF
-
-# --- Pane 0: Claude Code (agent0) with MCP channel server ---
-tmux send-keys -t "$SESSION" \
-  "cd '$WORKSPACE' && claude \
-    --permission-mode bypassPermissions \
-    --mcp-config '$MCP_CONFIG' \
-    --dangerously-load-development-channels server:weechat-channel" Enter
-
-echo -n "  Waiting for $USERNAME:agent0..."
-sleep 5
-echo " done"
-
-# --- Pane 1: WeeChat ---
-tmux split-window -h -t "$SESSION"
-tmux send-keys -t "$SESSION" \
-  "weechat -r '\
-/set plugins.var.python.weechat-zenoh.nick $USERNAME;\
-/set plugins.var.python.weechat-agent.channel_plugin_dir $SCRIPT_DIR/weechat-channel-server;\
-/set plugins.var.python.weechat-agent.tmux_session $SESSION;\
-/set plugins.var.python.weechat-agent.agent0_workspace $WORKSPACE'" Enter
-
-tmux select-pane -t "$SESSION:0.1"
 echo "  Launching tmux session '$SESSION'..."
-tmux attach -t "$SESSION"
+tmux -CC attach -t "$SESSION" 2>/dev/null || tmux attach -t "$SESSION"

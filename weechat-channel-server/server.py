@@ -1,30 +1,36 @@
 #!/usr/bin/env python3
 """
 weechat-channel-server: Claude Code Channel MCP Server
-Bridges Zenoh P2P messaging <-> Claude Code via MCP stdio protocol.
+Bridges IRC messaging <-> Claude Code via MCP stdio protocol.
 """
 import asyncio
 import json
 import os
 import sys
 import time
+import threading
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
-from wc_protocol.config import build_zenoh_config_dict
-from wc_protocol.topics import make_private_pair, channel_topic, private_topic, presence_topic, channel_presence_topic
-from wc_protocol.sys_messages import is_sys_message, make_sys_message
-from datetime import datetime, timezone
+from wc_protocol.sys_messages import (
+    is_sys_message, make_sys_message,
+    encode_sys_for_irc, decode_sys_from_irc,
+)
 
 import anyio
-import zenoh
+import irc.client
 import mcp.server.stdio
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.shared.message import SessionMessage
 from mcp.types import JSONRPCMessage, JSONRPCNotification, Tool, TextContent
 
-from message import MessageDedup, detect_mention, clean_mention, chunk_message
+from message import detect_mention, clean_mention, chunk_message
+from datetime import datetime, timezone
 
 AGENT_NAME = os.environ.get("AGENT_NAME", "agent0")
+IRC_SERVER = os.environ.get("IRC_SERVER", "127.0.0.1")
+IRC_PORT = int(os.environ.get("IRC_PORT", "6667"))
+IRC_CHANNELS = os.environ.get("IRC_CHANNELS", "general")
+IRC_TLS = os.environ.get("IRC_TLS", "false").lower() == "true"
 _msg_counter = {"sent": 0, "received": 0}
 
 # ============================================================
@@ -51,8 +57,8 @@ async def inject_message(write_stream, msg: dict, context: str):
     await write_stream.send(SessionMessage(message=JSONRPCMessage(notification)))
 
 
-async def poll_zenoh_queue(queue: asyncio.Queue, write_stream):
-    """Consume Zenoh messages from the queue and inject into Claude Code."""
+async def poll_irc_queue(queue: asyncio.Queue, write_stream):
+    """Consume IRC messages from the queue and inject into Claude Code."""
     while True:
         msg, context = await queue.get()
         try:
@@ -61,111 +67,129 @@ async def poll_zenoh_queue(queue: asyncio.Queue, write_stream):
             print(f"[channel-server] inject error: {e}", file=sys.stderr)
 
 # ============================================================
-# Zenoh Setup
+# IRC Setup
 # ============================================================
 
-def setup_zenoh(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
-    """Initialize Zenoh session and subscribe to messages."""
-    cfg = build_zenoh_config_dict(os.environ.get("ZENOH_CONNECT"))
-    zenoh_config = zenoh.Config()
-    zenoh_config.insert_json5("mode", f'"{cfg["mode"]}"')
-    zenoh_config.insert_json5("connect/endpoints", json.dumps(cfg["connect/endpoints"]))
-    zenoh_session = zenoh.open(zenoh_config)
-    zenoh_session.liveliness().declare_token(presence_topic(AGENT_NAME))
-    dedup = MessageDedup()
-    joined_channels: dict[str, object] = {}
+def setup_irc(queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+    """Initialize IRC client, connect, subscribe to channels."""
+    reactor = irc.client.Reactor()
+    connection = reactor.server().connect(
+        IRC_SERVER, IRC_PORT, AGENT_NAME,
+    )
+    joined_channels: set[str] = set()
 
-    def on_private(sample):
+    def on_welcome(conn, event):
+        """Auto-join channels on connect."""
+        channels = IRC_CHANNELS.split(",")
+        for ch in channels:
+            ch = ch.strip().lstrip("#")
+            if ch:
+                conn.join(f"#{ch}")
+                joined_channels.add(ch)
+                print(f"[channel-server] Joined #{ch}", file=sys.stderr)
+        print(f"[channel-server] {AGENT_NAME} ready on IRC ({IRC_SERVER}:{IRC_PORT})", file=sys.stderr)
+
+    def on_pubmsg(conn, event):
+        """Handle channel messages — filter for @mentions."""
+        nick = event.source.nick
+        if nick == AGENT_NAME:
+            return
+        body = event.arguments[0]
+        if not detect_mention(body, AGENT_NAME):
+            return
+        cleaned = clean_mention(body, AGENT_NAME)
+        channel = event.target
+        msg = {
+            "id": os.urandom(4).hex(),
+            "nick": nick,
+            "type": "msg",
+            "body": cleaned,
+            "ts": time.time(),
+        }
+        print(f"[channel-server] [{channel}] {nick}: {body}", file=sys.stderr)
+        loop.call_soon_threadsafe(queue.put_nowait, (msg, channel))
+        _msg_counter["received"] += 1
+
+    def on_privmsg(conn, event):
+        """Handle private messages and sys messages."""
+        nick = event.source.nick
+        if nick == AGENT_NAME:
+            return
+        body = event.arguments[0]
+        # Check for sys message (__wc_sys: prefix)
+        sys_msg = decode_sys_from_irc(body)
+        if sys_msg is not None:
+            _handle_sys_message(sys_msg, nick, conn, joined_channels)
+            return
+        # Regular private message
+        msg = {
+            "id": os.urandom(4).hex(),
+            "nick": nick,
+            "type": "msg",
+            "body": body,
+            "ts": time.time(),
+        }
+        print(f"[channel-server] [private:{nick}] {nick}: {body}", file=sys.stderr)
+        loop.call_soon_threadsafe(queue.put_nowait, (msg, nick))
+        _msg_counter["received"] += 1
+
+    def on_disconnect(conn, event):
+        """Handle disconnection — attempt reconnect."""
+        print(f"[channel-server] Disconnected from IRC, reconnecting in 5s...", file=sys.stderr)
+        time.sleep(5)
         try:
-            key = str(sample.key_expr)
-            parts = key.split("/")
-            if len(parts) < 3:
-                return
-            pair = parts[2]
-            if AGENT_NAME not in pair.split("_"):
-                return
-            msg = json.loads(sample.payload.to_string())
-            if msg.get("nick") == AGENT_NAME:
-                return
-            # Route sys messages to dedicated handler
-            if is_sys_message(msg):
-                _handle_sys_message(msg, pair, zenoh_session, joined_channels)
-                return
-            msg_id = msg.get("id", "")
-            if msg_id and dedup.is_duplicate(msg_id):
-                return
-            sender = msg.get("nick", "unknown")
-            print(f"[channel-server] [private:{sender}] {sender}: {msg.get('body', '')}", file=sys.stderr)
-            loop.call_soon_threadsafe(queue.put_nowait, (msg, sender))
-            _msg_counter["received"] += 1
-            # Send delivery ack
-            msg_id = msg.get("id")
-            sender_nick = msg.get("nick", "")
-            if msg_id and sender_nick:
-                try:
-                    ack_pair = make_private_pair(AGENT_NAME, sender_nick)
-                    ack = make_sys_message(AGENT_NAME, "sys.ack", {"status": "ok"}, ref_id=msg_id)
-                    ack_topic = private_topic(ack_pair)
-                    zenoh_session.put(ack_topic, json.dumps(ack).encode())
-                except Exception:
-                    pass
+            conn.reconnect()
         except Exception as e:
-            print(f"[channel-server] private error: {e}", file=sys.stderr)
+            print(f"[channel-server] Reconnect failed: {e}", file=sys.stderr)
 
-    def on_channel(sample):
+    connection.add_global_handler("welcome", on_welcome)
+    connection.add_global_handler("pubmsg", on_pubmsg)
+    connection.add_global_handler("privmsg", on_privmsg)
+    connection.add_global_handler("disconnect", on_disconnect)
+
+    # Run IRC reactor in a separate thread
+    def irc_thread():
         try:
-            msg = json.loads(sample.payload.to_string())
-            if msg.get("nick") == AGENT_NAME:
-                return
-            body = msg.get("body", "")
-            if not detect_mention(body, AGENT_NAME):
-                return
-            msg_id = msg.get("id", "")
-            if msg_id and dedup.is_duplicate(msg_id):
-                return
-            msg["body"] = clean_mention(body, AGENT_NAME)
-            channel = str(sample.key_expr).split("/")[2]
-            print(f"[channel-server] [#{channel}] {msg.get('nick', '?')}: {body}", file=sys.stderr)
-            if channel not in joined_channels:
-                token = zenoh_session.liveliness().declare_token(channel_presence_topic(channel, AGENT_NAME))
-                joined_channels[channel] = token
-            loop.call_soon_threadsafe(queue.put_nowait, (msg, f"#{channel}"))
-            _msg_counter["received"] += 1
-            # Send delivery ack
-            msg_id = msg.get("id")
-            sender_nick = msg.get("nick", "")
-            if msg_id and sender_nick:
-                try:
-                    ack_pair = make_private_pair(AGENT_NAME, sender_nick)
-                    ack = make_sys_message(AGENT_NAME, "sys.ack", {"status": "ok"}, ref_id=msg_id)
-                    ack_topic = private_topic(ack_pair)
-                    zenoh_session.put(ack_topic, json.dumps(ack).encode())
-                except Exception:
-                    pass
+            reactor.process_forever()
         except Exception as e:
-            print(f"[channel-server] channel error: {e}", file=sys.stderr)
+            print(f"[channel-server] IRC reactor error: {e}", file=sys.stderr)
 
-    zenoh_session.declare_subscriber("wc/private/*/messages", on_private)
-    zenoh_session.declare_subscriber("wc/channels/*/messages", on_channel)
+    thread = threading.Thread(target=irc_thread, daemon=True)
+    thread.start()
 
-    # Auto-join channels from AUTOJOIN_CHANNELS env (comma-separated)
-    autojoin = os.environ.get("AUTOJOIN_CHANNELS", "")
-    if autojoin:
-        for channel in autojoin.split(","):
-            channel = channel.strip().lstrip("#")
-            if channel and channel not in joined_channels:
-                token = zenoh_session.liveliness().declare_token(
-                    channel_presence_topic(channel, AGENT_NAME))
-                joined_channels[channel] = token
-                print(f"[channel-server] Auto-joined #{channel}", file=sys.stderr)
+    return connection, joined_channels
 
-    return zenoh_session, joined_channels
+# ============================================================
+# Sys Message Handling
+# ============================================================
+
+def _handle_sys_message(msg: dict, sender_nick: str, connection, joined_channels: set):
+    """Handle incoming system messages over IRC PRIVMSG."""
+    msg_type = msg.get("type", "")
+    if msg_type == "sys.stop_request":
+        reply = make_sys_message(AGENT_NAME, "sys.stop_confirmed", {}, ref_id=msg["id"])
+        connection.privmsg(sender_nick, encode_sys_for_irc(reply))
+    elif msg_type == "sys.join_request":
+        channel = msg.get("body", {}).get("channel", "").lstrip("#")
+        if channel:
+            connection.join(f"#{channel}")
+            joined_channels.add(channel)
+            reply = make_sys_message(AGENT_NAME, "sys.join_confirmed",
+                                     {"channel": f"#{channel}"}, ref_id=msg["id"])
+            connection.privmsg(sender_nick, encode_sys_for_irc(reply))
+    elif msg_type == "sys.status_request":
+        reply = make_sys_message(AGENT_NAME, "sys.status_response", {
+            "channels": list(joined_channels),
+            "messages_sent": _msg_counter["sent"],
+            "messages_received": _msg_counter["received"],
+        }, ref_id=msg["id"])
+        connection.privmsg(sender_nick, encode_sys_for_irc(reply))
 
 # ============================================================
 # MCP Server + Tools
 # ============================================================
 
-CHANNEL_INSTRUCTIONS = f"""You are {AGENT_NAME}, a Claude Code agent connected to a WeeChat P2P chat system via Zenoh messaging.
+CHANNEL_INSTRUCTIONS = f"""You are {AGENT_NAME}, a Claude Code agent connected to an IRC chat system.
 
 Messages arrive as <channel source="weechat-channel" chat_id="..." user="..." ts="...">content</channel>.
 - chat_id starting with "#" is a channel message (e.g. "#general")
@@ -176,37 +200,8 @@ When you receive a channel notification:
 2. If addressed to you or relevant, respond using the "reply" tool with the same chat_id
 3. For private messages requesting you to stop/exit, save any work and run /exit
 
-Use the "reply" tool to send messages. Use "join_channel" to join new channels."""
-
-
-def _handle_sys_message(msg: dict, reply_topic_key: str, zenoh_session, joined_channels: dict):
-    """Handle incoming system messages. Dispatches by type."""
-    from wc_protocol.topics import private_topic
-    msg_type = msg.get("type", "")
-    if msg_type == "sys.stop_request":
-        reply_msg = make_sys_message(AGENT_NAME, "sys.stop_confirmed", {}, ref_id=msg["id"])
-        topic = private_topic(reply_topic_key)
-        zenoh_session.put(topic, json.dumps(reply_msg).encode())
-    elif msg_type == "sys.join_request":
-        channel = msg.get("body", {}).get("channel", "").lstrip("#")
-        if channel:
-            # Declare liveliness presence for this channel
-            if channel not in joined_channels:
-                token = zenoh_session.liveliness().declare_token(
-                    channel_presence_topic(channel, AGENT_NAME))
-                joined_channels[channel] = token
-            reply_msg = make_sys_message(AGENT_NAME, "sys.join_confirmed",
-                                         {"channel": f"#{channel}"}, ref_id=msg["id"])
-            topic = private_topic(reply_topic_key)
-            zenoh_session.put(topic, json.dumps(reply_msg).encode())
-    elif msg_type == "sys.status_request":
-        reply_msg = make_sys_message(AGENT_NAME, "sys.status_response", {
-            "channels": list(joined_channels.keys()),
-            "messages_sent": _msg_counter["sent"],
-            "messages_received": _msg_counter["received"],
-        }, ref_id=msg["id"])
-        topic = private_topic(reply_topic_key)
-        zenoh_session.put(topic, json.dumps(reply_msg).encode())
+Use the "reply" tool to send messages. Use "join_channel" to join new channels.
+Use "create_agent" to spawn a new agent that can help with tasks."""
 
 
 def create_server():
@@ -214,25 +209,24 @@ def create_server():
     return server
 
 def register_tools(server: Server, state: dict):
-    """Register MCP tools eagerly. Zenoh session is resolved lazily from state
-    dict on first tool call, so tools are available before Zenoh connects."""
+    """Register MCP tools. IRC connection is resolved lazily from state dict."""
 
-    def _get_zenoh():
-        session = state.get("zenoh_session")
-        if session is None:
-            raise RuntimeError("Zenoh session not initialized yet")
-        return session
+    def _get_irc():
+        conn = state.get("irc_connection")
+        if conn is None:
+            raise RuntimeError("IRC connection not initialized yet")
+        return conn
 
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
         return [
             Tool(
                 name="reply",
-                description="Reply to a WeeChat user or channel. chat_id is a username for private (e.g. 'alice') or #channel name (e.g. '#general').",
+                description="Reply to a user or channel. chat_id is a username for private (e.g. 'alice') or #channel name (e.g. '#general').",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "chat_id": {"type": "string", "description": "Target: username for private or #channel"},
+                        "chat_id": {"type": "string", "description": "Target: username or #channel"},
                         "text": {"type": "string", "description": "Message content"},
                     },
                     "required": ["chat_id", "text"],
@@ -240,7 +234,7 @@ def register_tools(server: Server, state: dict):
             ),
             Tool(
                 name="join_channel",
-                description="Join a WeeChat channel to receive @mentions.",
+                description="Join an IRC channel to receive @mentions.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -251,11 +245,11 @@ def register_tools(server: Server, state: dict):
             ),
             Tool(
                 name="create_agent",
-                description="Create a new Claude Code agent. Sends a structured command to the WeeChat agent manager which spawns a new agent in a tmux pane with its own MCP server.",
+                description="Create a new Claude Code agent that joins IRC and can collaborate with you.",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string", "description": "Agent name (e.g. 'agent2'). Will be auto-prefixed with username."},
+                        "name": {"type": "string", "description": "Agent name (e.g. 'agent2', 'helper')"},
                     },
                     "required": ["name"],
                 },
@@ -264,58 +258,49 @@ def register_tools(server: Server, state: dict):
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
-        zenoh_session = _get_zenoh()
+        conn = _get_irc()
         if name == "reply":
-            return await _handle_reply(zenoh_session, arguments)
+            return await _handle_reply(conn, arguments)
         elif name == "join_channel":
-            return await _handle_join_channel(zenoh_session, arguments)
+            return await _handle_join_channel(conn, arguments)
         elif name == "create_agent":
-            return await _handle_create_agent(zenoh_session, arguments)
+            return await _handle_create_agent(arguments)
         raise ValueError(f"Unknown tool: {name}")
 
-async def _handle_reply(zenoh_session, arguments: dict) -> list[TextContent]:
+async def _handle_reply(connection, arguments: dict) -> list[TextContent]:
     chat_id = arguments["chat_id"]
     text = arguments["text"]
     chunks = chunk_message(text)
     for chunk in chunks:
-        msg = json.dumps({
-            "id": os.urandom(8).hex(),
-            "nick": AGENT_NAME,
-            "type": "msg",
-            "body": chunk,
-            "ts": time.time(),
-        })
-        if chat_id.startswith("#"):
-            channel = chat_id.lstrip("#")
-            zenoh_session.put(channel_topic(channel), msg)
-        else:
-            pair = make_private_pair(AGENT_NAME, chat_id)
-            zenoh_session.put(private_topic(pair), msg)
+        target = chat_id  # #channel or nick
+        connection.privmsg(target, chunk)
     _msg_counter["sent"] += 1
     return [TextContent(type="text", text=f"Sent to {chat_id}")]
 
-async def _handle_join_channel(zenoh_session, arguments: dict) -> list[TextContent]:
+async def _handle_join_channel(connection, arguments: dict) -> list[TextContent]:
     channel = arguments["channel_name"]
-    zenoh_session.liveliness().declare_token(channel_presence_topic(channel, AGENT_NAME))
+    connection.join(f"#{channel}")
     return [TextContent(type="text", text=f"Joined #{channel}")]
 
 
-async def _handle_create_agent(zenoh_session, arguments: dict) -> list[TextContent]:
-    """Create a new agent by sending a structured command to #general.
-
-    The weechat-agent plugin monitors channel messages from registered agents
-    and detects JSON commands with action="create_agent".
-    """
+async def _handle_create_agent(arguments: dict) -> list[TextContent]:
+    """Create a new agent using AgentManager directly."""
     name = arguments["name"]
-    cmd = json.dumps({
-        "id": os.urandom(8).hex(),
-        "nick": AGENT_NAME,
-        "type": "msg",
-        "body": json.dumps({"action": "create_agent", "name": name}),
-        "ts": time.time(),
-    })
-    zenoh_session.put(channel_topic("general"), cmd)
-    return [TextContent(type="text", text=f"Requested creation of agent '{name}' via #general")]
+    username = AGENT_NAME.split("-")[0] if "-" in AGENT_NAME else AGENT_NAME
+    from wc_protocol.naming import scoped_name
+    scoped = scoped_name(name, username)
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+        from wc_agent.agent_manager import AgentManager
+        mgr = AgentManager.from_env()
+        info = mgr.create(scoped)
+        output = f"Created {scoped} (pane: {info.get('pane_id', '?')})"
+        print(f"[channel-server] {output}", file=sys.stderr)
+        return [TextContent(type="text", text=output)]
+    except Exception as e:
+        error = f"Failed to create agent {scoped}: {e}"
+        print(f"[channel-server] {error}", file=sys.stderr)
+        return [TextContent(type="text", text=error)]
 
 # ============================================================
 # Main
@@ -325,12 +310,11 @@ async def main():
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
     server = create_server()
-    # Shared state dict — tools resolve zenoh_session lazily from here
     state: dict = {}
     register_tools(server, state)
     init_opts = InitializationOptions(
         server_name=f"weechat-channel-{AGENT_NAME}",
-        server_version="0.1.0",
+        server_version="0.2.0",
         capabilities=server.get_capabilities(
             notification_options=NotificationOptions(),
             experimental_capabilities={"claude/channel": {}},
@@ -338,15 +322,14 @@ async def main():
     )
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await anyio.sleep(2)
-        zenoh_session, joined_channels = setup_zenoh(queue, loop)
-        state["zenoh_session"] = zenoh_session
-        print(f"[channel-server] {AGENT_NAME} ready on Zenoh", file=sys.stderr)
+        connection, joined_channels = setup_irc(queue, loop)
+        state["irc_connection"] = connection
         try:
             async with anyio.create_task_group() as tg:
                 tg.start_soon(server.run, read_stream, write_stream, init_opts)
-                tg.start_soon(poll_zenoh_queue, queue, write_stream)
+                tg.start_soon(poll_irc_queue, queue, write_stream)
         finally:
-            zenoh_session.close()
+            connection.disconnect("Agent shutting down")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,0 +1,9 @@
+[project]
+name = "wc-agent"
+version = "0.1.0"
+description = "Claude Code agent lifecycle management CLI"
+requires-python = ">=3.11"
+dependencies = ["typer[all]>=0.9.0"]
+
+[project.scripts]
+wc-agent = "wc_agent.cli:app"

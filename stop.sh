@@ -1,22 +1,11 @@
 #!/bin/bash
-# stop.sh — Stop WeeChat-Claude session (optionally stop zenohd)
-# Usage: ./stop.sh [session-name] [--all]
-#   --all: also stop zenohd
-
+# stop.sh — Stop WeeChat-Claude system
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT="${1:-local}"
 SESSION="weechat-claude"
-STOP_ZENOHD=false
 
-for arg in "$@"; do
-  if [ "$arg" = "--all" ]; then
-    STOP_ZENOHD=true
-  else
-    SESSION="$arg"
-  fi
-done
+WC_AGENT="uv run --project $SCRIPT_DIR/wc-agent python -m wc_agent.cli --project $PROJECT --tmux-session $SESSION"
 
 echo "Stopping session: $SESSION"
+$WC_AGENT shutdown 2>/dev/null || true
 tmux kill-session -t "$SESSION" 2>/dev/null && echo "  tmux session stopped" || echo "  (not running)"
-
-if [ "$STOP_ZENOHD" = true ]; then
-  pkill -x zenohd 2>/dev/null && echo "  zenohd stopped" || echo "  zenohd (not running)"
-fi

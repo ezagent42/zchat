@@ -1,36 +1,10 @@
 """
 Message utilities for weechat-channel-server.
-Handles deduplication, mention detection, and text chunking.
+Handles mention detection and text chunking.
 """
-
-from collections import OrderedDict
-
-# Maximum number of message IDs to track for deduplication
-DEDUP_CAPACITY = 500
 
 # Maximum message length before chunking
 MAX_MESSAGE_LENGTH = 4000
-
-
-class MessageDedup:
-    """Track recent message IDs to prevent duplicate processing."""
-
-    def __init__(self, capacity: int = DEDUP_CAPACITY):
-        self._capacity = capacity
-        self._seen: OrderedDict[str, None] = OrderedDict()
-
-    def is_duplicate(self, message_id: str) -> bool:
-        """Return True if this message ID has been seen before."""
-        if message_id in self._seen:
-            return True
-        self._seen[message_id] = None
-        # Evict oldest entries when over capacity
-        while len(self._seen) > self._capacity:
-            self._seen.popitem(last=False)
-        return False
-
-    def __len__(self) -> int:
-        return len(self._seen)
 
 
 def detect_mention(body: str, agent_name: str) -> bool:

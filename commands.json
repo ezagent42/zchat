@@ -1,0 +1,122 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WeeChat-Claude Agent Commands",
+    "version": "1.0.0",
+    "description": "Agent lifecycle management for WeeChat-Claude"
+  },
+  "paths": {
+    "/agent/start": {
+      "post": {
+        "summary": "Start IRC server (if local) and primary agent",
+        "operationId": "agent.start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {"type": "string", "description": "Path to weechat-claude.toml"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/create": {
+      "post": {
+        "summary": "Create and launch a new agent",
+        "operationId": "agent.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string", "description": "Agent name (without username prefix)"},
+                  "workspace": {"type": "string", "description": "Custom workspace path"},
+                  "channels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Channels to auto-join"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/stop": {
+      "post": {
+        "summary": "Stop a running agent",
+        "operationId": "agent.stop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/list": {
+      "get": {
+        "summary": "List all agents with status",
+        "operationId": "agent.list"
+      }
+    },
+    "/agent/status": {
+      "post": {
+        "summary": "Show detailed info for a single agent",
+        "operationId": "agent.status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/restart": {
+      "post": {
+        "summary": "Restart an agent (stop + create with same config)",
+        "operationId": "agent.restart",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/shutdown": {
+      "post": {
+        "summary": "Stop all agents and local IRC server",
+        "operationId": "agent.shutdown"
+      }
+    }
+  }
+}

@@ -1,346 +1,109 @@
 #!/bin/bash
-# e2e-test-manual.sh — Interactive E2E test with pause between each phase
+# e2e-test-manual.sh — Set up isolated test environment for manual testing
 #
-# Usage: bash tests/e2e/e2e-test-manual.sh
-#   - Creates tmux session, waits for you to attach
-#   - Pauses after each phase for observation
-#   - Press Enter to continue to next phase
-#   - After completion, press Enter to cleanup
-set -euo pipefail
+# Usage:
+#   1. Create a tmux session:
+#        tmux -CC new -s test     (iTerm2)
+#        tmux new -s test         (standard terminal)
+#
+#   2. Source this script:
+#        source tests/e2e/e2e-test-manual.sh
+#
+#   3. Follow the steps:
+#        ./wc-agent.sh irc daemon start              # Start ergo
+#        ./wc-agent.sh irc start                     # Start WeeChat (new pane)
+#        ./wc-agent.sh irc status                    # Verify IRC connected
+#        ./wc-agent.sh agent create agent0            # Create agent (new pane)
+#        ./wc-agent.sh agent list                     # Check agent status
+#        ./wc-agent.sh agent send agent0 'hello'      # Send text to agent pane
+#        ./wc-agent.sh agent stop agent0              # Stop agent
+#        ./wc-agent.sh shutdown                       # Stop everything
+#
+#      In WeeChat #general, test @mention:
+#        @alice-agent0 what is the capital of France?
+#
+#   4. In new panes, re-source to get env vars:
+#        source tests/e2e/e2e-test-manual.sh
+#      (Reuses same E2E_ID, skips setup)
+#
+#   5. Cleanup:
+#        source tests/e2e/e2e-cleanup.sh
 
-source "$(dirname "$0")/helpers.sh"
-
-# Override cleanup to not auto-run on exit
-trap - EXIT
-
-pause() { echo ""; read -p "  ▶ Press Enter for next phase..."; }
-
-echo "╔══════════════════════════════════════╗"
-echo "║  WeeChat-Claude E2E (Manual Mode)   ║"
-echo "╚══════════════════════════════════════╝"
-
-# ============================================================
-# Phase 0: Prerequisites
-# ============================================================
-step "Phase 0: Prerequisites"
-
-if ! pgrep -x zenohd &>/dev/null; then
-    info "Starting zenohd..."
-    zenohd -l tcp/127.0.0.1:7447 &>/dev/null &
-    sleep 2
+# Find project root
+_find_project_root() {
+    local dir="$PWD"
+    while [ "$dir" != "/" ]; do
+        [ -f "$dir/wc-agent.sh" ] && echo "$dir" && return
+        dir="$(dirname "$dir")"
+    done
+    echo ""
+}
+PROJECT_DIR="$(_find_project_root)"
+if [ -z "$PROJECT_DIR" ]; then
+    echo "ERROR: Cannot find project root (no wc-agent.sh found)."
+    echo "  cd to the project directory first."
+    return 1 2>/dev/null || exit 1
 fi
-if pgrep -x zenohd &>/dev/null; then
-    pass "zenohd running"
-else
-    fail "zenohd not running"; exit 1
+
+if [ -z "$TMUX" ]; then
+    echo "ERROR: Must be inside a tmux session."
+    echo ""
+    echo "  tmux -CC new -s test   # iTerm2"
+    echo "  tmux new -s test       # standard"
+    return 1 2>/dev/null || exit 1
 fi
 
-install_weechat_plugins "$ALICE_WC_DIR"
-install_weechat_plugins "$BOB_WC_DIR"
-create_mcp_config "alice:agent0"
+# Reuse existing environment if already set up
+if [ -n "$WC_AGENT_HOME" ] && [ -d "$WC_AGENT_HOME" ]; then
+    echo "(Reusing e2e environment: id=$E2E_ID port=$E2E_IRC_PORT)"
+    cd "$PROJECT_DIR"
+    return 0 2>/dev/null || exit 0
+fi
 
-# ============================================================
-# Create tmux session and PAUSE for manual attach
-# ============================================================
-tmux new-session -d -s "$TMUX_SESSION" -x 220 -y 60
+# Fresh environment
+export E2E_ID="$$"
+export E2E_IRC_PORT=$((16667 + (E2E_ID % 1000)))
+export WC_AGENT_HOME="/tmp/e2e-wc-agent-${E2E_ID}"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
+
+# Source proxy
+[ -f "$PROJECT_DIR/claude.local.env" ] && set -a && source "$PROJECT_DIR/claude.local.env" && set +a
+
+cd "$PROJECT_DIR"
+
+echo "Setting up e2e environment (id: $E2E_ID, port: $E2E_IRC_PORT)..."
+
+# Sync deps
+(cd "$PROJECT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
+(cd "$PROJECT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
+
+# Create project with unique port
+mkdir -p "$WC_AGENT_HOME/projects/e2e"
+cat > "$WC_AGENT_HOME/projects/e2e/config.toml" << EOF
+[irc]
+server = "127.0.0.1"
+port = ${E2E_IRC_PORT}
+tls = false
+password = ""
+
+[agents]
+default_channels = ["#general"]
+username = "alice"
+EOF
+echo "e2e" > "$WC_AGENT_HOME/default"
 
 echo ""
-echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "  tmux session: ${GREEN}${TMUX_SESSION}${NC}"
+echo "╔══════════════════════════════════════════════╗"
+echo "║  Ready! Port: $E2E_IRC_PORT  ID: $E2E_ID"
+echo "╚══════════════════════════════════════════════╝"
 echo ""
-echo "  In another terminal:"
-echo -e "    ${YELLOW}tmux attach -t ${TMUX_SESSION}${NC}"
-echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-read -p "  ▶ Press Enter when attached..."
-
-# ============================================================
-# Phase 1: Start alice (WeeChat) + alice:agent0 (claude)
-# ============================================================
-step "Phase 1: alice + alice:agent0"
-
-PANE_ALICE=$(initial_pane_id)
-tmux send-keys -t "$PANE_ALICE" \
-    "weechat --dir $ALICE_WC_DIR -r '/set plugins.var.python.weechat-zenoh.nick alice; /set plugins.var.python.weechat-agent.channel_plugin_dir $PROJECT_DIR/weechat-channel-server; /set plugins.var.python.weechat-agent.tmux_session $TMUX_SESSION; /set plugins.var.python.weechat-agent.agent0_workspace $PROJECT_DIR'" Enter
-
-if wait_for_pane "$PANE_ALICE" "Session opened" 15; then
-    pass "alice: WeeChat + zenoh sidecar started"
-else
-    fail "alice: WeeChat failed to start"; exit 1
-fi
-
-tmux send-keys -t "$PANE_ALICE" "/python load weechat-agent.py" Enter
-sleep 2
-
-PANE_AGENT0=$(split_pane -h "$PANE_ALICE")
-tmux send-keys -t "$PANE_AGENT0" \
-    "cd $PROJECT_DIR && AGENT_NAME='alice:agent0' claude $CLAUDE_FLAGS $CLAUDE_CHANNEL_FLAGS" Enter
-
-# Auto-confirm the development channels warning prompt
-sleep 3
-tmux send-keys -t "$PANE_AGENT0" Enter
-
-if wait_for_pane "$PANE_AGENT0" "Listening for channel" 20; then
-    pass "alice:agent0: claude started"
-else
-    fail "alice:agent0: claude failed to start"; exit 1
-fi
-sleep 5
-
-pause
-
-# ============================================================
-# Phase 2: agent0 sends message to #general
-# ============================================================
-step "Phase 2: agent0 → #general"
-
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the reply MCP tool to send "Hello everyone, alice:agent0 is online!" to #general' Enter
-
-if wait_for_pane "$PANE_AGENT0" "Sent to" 45; then
-    pass "agent0: reply tool called successfully"
-elif wait_for_pane "$PANE_AGENT0" "online" 10; then
-    pass "agent0: reply tool completed"
-else
-    fail "agent0: reply tool call failed"
-fi
-
-tmux send-keys -t "$PANE_ALICE" "/buffer zenoh.#general" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "agent0 is online"; then
-    pass "alice: received agent0's message in #general"
-else
-    fail "alice: did not receive agent0's message"
-fi
-
-pause
-
-# ============================================================
-# Phase 3: alice mentions agent0, agent0 replies
-# ============================================================
-step "Phase 3: alice @mentions agent0"
-
-tmux send-keys -t "$PANE_ALICE" "@alice:agent0 what is the capital of France?" Enter
-
-# Agent0 should auto-respond via channel notification — no tmux send-keys needed.
-# Channel server sends @mention as MCP notification → claude reads it → calls reply tool.
-if wait_for_pane "$PANE_ALICE" "alice:agent0" 60; then
-    pass "alice ↔ agent0: agent auto-responded to @mention"
-else
-    fail "alice ↔ agent0: agent did not auto-respond (channel notification may not be working)"
-fi
-
-pause
-
-# ============================================================
-# Phase 4: bob joins
-# ============================================================
-step "Phase 4: bob joins #general"
-
-PANE_BOB=$(split_pane -v "$PANE_ALICE")
-tmux send-keys -t "$PANE_BOB" \
-    "weechat --dir $BOB_WC_DIR -r '/set plugins.var.python.weechat-zenoh.nick bob'" Enter
-
-if wait_for_pane "$PANE_BOB" "Session opened" 15; then
-    pass "bob: WeeChat + zenoh sidecar started"
-else
-    fail "bob: WeeChat failed to start"
-fi
-
-tmux send-keys -t "$PANE_BOB" "/buffer zenoh.#general" Enter
-sleep 2
-
-tmux send-keys -t "$PANE_BOB" "Hey alice and agent0, bob here!" Enter
-sleep 5
-
-tmux send-keys -t "$PANE_ALICE" "/buffer zenoh.#general" Enter
-sleep 2
-
-if wait_for_pane "$PANE_ALICE" "bob here" 10; then
-    pass "alice: sees bob's message"
-else
-    if grep -q "bob here" "$ALICE_WC_DIR/logs/"*.weechatlog 2>/dev/null; then
-        pass "alice: received bob's message (verified via log)"
-    else
-        fail "alice: does not see bob's message"
-    fi
-fi
-
-pause
-
-# ============================================================
-# Phase 5: alice creates agent1
-# ============================================================
-step "Phase 5: /agent create agent1"
-
-tmux send-keys -t "$PANE_ALICE" "/agent create agent1 --workspace $PROJECT_DIR" Enter
-sleep 5
-
-tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "agent1"; then
-    pass "alice: agent1 created and listed"
-else
-    fail "alice: agent1 not found in /agent list"
-fi
-
-TOTAL_PANES=$(tmux list-panes -t "$TMUX_SESSION" | wc -l | tr -d ' ')
-if [ "$TOTAL_PANES" -ge 4 ]; then
-    pass "agent1: tmux pane spawned (total=$TOTAL_PANES)"
-else
-    info "agent1: tmux pane may have exited (total=$TOTAL_PANES, expected ≥4)"
-fi
-
-pause
-
-# ============================================================
-# Phase 6: stop agent1 via tmux /exit
-# ============================================================
-step "Phase 6: stop agent1 (switch to pane, /exit)"
-
-info "Sending /exit to agent1's pane..."
-AGENT1_PANE=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | \
-    grep -v "$PANE_ALICE" | grep -v "$PANE_BOB" | grep -v "$PANE_AGENT0" | tail -1)
-
-if [ -n "$AGENT1_PANE" ]; then
-    tmux send-keys -t "$AGENT1_PANE" "/exit" Enter
-    if wait_for_pane "$PANE_ALICE" "offline" 30; then
-        pass "agent1: exited and offline notification received"
-    else
-        info "agent1: /exit sent but offline notification not detected in pane"
-    fi
-else
-    fail "agent1: pane not found"
-fi
-
-# ============================================================
-# Phase 7: agent0 creates agent2 (agent-to-agent spawning)
-# ============================================================
-step "Phase 7: agent0 creates agent2 via create_agent tool"
-
-# Capture pane IDs before creation
-PANES_BEFORE=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
-
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the create_agent MCP tool to create a new agent named "agent2"' Enter
-
-if wait_for_pane "$PANE_AGENT0" "agent2" 45; then
-    pass "agent0: create_agent tool called"
-else
-    fail "agent0: create_agent tool not called within timeout"
-fi
-
-sleep 10
-tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "agent2"; then
-    pass "alice: agent2 created and listed in /agent list"
-else
-    sleep 10
-    tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-    sleep 2
-    if pane_contains "$PANE_ALICE" "agent2"; then
-        pass "alice: agent2 created and listed in /agent list (retry)"
-    else
-        fail "alice: agent2 not found in /agent list"
-    fi
-fi
-
-info "Waiting for agent2 to initialize..."
-sleep 20
-
-pause
-
-# ============================================================
-# Phase 8: agent0 ↔ agent2 communication (agent-to-agent)
-# ============================================================
-step "Phase 8: agent0 ↔ agent2 private messaging"
-
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the reply MCP tool to send a private message to "alice:agent2" with text: "Hello agent2, please reply with the word PONG to confirm you received this."' Enter
-
-if wait_for_pane "$PANE_AGENT0" "Sent to" 30; then
-    pass "agent0: sent private message to agent2"
-else
-    fail "agent0: failed to send private message to agent2"
-fi
-
-# Find agent2's pane by comparing with panes before creation
-PANES_AFTER=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
-AGENT2_PANE=$(comm -13 <(echo "$PANES_BEFORE") <(echo "$PANES_AFTER") | head -1)
-
-if [ -n "$AGENT2_PANE" ]; then
-    if wait_for_pane "$AGENT2_PANE" "PONG" 60; then
-        pass "agent2: received message and replied with PONG"
-    elif wait_for_pane "$AGENT2_PANE" "Sent to" 30; then
-        pass "agent2: processed message and sent reply"
-    else
-        fail "agent2: did not respond to agent0's message"
-    fi
-else
-    fail "agent2: pane not found"
-fi
-
-if wait_for_pane "$PANE_AGENT0" "PONG" 30; then
-    pass "agent0: received agent2's PONG reply"
-else
-    info "agent0: PONG not visible in pane (may have scrolled)"
-fi
-
-pause
-
-# ============================================================
-# Phase 9: stop agent2
-# ============================================================
-step "Phase 9: stop agent2"
-
-if [ -n "$AGENT2_PANE" ]; then
-    tmux send-keys -t "$AGENT2_PANE" "/exit" Enter
-    if wait_for_pane "$PANE_ALICE" "agent2.*offline" 30; then
-        pass "agent2: exited and offline notification received"
-    else
-        info "agent2: /exit sent but offline notification not detected"
-    fi
-else
-    info "agent2: pane already gone"
-fi
-
-pause
-
-# ============================================================
-# Summary + cleanup
-# ============================================================
-step "Summary"
-
+echo "  ./wc-agent.sh irc daemon start"
+echo "  ./wc-agent.sh irc start"
+echo "  ./wc-agent.sh agent create agent0"
+echo "  ./wc-agent.sh agent send agent0 'say hello to #general'"
+echo "  ./wc-agent.sh agent list"
+echo "  ./wc-agent.sh shutdown"
 echo ""
-if [ "$FAILURES" -eq 0 ]; then
-    echo -e "${GREEN}All E2E tests passed!${NC}"
-else
-    echo -e "${RED}$FAILURES failure(s)${NC}"
-fi
-
+echo "  New panes: source tests/e2e/e2e-test-manual.sh"
+echo "  Cleanup:   source tests/e2e/e2e-cleanup.sh"
 echo ""
-echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo "  tmux session ${TMUX_SESSION} is still running."
-echo "  Inspect all panes in your attached terminal."
-echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-read -p "  ▶ Press Enter to cleanup and exit..."
-
-info "Cleaning up..."
-for pane in $(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' 2>/dev/null); do
-    cmd=$(tmux display-message -t "$pane" -p '#{pane_current_command}' 2>/dev/null)
-    if [ "$cmd" = "weechat" ]; then
-        tmux send-keys -t "$pane" "/quit" Enter 2>/dev/null
-    fi
-done
-sleep 2
-tmux send-keys -t "$PANE_AGENT0" "/exit" Enter 2>/dev/null
-sleep 3
-tmux kill-session -t "$TMUX_SESSION" 2>/dev/null
-rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR"
-rm -f "$PROJECT_DIR/.mcp.json"  # cleanup generated config
-info "Done."
-
-exit "$FAILURES"

@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+
+# Runtime artifacts
+.mcp.json
+claude.local.env
+ircd.db
+ircd.lock
+claude.local.env.example
+languages/

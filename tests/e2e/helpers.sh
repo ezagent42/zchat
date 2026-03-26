@@ -1,34 +1,58 @@
 #!/bin/bash
-# helpers.sh — Shared utilities for E2E tests
+# helpers.sh — Shared utilities for E2E tests (IRC mode)
+#
+# Each test run uses a unique ID ($$) for:
+#   - tmux session name
+#   - ergo port (6667 + $$ % 1000)
+#   - ergo data dir (/tmp/e2e-ergo-$$/)
+#   - weechat dirs (/tmp/e2e-alice-$$, /tmp/e2e-bob-$$)
+#   - wc-agent project name
+# This prevents collisions between concurrent/leaked test runs.
 
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$E2E_DIR/../.." && pwd)"
-TMUX_SESSION="e2e-$$"
 
-# Source environment from claude.sh (PATH, proxy, API keys, etc.)
-# Replicate the init section without the interactive menu.
+# Unique per-run IDs
+E2E_ID="$$"
+TMUX_SESSION="e2e-${E2E_ID}"
+TEST_PROJECT="e2e-test-${E2E_ID}"
+
+# Use temp dir for WC_AGENT_HOME — never touch ~/.wc-agent/
+export WC_AGENT_HOME="/tmp/e2e-wc-agent-${E2E_ID}"
+
+# Unique ergo port: 16667 + (PID % 1000) to avoid collisions with default 6667
+E2E_IRC_PORT=$((16667 + (E2E_ID % 1000)))
+E2E_ERGO_DIR="/tmp/e2e-ergo-${E2E_ID}"
+E2E_ERGO_PID=""
+
+# Source environment
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
-[ -f "$PROJECT_DIR/claude.local.sh" ] && source "$PROJECT_DIR/claude.local.sh"
+[ -f "$PROJECT_DIR/claude.local.env" ] && set -a && source "$PROJECT_DIR/claude.local.env" && set +a
 [ -f "$PROJECT_DIR/.mcp.env" ] && set -a && source "$PROJECT_DIR/.mcp.env" && set +a
 
-# Claude flags (same as claude.sh interactive mode)
+# Claude flags
 CLAUDE_FLAGS="--permission-mode bypassPermissions"
-if [ -f "$PROJECT_DIR/.claude/mcp.json" ]; then
-    CLAUDE_FLAGS="$CLAUDE_FLAGS --mcp-config $PROJECT_DIR/.claude/mcp.json"
-fi
-# Enable channel notifications from weechat-channel MCP server
 CLAUDE_CHANNEL_FLAGS="--dangerously-load-development-channels server:weechat-channel"
 
-# User directories
-ALICE_WC_DIR="/tmp/e2e-alice-$$"
-BOB_WC_DIR="/tmp/e2e-bob-$$"
-MCP_CONFIG="/tmp/e2e-mcp-$$.json"
+# WC_AGENT for tmux send-keys (text sent to a shell)
+WC_AGENT_TMUX="WC_AGENT_HOME=$WC_AGENT_HOME uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT"
 
-# Pane names (indices assigned after creation)
-PANE_ALICE=""   # WeeChat
-PANE_BOB=""     # WeeChat
-PANE_AGENT0=""  # claude (alice:agent0)
-PANE_AGENT1=""  # claude (alice:agent1, created via /agent create)
+# WC_AGENT for direct execution from test script (outside tmux)
+# WC_TMUX_SESSION tells CLI which tmux session to create panes in
+wc_agent_exec() {
+    WC_TMUX_SESSION="$TMUX_SESSION" WC_AGENT_HOME="$WC_AGENT_HOME" \
+        uv run --project "$PROJECT_DIR/wc-agent" python -m wc_agent.cli \
+        --project "$TEST_PROJECT" "$@"
+}
+
+# User directories
+ALICE_WC_DIR="/tmp/e2e-alice-${E2E_ID}"
+BOB_WC_DIR="/tmp/e2e-bob-${E2E_ID}"
+
+# Pane names
+PANE_ALICE=""
+PANE_BOB=""
+PANE_AGENT0=""
 
 # Colors
 RED='\033[0;31m'
@@ -44,50 +68,185 @@ step() { echo -e "\n${CYAN}━━━ $1 ━━━${NC}"; }
 
 FAILURES=0
 
-cleanup() {
-    info "Cleaning up..."
-    # Quit WeeChat instances gracefully
-    for pane in $(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_index}' 2>/dev/null); do
-        cmd=$(tmux display-message -t "$TMUX_SESSION.$pane" -p '#{pane_current_command}' 2>/dev/null)
-        if [ "$cmd" = "weechat" ]; then
-            tmux send-keys -t "$TMUX_SESSION.$pane" "/quit" Enter 2>/dev/null
-        fi
-    done
+setup_test_project() {
+    # Sync deps
+    (cd "$PROJECT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
+    (cd "$PROJECT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
+
+    # Create test project with unique port (in temp WC_AGENT_HOME)
+    local project_dir="$WC_AGENT_HOME/projects/$TEST_PROJECT"
+    mkdir -p "$project_dir"
+    cat > "$project_dir/config.toml" << TOMLEOF
+[irc]
+server = "127.0.0.1"
+port = ${E2E_IRC_PORT}
+tls = false
+password = ""
+
+[agents]
+default_channels = ["#general"]
+username = "alice"
+TOMLEOF
+}
+
+start_ergo() {
+    # Start ergo on unique port with isolated data dir
+    mkdir -p "$E2E_ERGO_DIR"
+    rm -f "$E2E_ERGO_DIR/ircd.lock"  # Remove stale lock
+
+    # Copy languages if needed
+    local ergo_system_dir="$HOME/.local/share/ergo"
+    if [ -d "$ergo_system_dir/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ]; then
+        cp -r "$ergo_system_dir/languages" "$E2E_ERGO_DIR/"
+    fi
+
+    # Generate config for this test's port
+    local ergo_conf="$E2E_ERGO_DIR/ergo.yaml"
+    ergo defaultconfig > "$ergo_conf" 2>/dev/null
+
+    # Patch: listen on unique port only, remove TLS
+    sed -i '' "s|\"127.0.0.1:6667\":|\"127.0.0.1:${E2E_IRC_PORT}\":|" "$ergo_conf"
+    sed -i '' '/\[::1\]:6667/d' "$ergo_conf"
+    # Remove TLS listener (port 6697 requires certs)
+    sed -i '' '/"[^"]*:6697":/,/min-tls-version:/d' "$ergo_conf"
+
+    cd "$E2E_ERGO_DIR"
+    ergo run --conf "$ergo_conf" &>/dev/null &
+    E2E_ERGO_PID=$!
+    cd "$PROJECT_DIR"
     sleep 2
+
+    if lsof -i :"$E2E_IRC_PORT" &>/dev/null; then
+        info "ergo running (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
+        return 0
+    else
+        info "ergo failed to start"
+        return 1
+    fi
+}
+
+cleanup() {
+    info "Cleaning up (e2e-${E2E_ID})..."
+
+    # 1. Stop agents via wc-agent
+    wc_agent_exec shutdown 2>/dev/null || true
+
+    # 2. Stop IRC probe
+    stop_irc_probe 2>/dev/null || true
+    rm -f "$E2E_PROBE_LOG"
+
+    # 3. Kill weechat processes from THIS test run's dirs
+    pkill -9 -f "weechat.*--dir /tmp/e2e-alice-${E2E_ID}" 2>/dev/null
+    pkill -9 -f "weechat.*--dir /tmp/e2e-bob-${E2E_ID}" 2>/dev/null
+
+    # 3. Kill THIS test's ergo (by PID, not by name)
+    if [ -n "$E2E_ERGO_PID" ]; then
+        kill "$E2E_ERGO_PID" 2>/dev/null
+        kill -9 "$E2E_ERGO_PID" 2>/dev/null
+    fi
+
+    # 4. Kill tmux session
     tmux kill-session -t "$TMUX_SESSION" 2>/dev/null
-    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR"
-    rm -f "$PROJECT_DIR/.mcp.json"  # cleanup generated config
+
+    # 5. Clean temp dirs
+    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR" "$E2E_ERGO_DIR"
+    rm -rf "$WC_AGENT_HOME"
+
+    info "Cleanup done."
 }
 trap cleanup EXIT
 
-install_weechat_plugins() {
-    local wc_dir="$1"
-    mkdir -p "$wc_dir/python/autoload"
-    cp "$PROJECT_DIR/weechat-zenoh/weechat-zenoh.py" "$wc_dir/python/"
-    cp "$PROJECT_DIR/weechat-zenoh/zenoh_sidecar.py" "$wc_dir/python/"
-    cp -r "$PROJECT_DIR/wc_protocol" "$wc_dir/python/"
-    cp -r "$PROJECT_DIR/wc_registry" "$wc_dir/python/"
-    cp "$PROJECT_DIR/weechat-agent/weechat-agent.py" "$wc_dir/python/"
-    ln -sf "../weechat-zenoh.py" "$wc_dir/python/autoload/"
+wc_agent() {
+    wc_agent_exec "$@"
 }
 
-create_mcp_config() {
-    local agent_name="$1" target_dir="${2:-$PROJECT_DIR}"
-    # Write .mcp.json in the working directory so that
-    # --dangerously-load-development-channels server:weechat-channel
-    # can find the server by name.
-    cat > "$target_dir/.mcp.json" << MCPEOF
-{
-  "mcpServers": {
-    "weechat-channel": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "--project", "$PROJECT_DIR/weechat-channel-server", "python3", "$PROJECT_DIR/weechat-channel-server/server.py"],
-      "env": { "AGENT_NAME": "$agent_name", "AUTOJOIN_CHANNELS": "general" }
-    }
-  }
+# Start an IRC probe that logs all #general messages to a file
+# Usage: start_irc_probe
+# Sets E2E_PROBE_LOG and E2E_PROBE_PID
+E2E_PROBE_LOG="/tmp/e2e-probe-${E2E_ID}.log"
+E2E_PROBE_PID=""
+
+start_irc_probe() {
+    local probe_nick="e2e-probe-${E2E_ID}"
+    rm -f "$E2E_PROBE_LOG"
+    touch "$E2E_PROBE_LOG"
+    # Connect to IRC, join #general, log all PRIVMSG to file
+    (
+        {
+            echo -e "NICK ${probe_nick}\r"
+            echo -e "USER probe 0 * probe\r"
+            sleep 1
+            echo -e "JOIN #general\r"
+            # Keep connection alive
+            while true; do sleep 30; echo -e "PING :keepalive\r"; done
+        } | nc 127.0.0.1 "$E2E_IRC_PORT" 2>/dev/null | \
+            grep --line-buffered "PRIVMSG" >> "$E2E_PROBE_LOG"
+    ) &
+    E2E_PROBE_PID=$!
+    sleep 2
 }
-MCPEOF
+
+stop_irc_probe() {
+    [ -n "$E2E_PROBE_PID" ] && kill "$E2E_PROBE_PID" 2>/dev/null
+    # Also kill child nc process
+    pkill -P "$E2E_PROBE_PID" 2>/dev/null
+}
+
+# Wait for a message matching pattern in the IRC probe log
+# Usage: wait_for_irc_message "pattern" [timeout]
+wait_for_irc_message() {
+    local pattern="$1" timeout="${2:-15}"
+    for i in $(seq 1 "$timeout"); do
+        if grep -q "$pattern" "$E2E_PROBE_LOG" 2>/dev/null; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+# Check if a nick has LEFT IRC (inverse of irc_nick_exists)
+# Usage: wait_for_irc_nick_gone "alice-agent1" [timeout]
+wait_for_irc_nick_gone() {
+    local nick="$1" timeout="${2:-15}"
+    for i in $(seq 1 "$timeout"); do
+        if ! irc_nick_exists "$nick"; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+# Check if a nick exists on the IRC server via raw IRC protocol
+# Usage: irc_nick_exists "alice-agent0"
+irc_nick_exists() {
+    local nick="$1"
+    local probe="e2e-chk-${RANDOM}"
+    local result
+    # Send registration + wait for welcome + then WHOIS
+    result=$({
+        echo -e "NICK ${probe}\r"
+        echo -e "USER probe 0 * probe\r"
+        sleep 1  # Wait for welcome response
+        echo -e "WHOIS ${nick}\r"
+        sleep 1  # Wait for WHOIS response
+        echo -e "QUIT\r"
+    } | nc -w 5 127.0.0.1 "$E2E_IRC_PORT" 2>/dev/null)
+    echo "$result" | grep -q "311.*${nick}"  # RPL_WHOISUSER = 311
+}
+
+# Wait for a nick to appear on IRC server
+# Usage: wait_for_irc_nick "alice-agent0" 30
+wait_for_irc_nick() {
+    local nick="$1" timeout="${2:-30}"
+    for i in $(seq 1 "$timeout"); do
+        if irc_nick_exists "$nick"; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
 }
 
 # Wait for text to appear in a tmux pane
@@ -106,13 +265,11 @@ pane_contains() {
     tmux capture-pane -t "$1" -p -S -200 2>/dev/null | grep -q "$2"
 }
 
-# Split and return the new pane ID
 split_pane() {
     local direction="$1" target="$2"
     tmux split-window "$direction" -t "$target" -P -F '#{pane_id}'
 }
 
-# Get initial pane ID
 initial_pane_id() {
     tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' 2>/dev/null | head -1
 }
