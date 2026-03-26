@@ -30,7 +30,7 @@ All commands below use the wrapper script at project root:
 ## Step 0: Create a project (first time only)
 
 ```bash
-./wc-agent.sh project create local
+./wc-agent.sh project create e2e-test
 ```
 
 Interactive prompts:
@@ -45,13 +45,13 @@ Default channels [#general]:
 
 Set as default:
 ```bash
-./wc-agent.sh project use local
+./wc-agent.sh project use e2e-test
 ```
 
 Verify:
 ```bash
 ./wc-agent.sh project list
-./wc-agent.sh project show local
+./wc-agent.sh project show e2e-test
 ```
 
 ## Step 1: Start ergo IRC server
