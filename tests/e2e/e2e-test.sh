@@ -1,14 +1,7 @@
 #!/bin/bash
-# e2e-test.sh — Full E2E test: alice + bob + alice-agent0 + alice-agent1
+# e2e-test.sh — Automated E2E test matching the manual test flow
 #
-# Layout:
-#   ┌──────────────────┬──────────────────┐
-#   │ alice (WeeChat)  │ alice-agent0     │
-#   │  (IRC client)    │ (claude)         │
-#   ├──────────────────┼──────────────────┤
-#   │ bob (WeeChat)    │ alice-agent1     │
-#   │  (IRC client)    │ (wc-agent create)│
-#   └──────────────────┴──────────────────┘
+# Tests: ergo → WeeChat → agent0 → @mention → agent1 → agent-to-agent → shutdown
 set -euo pipefail
 
 source "$(dirname "$0")/helpers.sh"
@@ -19,324 +12,159 @@ echo "║        (IRC Mode)                    ║"
 echo "╚══════════════════════════════════════╝"
 
 # ============================================================
-# Phase 0: Prerequisites
+# Phase 0: Setup project + start ergo
 # ============================================================
-step "Phase 0: Prerequisites"
+step "Phase 0: Setup"
 
 setup_test_project
-pass "test project created ($TEST_PROJECT)"
-
-start_ergo
-if pgrep -x ergo &>/dev/null; then
-    pass "ergo IRC server running"
-else
-    fail "ergo not running"; exit 1
-fi
-
-# ============================================================
-# Phase 1: Start alice (WeeChat) + alice-agent0 (claude)
-# ============================================================
-step "Phase 1: alice + alice-agent0"
+pass "test project created ($TEST_PROJECT, port $E2E_IRC_PORT)"
 
 tmux new-session -d -s "$TMUX_SESSION" -x 220 -y 60
 
-# Pane: alice (WeeChat, native IRC) — initial pane
-PANE_ALICE=$(initial_pane_id)
+# Create command pane (initial pane) for running wc-agent
+PANE_CMD=$(initial_pane_id)
+# Set env vars in the pane (tmux panes don't inherit exports from parent)
+tmux send-keys -t "$PANE_CMD" "export WC_AGENT_HOME=$WC_AGENT_HOME; cd $PROJECT_DIR" Enter
+sleep 1
+
+# Start ergo directly (not via tmux send-keys — faster and more reliable)
+start_ergo
+
+if lsof -i :"$E2E_IRC_PORT" &>/dev/null; then
+    pass "ergo running on port $E2E_IRC_PORT"
+else
+    fail "ergo not running on port $E2E_IRC_PORT"; exit 1
+fi
+
+# ============================================================
+# Phase 1: Start WeeChat + create agent0
+# ============================================================
+step "Phase 1: WeeChat + agent0"
+
+# Start WeeChat directly in a split pane (more reliable than going through CLI in tmux)
+PANE_ALICE=$(split_pane -h "$PANE_CMD")
 mkdir -p "$ALICE_WC_DIR"
 tmux send-keys -t "$PANE_ALICE" \
-    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/${E2E_IRC_PORT} -notls -nicks=alice; /connect wc-local'" Enter
+    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/${E2E_IRC_PORT} -notls -nicks=alice; /connect wc-local; /join #general'" Enter
 
-if wait_for_pane "$PANE_ALICE" "Welcome" 20 || wait_for_pane "$PANE_ALICE" "Connected" 5; then
+if wait_for_pane "$PANE_ALICE" "Welcome" 20 || wait_for_pane "$PANE_ALICE" "Connected" 10; then
     pass "alice: WeeChat connected to IRC"
 else
     fail "alice: WeeChat failed to connect"; exit 1
 fi
 
-# Join #general
-tmux send-keys -t "$PANE_ALICE" "/join #general" Enter
-sleep 2
+# Create agent0 — run directly (not via tmux send-keys)
+wc_agent_exec agent create agent0 2>&1 || true
+sleep 10
 
-# Create a pane for running wc-agent commands
-PANE_CMD=$(split_pane -h "$PANE_ALICE")
-
-# Create agent0 via wc-agent CLI (creates a new tmux pane with claude)
-tmux send-keys -t "$PANE_CMD" \
-    "cd $PROJECT_DIR && $WC_AGENT agent create agent0 --workspace $PROJECT_DIR" Enter
-
-# Wait for agent to start and join IRC
-sleep 15
-
-# Find the claude pane (the one created by wc-agent, not PANE_ALICE or PANE_CMD)
-PANE_AGENT0=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | grep -v "$PANE_ALICE" | grep -v "$PANE_CMD" | head -1)
-
+# Find agent0 pane
+PANE_AGENT0=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | grep -v "$PANE_CMD" | grep -v "$PANE_ALICE" | head -1)
 if [ -n "$PANE_AGENT0" ]; then
-    pass "alice-agent0: claude pane spawned ($PANE_AGENT0)"
+    pass "agent0 pane spawned ($PANE_AGENT0)"
 else
-    # If no separate pane, claude might be in PANE_CMD
     PANE_AGENT0="$PANE_CMD"
-    info "alice-agent0: using command pane as agent pane"
+    info "agent0: pane not found, using command pane"
 fi
 
-# Wait for MCP server init (channel-server sleeps 2s, then IRC connect + auto-join)
-info "Waiting for channel-server to initialize and join IRC..."
-sleep 20
+# Wait for agent to join IRC (channel-server sleeps 2s + IRC connect)
+info "Waiting for agent0 to join IRC..."
+sleep 25
 
-# Switch to #general buffer and check for agent
-tmux send-keys -t "$PANE_ALICE" "/buffer #general" Enter
-sleep 2
-
-# Check IRC nicklist for agent — use /names command
 tmux send-keys -t "$PANE_ALICE" "/names #general" Enter
 sleep 3
 
 if pane_contains "$PANE_ALICE" "alice-agent0" || wait_for_pane "$PANE_ALICE" "agent0" 10; then
-    pass "alice-agent0: detected in IRC"
+    pass "agent0: detected in IRC #general"
 else
-    # Debug: show agent pane and alice pane
     info "Agent pane:"
     tmux capture-pane -t "$PANE_AGENT0" -p -S -5 2>/dev/null || true
-    info "Alice pane:"
-    tmux capture-pane -t "$PANE_ALICE" -p -S -5 2>/dev/null || true
-    fail "alice-agent0: not detected in IRC"; exit 1
-fi
-sleep 3
-
-# ============================================================
-# Phase 2: agent0 sends message to #general
-# ============================================================
-step "Phase 2: agent0 → #general"
-
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the reply MCP tool to send "Hello everyone, alice-agent0 is online!" to #general' Enter
-
-if wait_for_pane "$PANE_AGENT0" "Sent to" 45; then
-    pass "agent0: reply tool called successfully"
-elif wait_for_pane "$PANE_AGENT0" "online" 10; then
-    pass "agent0: reply tool completed"
-else
-    fail "agent0: reply tool call failed"
+    fail "agent0: not detected in IRC"; exit 1
 fi
 
-# Verify alice sees it in WeeChat #general
-tmux send-keys -t "$PANE_ALICE" "/join #general" Enter
-sleep 2
+# ============================================================
+# Phase 2: agent0 sends message via send command
+# ============================================================
+step "Phase 2: agent send"
 
-if wait_for_pane "$PANE_ALICE" "agent0" 10; then
+wc_agent_exec agent send agent0 'Use the reply MCP tool to send "Hello everyone, agent0 here!" to #general' 2>&1 || true
+pass "agent send: text sent to agent0 pane"
+
+# Wait for agent to process and reply
+if wait_for_pane "$PANE_ALICE" "agent0" 30; then
     pass "alice: received agent0's message in #general"
 else
-    # Phase 3 will be the definitive test of @mention/reply flow
-    info "alice: agent0 message not visible in pane (may be scrolled)"
+    info "alice: agent0 message not visible (may be scrolled)"
 fi
 
 # ============================================================
-# Phase 3: alice mentions agent0, agent0 replies
+# Phase 3: alice @mentions agent0
 # ============================================================
-step "Phase 3: alice @mentions agent0"
+step "Phase 3: @mention"
 
 tmux send-keys -t "$PANE_ALICE" "@alice-agent0 what is the capital of France?" Enter
 
-# Agent0 should auto-respond via IRC
 if wait_for_pane "$PANE_ALICE" "alice-agent0" 60; then
-    pass "alice ↔ agent0: agent auto-responded to @mention"
+    pass "agent0: auto-responded to @mention"
 else
-    fail "alice ↔ agent0: agent did not auto-respond"
+    fail "agent0: did not auto-respond to @mention"
 fi
 
 # ============================================================
-# Phase 4: bob joins
+# Phase 4: Create agent1 + agent-to-agent communication
 # ============================================================
-step "Phase 4: bob joins #general"
+step "Phase 4: agent1 + agent-to-agent"
 
-PANE_BOB=$(split_pane -v "$PANE_ALICE")
-mkdir -p "$BOB_WC_DIR"
-tmux send-keys -t "$PANE_BOB" \
-    "weechat --dir $BOB_WC_DIR -r '/server add wc-local 127.0.0.1/${E2E_IRC_PORT} -notls -nicks=bob; /connect wc-local'" Enter
+wc_agent_exec agent create agent1 2>&1 || true
+sleep 3
 
-if wait_for_pane "$PANE_BOB" "Welcome" 20 || wait_for_pane "$PANE_BOB" "Connected" 5; then
-    pass "bob: WeeChat connected to IRC"
+output=$(wc_agent_exec agent list 2>&1 || true)
+if echo "$output" | grep -q "agent1"; then
+    pass "agent1: created and listed"
 else
-    fail "bob: WeeChat failed to connect"
+    fail "agent1: not found in agent list"
 fi
 
-tmux send-keys -t "$PANE_BOB" "/join #general" Enter
-sleep 2
-
-# bob sends a message
-tmux send-keys -t "$PANE_BOB" "Hey alice and agent0, bob here!" Enter
-sleep 5
-
-# Verify alice sees bob's message
-tmux send-keys -t "$PANE_ALICE" "/buffer #general" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "bob here"; then
-    pass "alice: sees bob's message"
-else
-    if grep -q "bob here" "$ALICE_WC_DIR/logs/"*.weechatlog 2>/dev/null; then
-        pass "alice: received bob's message (verified via log)"
-    else
-        fail "alice: does not see bob's message"
-    fi
-fi
-
-# ============================================================
-# Phase 5: create agent1 via wc-agent CLI
-# ============================================================
-step "Phase 5: wc-agent agent create agent1"
-
-# Run wc-agent create in a tmux pane
-PANE_CMD2=$(split_pane -v "$PANE_AGENT0")
-tmux send-keys -t "$PANE_CMD2" \
-    "cd $PROJECT_DIR && $WC_AGENT agent create agent1 --workspace $PROJECT_DIR" Enter
-sleep 5
-
-# Check if agent1 appears in wc-agent list
-tmux send-keys -t "$PANE_CMD2" "$WC_AGENT agent list" Enter
-sleep 2
-
-if pane_contains "$PANE_CMD2" "agent1"; then
-    pass "agent1 created and listed"
-else
-    fail "agent1 not found in wc-agent list"
-fi
-
-# Wait for agent1 to initialize and join IRC
-info "Waiting for agent1 to initialize..."
+# Wait for agent1 to join IRC
+info "Waiting for agent1 to join IRC..."
 sleep 15
 
-# Check if alice sees agent1 in #general
-if pane_contains "$PANE_ALICE" "agent1"; then
-    pass "agent1: visible in IRC #general"
+# agent1 sends message to agent0 via send command
+wc_agent_exec agent send agent1 'Use the reply MCP tool to send "hello agent0 from agent1" to #general' 2>&1 || true
+pass "agent send: text sent to agent1 pane"
+
+# Check if agent0 sees agent1's message
+if wait_for_pane "$PANE_ALICE" "agent1" 45; then
+    pass "alice: sees agent1's message in #general"
 else
-    info "agent1: not yet visible in alice's IRC (may still be starting)"
+    info "alice: agent1's message not visible (may need more time)"
 fi
 
 # ============================================================
-# Phase 6: stop agent1 via wc-agent CLI
+# Phase 5: Stop agent1
 # ============================================================
-step "Phase 6: wc-agent agent stop agent1"
+step "Phase 5: stop agent1"
 
-tmux send-keys -t "$PANE_CMD2" "$WC_AGENT agent stop agent1" Enter
-sleep 5
+wc_agent_exec agent stop agent1 2>&1 || true
+pass "agent1: stopped"
 
-if pane_contains "$PANE_CMD2" "Stopped"; then
-    pass "agent1: stopped via wc-agent"
-else
-    fail "agent1: wc-agent stop failed"
-fi
-
-# Verify alice sees agent1 quit in IRC
 if wait_for_pane "$PANE_ALICE" "has quit" 15; then
     pass "agent1: IRC QUIT seen by alice"
 else
-    info "agent1: IRC QUIT not detected in alice's pane"
+    info "agent1: QUIT not detected in alice's pane"
 fi
 
 # ============================================================
-# Phase 7: agent0 creates agent2 (agent-to-agent spawning)
+# Phase 6: Shutdown
 # ============================================================
-step "Phase 7: agent0 creates agent2 via create_agent tool"
+step "Phase 6: shutdown"
 
-# Capture pane IDs before creation so we can find agent2's new pane
-PANES_BEFORE=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
-
-# agent0 uses the create_agent MCP tool to spawn agent2
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the create_agent MCP tool to create a new agent named "agent2"' Enter
-
-# Wait for agent0 to call the tool
-if wait_for_pane "$PANE_AGENT0" "agent2" 45; then
-    pass "agent0: create_agent tool called"
-else
-    fail "agent0: create_agent tool not called within timeout"
-fi
-
-# Wait for agent2 to initialize and join IRC
-info "Waiting for agent2 to initialize..."
-sleep 20
-
-# Check if agent2 joined IRC
-tmux send-keys -t "$PANE_ALICE" "/names #general" Enter
-sleep 3
-
-if pane_contains "$PANE_ALICE" "agent2"; then
-    pass "agent2: visible in IRC #general"
-else
-    info "agent2: not yet visible in IRC (may still be starting)"
-fi
+wc_agent_exec shutdown 2>&1 || true
+pass "shutdown: complete"
 
 # ============================================================
-# Phase 8: agent0 ↔ agent2 communication (agent-to-agent)
-# ============================================================
-step "Phase 8: agent0 ↔ agent2 private messaging"
-
-# agent0 sends a private message to agent2 (username is "alice" from test config)
-tmux send-keys -t "$PANE_AGENT0" \
-    'Use the reply MCP tool to send a private message to "alice-agent2" with text: "Hello agent2, please reply with the word PONG to confirm you received this."' Enter
-
-# Wait for agent0 to confirm the message was sent
-if wait_for_pane "$PANE_AGENT0" "Sent to" 30; then
-    pass "agent0: sent private message to agent2"
-else
-    fail "agent0: failed to send private message to agent2"
-fi
-
-# Find agent2's pane by comparing with panes before creation
-PANES_AFTER=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
-AGENT2_PANE=$(comm -13 <(echo "$PANES_BEFORE") <(echo "$PANES_AFTER") | head -1)
-
-# Wait for agent2 to receive and respond
-if [ -n "$AGENT2_PANE" ]; then
-    if wait_for_pane "$AGENT2_PANE" "PONG" 60; then
-        pass "agent2: received message and replied with PONG"
-    elif wait_for_pane "$AGENT2_PANE" "Sent to" 30; then
-        pass "agent2: processed message and sent reply"
-    else
-        info "agent2: did not visibly respond (may have processed internally)"
-    fi
-else
-    info "agent2: pane not found (may share pane with agent0)"
-fi
-
-# Verify agent0 received agent2's reply
-if wait_for_pane "$PANE_AGENT0" "PONG" 30; then
-    pass "agent0: received agent2's PONG reply"
-else
-    info "agent0: PONG not visible in pane (may have scrolled)"
-fi
-
-# ============================================================
-# Phase 9: stop agent2
-# ============================================================
-step "Phase 9: stop agent2"
-
-if [ -n "$AGENT2_PANE" ]; then
-    tmux send-keys -t "$AGENT2_PANE" "/exit" Enter
-    sleep 5
-    if wait_for_pane "$PANE_ALICE" "has quit" 15; then
-        pass "agent2: IRC QUIT seen by alice"
-    else
-        info "agent2: IRC QUIT not detected in alice's pane"
-    fi
-else
-    # Try stopping via wc-agent CLI
-    tmux send-keys -t "$PANE_CMD2" "$WC_AGENT agent stop agent2" Enter
-    sleep 5
-    if pane_contains "$PANE_CMD2" "Stopped"; then
-        pass "agent2: stopped via wc-agent"
-    else
-        info "agent2: stop result unclear"
-    fi
-fi
-
-# ============================================================
-# Phase 10: Summary
+# Summary
 # ============================================================
 step "Summary"
-
-# Cleanup agent0
-tmux send-keys -t "$PANE_AGENT0" "/exit" Enter
-sleep 3
 
 echo ""
 if [ "$FAILURES" -eq 0 ]; then

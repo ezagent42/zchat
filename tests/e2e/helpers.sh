@@ -34,8 +34,16 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local
 CLAUDE_FLAGS="--permission-mode bypassPermissions"
 CLAUDE_CHANNEL_FLAGS="--dangerously-load-development-channels server:weechat-channel"
 
-# WC_AGENT command — includes WC_AGENT_HOME so tmux panes inherit it
-WC_AGENT="WC_AGENT_HOME=$WC_AGENT_HOME uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT"
+# WC_AGENT for tmux send-keys (text sent to a shell)
+WC_AGENT_TMUX="WC_AGENT_HOME=$WC_AGENT_HOME uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT"
+
+# WC_AGENT for direct execution from test script (outside tmux)
+# WC_TMUX_SESSION tells CLI which tmux session to create panes in
+wc_agent_exec() {
+    WC_TMUX_SESSION="$TMUX_SESSION" WC_AGENT_HOME="$WC_AGENT_HOME" \
+        uv run --project "$PROJECT_DIR/wc-agent" python -m wc_agent.cli \
+        --project "$TEST_PROJECT" "$@"
+}
 
 # User directories
 ALICE_WC_DIR="/tmp/e2e-alice-${E2E_ID}"
@@ -121,7 +129,7 @@ cleanup() {
     info "Cleaning up (e2e-${E2E_ID})..."
 
     # 1. Stop agents via wc-agent
-    $WC_AGENT shutdown 2>/dev/null || true
+    wc_agent_exec shutdown 2>/dev/null || true
 
     # 2. Kill weechat processes from THIS test run's dirs
     pkill -9 -f "weechat.*--dir /tmp/e2e-alice-${E2E_ID}" 2>/dev/null
@@ -145,7 +153,7 @@ cleanup() {
 trap cleanup EXIT
 
 wc_agent() {
-    $WC_AGENT "$@"
+    wc_agent_exec "$@"
 }
 
 # Wait for text to appear in a tmux pane

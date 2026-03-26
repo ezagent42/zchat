@@ -71,20 +71,24 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
 # ============================================================
 
 def _check_tmux():
-    """Ensure we're running inside tmux. Exit with help if not."""
-    if not os.environ.get("TMUX"):
+    """Ensure we're running inside tmux (or WC_TMUX_SESSION is set). Exit with help if not."""
+    if not os.environ.get("TMUX") and not os.environ.get("WC_TMUX_SESSION"):
         typer.echo("Error: wc-agent must be run inside a tmux session.")
         typer.echo("")
         typer.echo("Start a new tmux session first:")
         typer.echo("  tmux -CC new -s weechat-claude    # iTerm2 native integration")
         typer.echo("  tmux new -s weechat-claude         # standard terminal")
         typer.echo("")
-        typer.echo("Then run wc-agent commands inside that session.")
+        typer.echo("Or set WC_TMUX_SESSION=<session-name> for headless use.")
         raise typer.Exit(1)
 
 
 def _current_tmux_session() -> str:
-    """Get the current tmux session name."""
+    """Get tmux session name from env override or tmux query."""
+    # WC_TMUX_SESSION allows running outside tmux (e.g., from test scripts)
+    env_session = os.environ.get("WC_TMUX_SESSION")
+    if env_session:
+        return env_session
     result = subprocess.run(
         ["tmux", "display-message", "-p", "#S"],
         capture_output=True, text=True,

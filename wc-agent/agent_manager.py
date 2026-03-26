@@ -225,7 +225,7 @@ class AgentManager:
             try:
                 with open(self._state_file) as f:
                     data = json.load(f)
-                self._agents = data.get("agents", data)
+                self._agents = data.get("agents", {})  # Only agents, not irc state
             except (json.JSONDecodeError, OSError):
                 self._agents = {}
 
