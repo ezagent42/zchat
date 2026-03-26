@@ -73,7 +73,7 @@ step "Phase 1: alice + alice-agent0"
 PANE_ALICE=$(initial_pane_id)
 mkdir -p "$ALICE_WC_DIR"
 tmux send-keys -t "$PANE_ALICE" \
-    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls; /connect wc-local'" Enter
+    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls -nicks=alice; /connect wc-local'" Enter
 
 if wait_for_pane "$PANE_ALICE" "Welcome" 20 || wait_for_pane "$PANE_ALICE" "Connected" 5; then
     pass "alice: WeeChat connected to IRC"
@@ -81,11 +81,9 @@ else
     fail "alice: WeeChat failed to connect"; exit 1
 fi
 
-# Join #general and set nick
+# Join #general (nick already set to alice via -nicks)
 tmux send-keys -t "$PANE_ALICE" "/join #general" Enter
 sleep 2
-tmux send-keys -t "$PANE_ALICE" "/nick alice" Enter
-sleep 1
 
 # Create agent0 via wc-agent CLI (this creates a new tmux pane with claude)
 PANE_CMD=$(split_pane -h "$PANE_ALICE")
@@ -167,7 +165,7 @@ step "Phase 4: bob joins #general"
 PANE_BOB=$(split_pane -v "$PANE_ALICE")
 mkdir -p "$BOB_WC_DIR"
 tmux send-keys -t "$PANE_BOB" \
-    "weechat --dir $BOB_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls; /connect wc-local'" Enter
+    "weechat --dir $BOB_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls -nicks=bob; /connect wc-local'" Enter
 
 if wait_for_pane "$PANE_BOB" "Welcome" 20 || wait_for_pane "$PANE_BOB" "Connected" 5; then
     pass "bob: WeeChat connected to IRC"
@@ -175,8 +173,6 @@ else
     fail "bob: WeeChat failed to connect"
 fi
 
-tmux send-keys -t "$PANE_BOB" "/nick bob" Enter
-sleep 1
 tmux send-keys -t "$PANE_BOB" "/join #general" Enter
 sleep 2
 

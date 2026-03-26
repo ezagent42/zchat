@@ -22,9 +22,10 @@ if [ -n "$MISSING" ]; then
   echo "Missing:$MISSING"; exit 1
 fi
 
-# --- Read IRC server from config ---
+# --- Read config ---
 IRC_SERVER=$(python3 -c "import tomllib; c=tomllib.load(open('$CONFIG','rb')); print(c['irc']['server'])")
 IRC_PORT=$(python3 -c "import tomllib; c=tomllib.load(open('$CONFIG','rb')); print(c['irc']['port'])")
+IRC_NICK=$(python3 -c "import tomllib,os; c=tomllib.load(open('$CONFIG','rb')); print(c.get('agents',{}).get('username','') or os.environ.get('USER','user'))")
 
 # --- Start ergo if local and available ---
 if [ "$IRC_SERVER" = "127.0.0.1" ] || [ "$IRC_SERVER" = "localhost" ]; then
@@ -56,7 +57,7 @@ python3 "$SCRIPT_DIR/wc-agent/cli.py" --config "$CONFIG" start --workspace "$WOR
 # --- WeeChat pane ---
 tmux split-window -h -t "$SESSION"
 tmux send-keys -t "$SESSION" \
-  "weechat -r '/server add wc-local $IRC_SERVER/$IRC_PORT -notls; /connect wc-local; /join #general'" Enter
+  "weechat -r '/server add wc-local $IRC_SERVER/$IRC_PORT -notls -nicks=$IRC_NICK; /connect wc-local; /join #general'" Enter
 
 tmux select-pane -t "$SESSION:0.1"
 echo "  Launching tmux session '$SESSION'..."
