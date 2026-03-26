@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "weechat-channel": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/Users/h2oslabs/Workspace/weechat-claude/.claude/worktrees/update-e2e-test/weechat-channel-server",
+        "python3",
+        "/Users/h2oslabs/Workspace/weechat-claude/.claude/worktrees/update-e2e-test/weechat-channel-server/server.py"
+      ],
+      "env": {
+        "AGENT_NAME": "alice-agent1",
+        "IRC_SERVER": "127.0.0.1",
+        "IRC_PORT": "6667",
+        "IRC_CHANNELS": "general",
+        "IRC_TLS": "false"
+      }
+    }
+  }
+}

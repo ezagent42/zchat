@@ -28,6 +28,7 @@ def make_manager(args) -> AgentManager:
     config_path = getattr(args, "config", None) or find_config()
     cfg = load_config(config_path)
     script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tmux_session = getattr(args, "tmux_session", None) or "weechat-claude"
     return AgentManager(
         irc_server=cfg["irc"]["server"],
         irc_port=cfg["irc"]["port"],
@@ -35,6 +36,7 @@ def make_manager(args) -> AgentManager:
         channel_server_dir=os.path.join(script_dir, "weechat-channel-server"),
         username=cfg["agents"]["username"],
         default_channels=cfg["agents"]["default_channels"],
+        tmux_session=tmux_session,
     )
 
 
@@ -128,6 +130,7 @@ def cmd_shutdown(args):
 def main():
     parser = argparse.ArgumentParser(prog="wc-agent", description="Claude Code agent lifecycle management")
     parser.add_argument("--config", help="Path to weechat-claude.toml")
+    parser.add_argument("--tmux-session", dest="tmux_session", help="tmux session name (default: weechat-claude)")
     sub = parser.add_subparsers(dest="command")
 
     p_start = sub.add_parser("start", help="Start ergo + primary agent")

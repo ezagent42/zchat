@@ -11,6 +11,10 @@
 #   [1] Interactive          — standard claude session
 #   [2] Interactive+Worktree — isolated git branch for feature work
 #   [3] Remote Control       — continue from phone/browser
+#   [4] Resume               — resume an existing conversation
+#
+# CLI shortcut:
+#   ./claude.sh --resume [session-id]  — skip menu, go straight to resume
 # ============================================
 
 # Source shell configuration for proper PATH setup
@@ -31,11 +35,45 @@ fi
 # Ensure common paths are included as fallback (Homebrew on Apple Silicon / Intel, npm global)
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
 
+# --- Parse CLI arguments ---
+RESUME_ID=""
+CLI_RESUME=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --resume|-r)
+            CLI_RESUME=true
+            if [ -n "${2:-}" ] && [[ ! "$2" =~ ^- ]]; then
+                RESUME_ID="$2"
+                shift
+            fi
+            shift
+            ;;
+        --_internal)
+            break  # Let the inside-tmux section handle this
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source user-local overrides (proxy, API keys, etc.)
-[ -f "$SCRIPT_DIR/claude.local.sh" ] && source "$SCRIPT_DIR/claude.local.sh"
+# Source user-local environment (proxy, API keys, etc.)
+if [ -f "$SCRIPT_DIR/claude.local.env" ]; then
+    set -a && source "$SCRIPT_DIR/claude.local.env" && set +a
+else
+    echo "⚠️  claude.local.env not found!"
+    echo "   Create it from the example:"
+    echo "   cp claude.local.env.example claude.local.env"
+    echo ""
+    read -p "Continue without it? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+fi
 
 # Source MCP server secrets (API keys, tokens)
 [ -f "$SCRIPT_DIR/.mcp.env" ] && set -a && source "$SCRIPT_DIR/.mcp.env" && set +a
@@ -126,6 +164,7 @@ show_mode_menu() {
     echo "  [1] Interactive (Recommended)"
     echo "  [2] Interactive + Worktree — isolated git branch"
     echo "  [3] Remote Control — continue from phone/browser"
+    echo "  [4] Resume — resume an existing conversation"
 }
 
 # ============================================
@@ -209,14 +248,19 @@ if [ -z "$TMUX" ]; then
         fi
     fi
 
-    # --- Mode selection ---
-    echo "Create new session:"
-    show_mode_menu
-    echo ""
-    read -p "Mode [1]: " -r MODE
-    MODE=${MODE:-1}
+    # --- CLI --resume shortcut: skip mode selection ---
+    if [ "$CLI_RESUME" = true ]; then
+        MODE=4
+    else
+        # --- Mode selection ---
+        echo "Create new session:"
+        show_mode_menu
+        echo ""
+        read -p "Mode [1]: " -r MODE
+        MODE=${MODE:-1}
+    fi
 
-    if [ "$MODE" != "1" ] && [ "$MODE" != "2" ] && [ "$MODE" != "3" ]; then
+    if [ "$MODE" != "1" ] && [ "$MODE" != "2" ] && [ "$MODE" != "3" ] && [ "$MODE" != "4" ]; then
         echo "❌ Invalid mode: $MODE"
         exit 1
     fi
@@ -240,6 +284,18 @@ if [ -z "$TMUX" ]; then
             echo ""
             echo "Enter a session name for the remote control session."
             ;;
+        4)
+            DEFAULT_NAME="${SESSION_PREFIX}-resume-$(date +%m%d)-${UUID_SHORT}"
+            # If no session ID from CLI, prompt for it
+            if [ -z "$RESUME_ID" ]; then
+                echo ""
+                echo "Enter session ID to resume (leave empty for interactive picker)."
+                echo ""
+                read -p "Session ID: " -r RESUME_ID
+            fi
+            echo ""
+            echo "Enter a tmux session name."
+            ;;
     esac
     echo ""
     read -p "Session name [$DEFAULT_NAME]: " -r SESSION_NAME
@@ -253,7 +309,7 @@ if [ -z "$TMUX" ]; then
 
     # --- Create tmux session (all modes go through tmux) ---
     echo "🚀 Creating tmux session: $SESSION_NAME"
-    exec tmux $TMUX_CC new-session -s "$SESSION_NAME" "cd '$SCRIPT_DIR' && '$0' --_internal '$MODE' '$SESSION_NAME'"
+    exec tmux $TMUX_CC new-session -s "$SESSION_NAME" "cd '$SCRIPT_DIR' && '$0' --_internal '$MODE' '$SESSION_NAME' '$RESUME_ID'"
 fi
 
 # ============================================
@@ -273,6 +329,7 @@ SESSION_NAME=""
 if [ "$1" = "--_internal" ]; then
     RUN_MODE="${2:-}"
     SESSION_NAME="${3:-}"
+    RESUME_ID="${4:-}"
 fi
 
 # If no internal args, user ran ./claude.sh from a new tmux window — ask interactively
@@ -283,7 +340,7 @@ if [ -z "$RUN_MODE" ]; then
     read -p "Mode [1]: " -r RUN_MODE
     RUN_MODE=${RUN_MODE:-1}
 
-    if [ "$RUN_MODE" != "1" ] && [ "$RUN_MODE" != "2" ] && [ "$RUN_MODE" != "3" ]; then
+    if [ "$RUN_MODE" != "1" ] && [ "$RUN_MODE" != "2" ] && [ "$RUN_MODE" != "3" ] && [ "$RUN_MODE" != "4" ]; then
         echo "❌ Invalid mode: $RUN_MODE"
         exit 1
     fi
@@ -310,6 +367,14 @@ if [ -z "$RUN_MODE" ]; then
             echo ""
             read -p "Name [$DEFAULT_NAME]: " -r SESSION_NAME
             SESSION_NAME=${SESSION_NAME:-$DEFAULT_NAME}
+            ;;
+        4)
+            if [ -z "$RESUME_ID" ]; then
+                echo ""
+                echo "Enter session ID to resume (leave empty for interactive picker)."
+                echo ""
+                read -p "Session ID: " -r RESUME_ID
+            fi
             ;;
     esac
     echo ""
@@ -360,6 +425,19 @@ elif [ "$RUN_MODE" = "3" ]; then
     echo "   Press spacebar to show QR code for mobile"
     echo ""
     claude remote-control $RC_FLAGS
+
+# --- Mode 4: Resume ---
+elif [ "$RUN_MODE" = "4" ]; then
+    echo "🔄 Mode: Resume"
+    if [ -n "$RESUME_ID" ]; then
+        echo "   Session: $RESUME_ID"
+        echo ""
+        claude --resume "$RESUME_ID" $INTERACTIVE_FLAGS
+    else
+        echo "   Opening interactive session picker..."
+        echo ""
+        claude --resume $INTERACTIVE_FLAGS
+    fi
 fi
 
 EXIT_CODE=$?

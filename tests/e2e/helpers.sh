@@ -41,7 +41,7 @@ FAILURES=0
 cleanup() {
     info "Cleaning up..."
     # Stop all agents via wc-agent
-    python3 "$PROJECT_DIR/wc-agent/cli.py" --config "$TEST_CONFIG" shutdown 2>/dev/null || true
+    uv run --project "$PROJECT_DIR/weechat-channel-server" python3 "$PROJECT_DIR/wc-agent/cli.py" --config "$TEST_CONFIG" --tmux-session "$TMUX_SESSION" shutdown 2>/dev/null || true
     # Quit WeeChat instances gracefully
     for pane in $(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_index}' 2>/dev/null); do
         cmd=$(tmux display-message -t "$TMUX_SESSION.$pane" -p '#{pane_current_command}' 2>/dev/null)
@@ -59,13 +59,14 @@ trap cleanup EXIT
 
 start_ergo() {
     if ! pgrep -x ergo &>/dev/null; then
-        ergo run --conf "$E2E_DIR/ergo-test.yaml" &>/dev/null &
-        sleep 1
+        # Run from project dir so ergo can find languages/
+        (cd "$PROJECT_DIR" && ergo run --conf "$E2E_DIR/ergo-test.yaml" &>/dev/null &)
+        sleep 2
     fi
 }
 
 wc_agent() {
-    python3 "$PROJECT_DIR/wc-agent/cli.py" --config "$TEST_CONFIG" "$@"
+    uv run --project "$PROJECT_DIR/weechat-channel-server" python3 "$PROJECT_DIR/wc-agent/cli.py" --config "$TEST_CONFIG" "$@"
 }
 
 # Wait for text to appear in a tmux pane

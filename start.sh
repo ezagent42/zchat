@@ -54,7 +54,7 @@ python3 "$SCRIPT_DIR/wc-agent/cli.py" --config "$CONFIG" start --workspace "$WOR
 # --- WeeChat pane ---
 tmux split-window -h -t "$SESSION"
 tmux send-keys -t "$SESSION" \
-  "weechat -r '/server add wc-local $IRC_SERVER/$IRC_PORT; /connect wc-local; /join #general'" Enter
+  "weechat -r '/server add wc-local $IRC_SERVER/$IRC_PORT -notls; /connect wc-local; /join #general'" Enter
 
 tmux select-pane -t "$SESSION:0.1"
 echo "  Launching tmux session '$SESSION'..."
