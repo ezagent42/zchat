@@ -2,10 +2,31 @@
 # e2e-test-manual.sh — Set up isolated test environment for manual testing
 #
 # Usage:
-#   1. Create a tmux session:  tmux -CC new -s test
-#   2. Source this script:     source tests/e2e/e2e-test-manual.sh
-#   3. Run commands from the printed guide
-#   4. Cleanup:                source tests/e2e/e2e-cleanup.sh
+#   1. Create a tmux session:
+#        tmux -CC new -s test     (iTerm2)
+#        tmux new -s test         (standard terminal)
+#
+#   2. Source this script:
+#        source tests/e2e/e2e-test-manual.sh
+#
+#   3. Follow the steps:
+#        ./wc-agent.sh irc start                    # Start WeeChat (new pane)
+#        ./wc-agent.sh irc status                   # Verify IRC connected
+#        ./wc-agent.sh agent create agent0           # Create agent (new pane)
+#        ./wc-agent.sh agent list                    # Check agent status
+#        ./wc-agent.sh agent send agent0 'hello'     # Send text to agent pane
+#        ./wc-agent.sh agent stop agent0             # Stop agent
+#        ./wc-agent.sh shutdown                      # Stop everything
+#
+#      In WeeChat #general, test @mention:
+#        @alice-agent0 what is the capital of France?
+#
+#   4. In new panes, re-source to get env vars:
+#        source tests/e2e/e2e-test-manual.sh
+#      (Reuses same E2E_ID, won't restart ergo)
+#
+#   5. Cleanup:
+#        source tests/e2e/e2e-cleanup.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
