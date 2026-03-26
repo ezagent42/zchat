@@ -157,7 +157,10 @@ GUIDE" Enter
 echo ""
 echo "Attaching..."
 
-if [ "$TERM_PROGRAM" = "iTerm.app" ] || [ "$LC_TERMINAL" = "iTerm2" ] || [ -n "$ITERM_SESSION_ID" ]; then
+if [ -n "$TMUX" ]; then
+    # Already inside tmux — switch to new session (no nesting)
+    exec tmux switch-client -t "$E2E_SESSION"
+elif [ "$TERM_PROGRAM" = "iTerm.app" ] || [ "$LC_TERMINAL" = "iTerm2" ] || [ -n "$ITERM_SESSION_ID" ]; then
     exec tmux -CC attach -t "$E2E_SESSION"
 else
     exec tmux attach -t "$E2E_SESSION"
