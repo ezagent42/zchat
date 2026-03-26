@@ -1,0 +1,9 @@
+[irc]
+server = "192.168.1.100"
+port = 6667
+tls = false
+password = ""
+
+[agents]
+default_channels = ["#general"]
+username = ""
