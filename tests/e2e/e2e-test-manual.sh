@@ -107,15 +107,16 @@ chmod +x "/tmp/e2e-cleanup-${E2E_ID}.sh"
 # ============================================================
 echo "Creating tmux session '$E2E_SESSION'..."
 
-# tmux default-command makes EVERY new pane auto-source the env file
-tmux new-session -d -s "$E2E_SESSION" -x 220 -y 60 \
-    "bash --rcfile <(echo 'source $E2E_ENV_FILE; exec bash')"
+# Create session
+# NOTE: Do NOT use set-option default-command — it pollutes the tmux server globally
+tmux new-session -d -s "$E2E_SESSION" -x 220 -y 60
 
-# Set default-command so new panes also auto-source
-tmux set-option -t "$E2E_SESSION" default-command \
-    "bash --rcfile <(echo 'source $E2E_ENV_FILE; exec bash')"
+# set-environment is session-scoped and safe — new panes inherit these env vars
+tmux set-environment -t "$E2E_SESSION" WC_AGENT_HOME "$E2E_WC_AGENT_HOME"
+tmux set-environment -t "$E2E_SESSION" E2E_ENV_FILE "$E2E_ENV_FILE"
 
-# Wait for shell to start, then show guide
+# Source full env in initial pane (proxy, cd, PATH — not just WC_AGENT_HOME)
+tmux send-keys -t "$E2E_SESSION" "source '$E2E_ENV_FILE'" Enter
 sleep 1
 tmux send-keys -t "$E2E_SESSION" "cat << 'GUIDE'
 
@@ -124,7 +125,8 @@ tmux send-keys -t "$E2E_SESSION" "cat << 'GUIDE'
 ║  Session: $E2E_SESSION  |  Port: $E2E_IRC_PORT          ║
 ╚══════════════════════════════════════════════════╝
 
-New panes auto-inherit env. Use ./wc-agent.sh for commands.
+Use ./wc-agent.sh for commands.
+New panes: WC_AGENT_HOME is set. For proxy+cd: source \$E2E_ENV_FILE
 
 ━━━ Step 1: Start WeeChat ━━━━━━━━━━━━━━━━━━━━━━━
   ./wc-agent.sh irc start
