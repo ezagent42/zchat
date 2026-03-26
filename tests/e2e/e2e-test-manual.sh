@@ -10,25 +10,26 @@
 #        source tests/e2e/e2e-test-manual.sh
 #
 #   3. Follow the steps:
-#        ./wc-agent.sh irc start                    # Start WeeChat (new pane)
-#        ./wc-agent.sh irc status                   # Verify IRC connected
-#        ./wc-agent.sh agent create agent0           # Create agent (new pane)
-#        ./wc-agent.sh agent list                    # Check agent status
-#        ./wc-agent.sh agent send agent0 'hello'     # Send text to agent pane
-#        ./wc-agent.sh agent stop agent0             # Stop agent
-#        ./wc-agent.sh shutdown                      # Stop everything
+#        ./wc-agent.sh irc daemon start              # Start ergo
+#        ./wc-agent.sh irc start                     # Start WeeChat (new pane)
+#        ./wc-agent.sh irc status                    # Verify IRC connected
+#        ./wc-agent.sh agent create agent0            # Create agent (new pane)
+#        ./wc-agent.sh agent list                     # Check agent status
+#        ./wc-agent.sh agent send agent0 'hello'      # Send text to agent pane
+#        ./wc-agent.sh agent stop agent0              # Stop agent
+#        ./wc-agent.sh shutdown                       # Stop everything
 #
 #      In WeeChat #general, test @mention:
 #        @alice-agent0 what is the capital of France?
 #
 #   4. In new panes, re-source to get env vars:
 #        source tests/e2e/e2e-test-manual.sh
-#      (Reuses same E2E_ID, won't restart ergo)
+#      (Reuses same E2E_ID, skips setup)
 #
 #   5. Cleanup:
 #        source tests/e2e/e2e-cleanup.sh
 
-# Find project root by walking up from CWD looking for wc-agent.sh
+# Find project root
 _find_project_root() {
     local dir="$PWD"
     while [ "$dir" != "/" ]; do
@@ -40,7 +41,7 @@ _find_project_root() {
 PROJECT_DIR="$(_find_project_root)"
 if [ -z "$PROJECT_DIR" ]; then
     echo "ERROR: Cannot find project root (no wc-agent.sh found)."
-    echo "  cd to the project directory first, then source this script."
+    echo "  cd to the project directory first."
     return 1 2>/dev/null || exit 1
 fi
 
@@ -49,20 +50,19 @@ if [ -z "$TMUX" ]; then
     echo ""
     echo "  tmux -CC new -s test   # iTerm2"
     echo "  tmux new -s test       # standard"
-    echo ""
-    echo "Then: source tests/e2e/e2e-test-manual.sh"
     return 1 2>/dev/null || exit 1
 fi
 
-# Unique IDs — always use fresh $$ unless ergo is still running from a previous source
-if [ -n "$E2E_ERGO_PID" ] && kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
-    echo "(Reusing existing environment id: $E2E_ID)"
-else
-    # Fresh environment
-    export E2E_ID="$$"
+# Reuse existing environment if already set up
+if [ -n "$WC_AGENT_HOME" ] && [ -d "$WC_AGENT_HOME" ]; then
+    echo "(Reusing e2e environment: id=$E2E_ID port=$E2E_IRC_PORT)"
+    cd "$PROJECT_DIR"
+    return 0 2>/dev/null || exit 0
 fi
+
+# Fresh environment
+export E2E_ID="$$"
 export E2E_IRC_PORT=$((16667 + (E2E_ID % 1000)))
-export E2E_ERGO_DIR="/tmp/e2e-ergo-${E2E_ID}"
 export WC_AGENT_HOME="/tmp/e2e-wc-agent-${E2E_ID}"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
 
@@ -71,13 +71,13 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local
 
 cd "$PROJECT_DIR"
 
-echo "Setting up e2e environment (id: $E2E_ID)..."
+echo "Setting up e2e environment (id: $E2E_ID, port: $E2E_IRC_PORT)..."
 
 # Sync deps
 (cd "$PROJECT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
 (cd "$PROJECT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
 
-# Create project
+# Create project with unique port
 mkdir -p "$WC_AGENT_HOME/projects/e2e"
 cat > "$WC_AGENT_HOME/projects/e2e/config.toml" << EOF
 [irc]
@@ -92,54 +92,18 @@ username = "alice"
 EOF
 echo "e2e" > "$WC_AGENT_HOME/default"
 
-# Start ergo (skip if already running for this E2E_ID)
-if [ -n "$E2E_ERGO_PID" ] && kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
-    echo "  ergo already running (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
-else
-    mkdir -p "$E2E_ERGO_DIR"
-    rm -f "$E2E_ERGO_DIR/ircd.lock"  # Remove stale lock from previous run
-    [ -d "$HOME/.local/share/ergo/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ] && \
-        cp -r "$HOME/.local/share/ergo/languages" "$E2E_ERGO_DIR/"
-    ergo defaultconfig > "$E2E_ERGO_DIR/ergo.yaml" 2>/dev/null
-    sed -i '' "s|\"127.0.0.1:6667\":|\"127.0.0.1:${E2E_IRC_PORT}\":|" "$E2E_ERGO_DIR/ergo.yaml"
-    sed -i '' '/\[::1\]:6667/d' "$E2E_ERGO_DIR/ergo.yaml"
-    sed -i '' '/"[^"]*:6697":/,/min-tls-version:/d' "$E2E_ERGO_DIR/ergo.yaml"
-    local ergo_log="$E2E_ERGO_DIR/ergo.log"
-    cd "$E2E_ERGO_DIR"
-    ergo run --conf ergo.yaml >"$ergo_log" 2>&1 &
-    export E2E_ERGO_PID=$!
-    cd "$PROJECT_DIR"
-    sleep 2
-    # Check if ergo is listening on the port (PID check unreliable with subshells)
-    if ! lsof -i :"$E2E_IRC_PORT" &>/dev/null; then
-        echo "ERROR: ergo failed to start (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
-        echo "  ergo dir: $E2E_ERGO_DIR"
-        echo "  log:"
-        cat "$ergo_log" 2>/dev/null | tail -10
-        echo ""
-        echo "  Try: rm -f $E2E_ERGO_DIR/ircd.lock  (stale lock)"
-        echo "       lsof -i :$E2E_IRC_PORT           (port conflict)"
-        return 1 2>/dev/null || exit 1
-    fi
-    echo "  ergo started (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
-fi
-
 echo ""
 echo "╔══════════════════════════════════════════════╗"
-echo "║  Ready! Port: $E2E_IRC_PORT  PID: $E2E_ERGO_PID"
+echo "║  Ready! Port: $E2E_IRC_PORT  ID: $E2E_ID"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
+echo "  ./wc-agent.sh irc daemon start"
 echo "  ./wc-agent.sh irc start"
-echo "  ./wc-agent.sh irc status"
 echo "  ./wc-agent.sh agent create agent0"
 echo "  ./wc-agent.sh agent send agent0 'say hello to #general'"
 echo "  ./wc-agent.sh agent list"
-echo "  ./wc-agent.sh agent stop agent0"
 echo "  ./wc-agent.sh shutdown"
 echo ""
-echo "  In new panes, run first:"
-echo "    source tests/e2e/e2e-test-manual.sh"
-echo ""
-echo "  Cleanup:"
-echo "    source tests/e2e/e2e-cleanup.sh"
+echo "  New panes: source tests/e2e/e2e-test-manual.sh"
+echo "  Cleanup:   source tests/e2e/e2e-cleanup.sh"
 echo ""

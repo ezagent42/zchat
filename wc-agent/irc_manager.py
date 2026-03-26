@@ -21,45 +21,91 @@ class IrcManager:
         return self.config.get("irc", {})
 
     def daemon_start(self):
-        """Start local ergo IRC server."""
+        """Start local ergo IRC server on the port from project config."""
         server = self.irc_config.get("server", "127.0.0.1")
         if server not in ("127.0.0.1", "localhost", "::1"):
             print(f"IRC server is remote ({server}), no local daemon needed.")
             return
 
-        if self._is_ergo_running():
+        port = self.irc_config.get("port", 6667)
+
+        # Check if already listening on our port
+        if self._port_in_use(port):
             pid = self._state.get("irc", {}).get("daemon_pid")
-            print(f"ergo already running (pid {pid or 'unknown'}).")
+            print(f"ergo already running on port {port} (pid {pid or 'unknown'}).")
             return
 
-        ergo_data_dir = os.environ.get("ERGO_DATA_DIR",
-                                        os.path.expanduser("~/.local/share/ergo"))
+        # Use per-project ergo data dir to avoid conflicts
+        state_dir = os.path.dirname(self._state_file)
+        ergo_data_dir = os.path.join(state_dir, "ergo")
         os.makedirs(ergo_data_dir, exist_ok=True)
 
-        # Find ergo.yaml — check project dir first, then script dir
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ergo_conf = os.path.join(script_dir, "ergo.yaml")
-        if not os.path.isfile(ergo_conf):
-            print("Error: ergo.yaml not found.")
-            return
+        # Copy languages from system ergo install if needed
+        system_ergo = os.path.expanduser("~/.local/share/ergo")
+        if os.path.isdir(os.path.join(system_ergo, "languages")) and \
+           not os.path.isdir(os.path.join(ergo_data_dir, "languages")):
+            import shutil
+            shutil.copytree(os.path.join(system_ergo, "languages"),
+                            os.path.join(ergo_data_dir, "languages"))
 
-        proc = subprocess.Popen(
-            ["ergo", "run", "--conf", ergo_conf],
-            cwd=ergo_data_dir,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        time.sleep(1)
-        if proc.poll() is None:
+        # Generate ergo config with project's port
+        ergo_conf = os.path.join(ergo_data_dir, "ergo.yaml")
+        result = subprocess.run(["ergo", "defaultconfig"], capture_output=True, text=True)
+        if result.returncode != 0:
+            print("Error: 'ergo defaultconfig' failed. Is ergo installed?")
+            return
+        config_text = result.stdout
+        # Patch port
+        config_text = config_text.replace('"127.0.0.1:6667":', f'"127.0.0.1:{port}":')
+        # Remove IPv6 listener
+        lines = config_text.split('\n')
+        lines = [l for l in lines if '[::1]:6667' not in l]
+        config_text = '\n'.join(lines)
+        # Remove TLS listener (requires certs)
+        import re
+        config_text = re.sub(r'":6697":\s*\n.*?min-tls-version:.*?\n', '', config_text, flags=re.DOTALL)
+        with open(ergo_conf, 'w') as f:
+            f.write(config_text)
+
+        # Remove stale lock
+        lock_file = os.path.join(ergo_data_dir, "ircd.lock")
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
+
+        # Start ergo
+        log_file = os.path.join(ergo_data_dir, "ergo.log")
+        with open(log_file, 'w') as lf:
+            proc = subprocess.Popen(
+                ["ergo", "run", "--conf", ergo_conf],
+                cwd=ergo_data_dir,
+                stdout=lf, stderr=lf,
+            )
+        time.sleep(2)
+
+        if self._port_in_use(port):
             self._state.setdefault("irc", {})["daemon_pid"] = proc.pid
             self._save_state()
-            port = self.irc_config.get("port", 6667)
             print(f"ergo running (pid {proc.pid}, port {port}).")
         else:
-            print("Error: ergo failed to start.")
+            print(f"Error: ergo failed to start on port {port}.")
+            print(f"  Log: {log_file}")
+            try:
+                with open(log_file) as f:
+                    for line in f.readlines()[-5:]:
+                        print(f"  {line.rstrip()}")
+            except Exception:
+                pass
 
     def daemon_stop(self):
-        """Stop local ergo IRC server."""
-        subprocess.run(["pkill", "-x", "ergo"], capture_output=True)
+        """Stop local ergo IRC server (by PID or port)."""
+        port = self.irc_config.get("port", 6667)
+        pid = self._state.get("irc", {}).get("daemon_pid")
+        if pid:
+            subprocess.run(["kill", str(pid)], capture_output=True)
+        # Also kill by port in case PID is stale
+        result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+        if result.stdout.strip():
+            subprocess.run(["kill"] + result.stdout.strip().split(), capture_output=True)
         if "irc" in self._state:
             self._state["irc"].pop("daemon_pid", None)
             self._save_state()
@@ -131,9 +177,13 @@ class IrcManager:
             },
         }
 
-    def _is_ergo_running(self) -> bool:
-        return subprocess.run(["pgrep", "-x", "ergo"],
+    def _port_in_use(self, port: int) -> bool:
+        return subprocess.run(["lsof", "-i", f":{port}"],
                               capture_output=True).returncode == 0
+
+    def _is_ergo_running(self) -> bool:
+        port = self.irc_config.get("port", 6667)
+        return self._port_in_use(port)
 
     def _pane_alive(self, pane_id: str) -> bool:
         result = subprocess.run(["tmux", "list-panes", "-F", "#{pane_id}"],
