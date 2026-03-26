@@ -70,7 +70,7 @@ step "Phase 1: alice + alice-agent0"
 PANE_ALICE=$(initial_pane_id)
 mkdir -p "$ALICE_WC_DIR"
 tmux send-keys -t "$PANE_ALICE" \
-    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls -nicks=alice; /connect wc-local'" Enter
+    "weechat --dir $ALICE_WC_DIR -r '/server add wc-local 127.0.0.1/${E2E_IRC_PORT} -notls -nicks=alice; /connect wc-local'" Enter
 
 if wait_for_pane "$PANE_ALICE" "Welcome" 20 || wait_for_pane "$PANE_ALICE" "Connected" 5; then
     pass "alice: WeeChat connected to IRC"
@@ -164,7 +164,7 @@ step "Phase 4: bob joins #general"
 PANE_BOB=$(split_pane -v "$PANE_ALICE")
 mkdir -p "$BOB_WC_DIR"
 tmux send-keys -t "$PANE_BOB" \
-    "weechat --dir $BOB_WC_DIR -r '/server add wc-local 127.0.0.1/6667 -notls -nicks=bob; /connect wc-local'" Enter
+    "weechat --dir $BOB_WC_DIR -r '/server add wc-local 127.0.0.1/${E2E_IRC_PORT} -notls -nicks=bob; /connect wc-local'" Enter
 
 if wait_for_pane "$PANE_BOB" "Welcome" 20 || wait_for_pane "$PANE_BOB" "Connected" 5; then
     pass "bob: WeeChat connected to IRC"

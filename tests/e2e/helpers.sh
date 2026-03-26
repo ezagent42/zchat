@@ -1,10 +1,26 @@
 #!/bin/bash
 # helpers.sh — Shared utilities for E2E tests (IRC mode)
+#
+# Each test run uses a unique ID ($$) for:
+#   - tmux session name
+#   - ergo port (6667 + $$ % 1000)
+#   - ergo data dir (/tmp/e2e-ergo-$$/)
+#   - weechat dirs (/tmp/e2e-alice-$$, /tmp/e2e-bob-$$)
+#   - wc-agent project name
+# This prevents collisions between concurrent/leaked test runs.
 
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$E2E_DIR/../.." && pwd)"
-TMUX_SESSION="e2e-$$"
-TEST_PROJECT="e2e-test-$$"
+
+# Unique per-run IDs
+E2E_ID="$$"
+TMUX_SESSION="e2e-${E2E_ID}"
+TEST_PROJECT="e2e-test-${E2E_ID}"
+
+# Unique ergo port: 16667 + (PID % 1000) to avoid collisions with default 6667
+E2E_IRC_PORT=$((16667 + (E2E_ID % 1000)))
+E2E_ERGO_DIR="/tmp/e2e-ergo-${E2E_ID}"
+E2E_ERGO_PID=""
 
 # Source environment
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
@@ -15,12 +31,12 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local
 CLAUDE_FLAGS="--permission-mode bypassPermissions"
 CLAUDE_CHANNEL_FLAGS="--dangerously-load-development-channels server:weechat-channel"
 
-# WC_AGENT command — use uv to run the CLI with proper deps
+# WC_AGENT command
 WC_AGENT="uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT"
 
 # User directories
-ALICE_WC_DIR="/tmp/e2e-alice-$$"
-BOB_WC_DIR="/tmp/e2e-bob-$$"
+ALICE_WC_DIR="/tmp/e2e-alice-${E2E_ID}"
+BOB_WC_DIR="/tmp/e2e-bob-${E2E_ID}"
 
 # Pane names
 PANE_ALICE=""
@@ -46,13 +62,13 @@ setup_test_project() {
     (cd "$PROJECT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
     (cd "$PROJECT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
 
-    # Create test project non-interactively by writing config directly
+    # Create test project with unique port
     local project_dir="$HOME/.wc-agent/projects/$TEST_PROJECT"
     mkdir -p "$project_dir"
     cat > "$project_dir/config.toml" << TOMLEOF
 [irc]
 server = "127.0.0.1"
-port = 6667
+port = ${E2E_IRC_PORT}
 tls = false
 password = ""
 
@@ -62,28 +78,66 @@ username = "alice"
 TOMLEOF
 }
 
-cleanup() {
-    info "Cleaning up..."
-    $WC_AGENT shutdown 2>/dev/null || true
-    # Quit WeeChat instances
-    for pane in $(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_index}' 2>/dev/null); do
-        cmd=$(tmux display-message -t "$TMUX_SESSION.$pane" -p '#{pane_current_command}' 2>/dev/null)
-        if [ "$cmd" = "weechat" ]; then
-            tmux send-keys -t "$TMUX_SESSION.$pane" "/quit" Enter 2>/dev/null
-        fi
-    done
+start_ergo() {
+    # Start ergo on unique port with isolated data dir
+    mkdir -p "$E2E_ERGO_DIR"
+
+    # Copy languages if needed
+    local ergo_system_dir="$HOME/.local/share/ergo"
+    if [ -d "$ergo_system_dir/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ]; then
+        cp -r "$ergo_system_dir/languages" "$E2E_ERGO_DIR/"
+    fi
+
+    # Generate config for this test's port
+    local ergo_conf="$E2E_ERGO_DIR/ergo.yaml"
+    ergo defaultconfig > "$ergo_conf" 2>/dev/null
+
+    # Patch: listen on unique port only, remove TLS
+    sed -i '' "s|\"127.0.0.1:6667\":|\"127.0.0.1:${E2E_IRC_PORT}\":|" "$ergo_conf"
+    sed -i '' '/\[::1\]:6667/d' "$ergo_conf"
+    # Remove TLS listener (port 6697 requires certs)
+    sed -i '' '/"[^"]*:6697":/,/min-tls-version:/d' "$ergo_conf"
+
+    cd "$E2E_ERGO_DIR" && ergo run --conf "$ergo_conf" &>/dev/null &
+    E2E_ERGO_PID=$!
+    cd "$PROJECT_DIR"
     sleep 2
+
+    if kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
+        info "ergo running (pid $E2E_ERGO_PID, port $E2E_IRC_PORT)"
+        return 0
+    else
+        info "ergo failed to start"
+        return 1
+    fi
+}
+
+cleanup() {
+    info "Cleaning up (e2e-${E2E_ID})..."
+
+    # 1. Stop agents via wc-agent
+    $WC_AGENT shutdown 2>/dev/null || true
+
+    # 2. Kill weechat processes from THIS test run's dirs
+    pkill -9 -f "weechat.*--dir /tmp/e2e-alice-${E2E_ID}" 2>/dev/null
+    pkill -9 -f "weechat.*--dir /tmp/e2e-bob-${E2E_ID}" 2>/dev/null
+
+    # 3. Kill THIS test's ergo (by PID, not by name)
+    if [ -n "$E2E_ERGO_PID" ]; then
+        kill "$E2E_ERGO_PID" 2>/dev/null
+        kill -9 "$E2E_ERGO_PID" 2>/dev/null
+    fi
+
+    # 4. Kill tmux session
     tmux kill-session -t "$TMUX_SESSION" 2>/dev/null
-    pkill -f "ergo.*ergo-test" 2>/dev/null
-    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR"
-    # Remove test project
+
+    # 5. Clean temp dirs
+    rm -rf "$ALICE_WC_DIR" "$BOB_WC_DIR" "$E2E_ERGO_DIR"
     rm -rf "$HOME/.wc-agent/projects/$TEST_PROJECT"
+
+    info "Cleanup done."
 }
 trap cleanup EXIT
-
-start_ergo() {
-    $WC_AGENT irc daemon start 2>/dev/null || true
-}
 
 wc_agent() {
     $WC_AGENT "$@"
