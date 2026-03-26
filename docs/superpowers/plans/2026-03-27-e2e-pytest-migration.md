@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-27-e2e-pytest-migration.md`
 
+### Review Corrections (apply during implementation)
+
+1. **conftest.py `weechat_pane` fixture**: spec says `state["weechat_pane"]` — must be `state["irc"]["weechat_pane_id"]` (matches irc_manager.py)
+2. **Delete `ergo-test.yaml`**: spec says "Keep" but conftest generates config dynamically — delete it in Task 6
+3. **Delete `e2e-test.tape`**: references deleted `e2e-test.sh` and stale zenohd — delete in Task 6
+4. **Manual test docs**: use `wc-agent` CLI commands (not `./wc-agent.sh` wrapper)
+5. **`pytest.ini`**: add `e2e` marker registration alongside existing `integration` marker (Task 2)
+
 ---
 
 ## File Structure
@@ -30,6 +38,8 @@ tests/e2e/e2e-test-manual.sh   # Renamed to e2e-setup.sh
 tests/e2e/e2e-cleanup.sh       # Replaced by fixture teardown
 tests/e2e/helpers.sh            # Migrated to Python
 tests/e2e/test-config.toml     # Replaced by dynamic config in conftest
+tests/e2e/ergo-test.yaml       # Conftest generates config dynamically
+tests/e2e/e2e-test.tape         # References deleted scripts + stale deps
 ```
 
 ### Modify
@@ -176,7 +186,7 @@ git commit -m "docs: recreate e2e manual test guide"
 - [ ] **Step 1: Delete files**
 
 ```bash
-rm tests/e2e/e2e-test.sh tests/e2e/e2e-cleanup.sh tests/e2e/helpers.sh tests/e2e/test-config.toml
+rm -f tests/e2e/e2e-test.sh tests/e2e/e2e-cleanup.sh tests/e2e/helpers.sh tests/e2e/test-config.toml tests/e2e/ergo-test.yaml tests/e2e/e2e-test.tape
 ```
 
 - [ ] **Step 2: Update CLAUDE.md** — change e2e test command from `bash tests/e2e/e2e-test.sh` to `pytest tests/e2e/ -v -m e2e`
