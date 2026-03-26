@@ -37,7 +37,12 @@ tests/e2e/helpers.sh        # Migrated to Python
 
 ```
 tests/e2e/ergo-test.yaml    # Ergo config template (used by conftest.py)
-tests/e2e/test-config.toml  # Not needed (conftest generates config dynamically)
+```
+
+### Delete (continued)
+
+```
+tests/e2e/test-config.toml  # Replaced by conftest.py dynamic config generation
 ```
 
 ## IrcProbe Class
@@ -59,6 +64,7 @@ class IrcProbe:
         self.port = port
         self.nick = nick
         self.messages: list[dict] = []  # {"nick": str, "channel": str, "text": str}
+        self._lock = threading.Lock()   # Protects self.messages (thread-safe appends)
         self._reactor = irc.client.Reactor()
         self._conn = None
         self._thread = None
@@ -80,21 +86,26 @@ class IrcProbe:
         if self._conn:
             self._conn.disconnect()
 
-    def nick_exists(self, nick: str) -> bool:
-        """Check if a nick is online via WHOIS."""
-        # Synchronous WHOIS using a separate short-lived connection
-        result = {"found": False}
-        def on_whois(conn, event):
-            if event.arguments and nick.lower() in str(event.arguments).lower():
-                result["found"] = True
-        reactor = irc.client.Reactor()
-        conn = reactor.server().connect(self.server, self.port, f"probe-{id(self) % 10000}")
-        conn.add_global_handler("whoisuser", on_whois)
-        conn.whois([nick])
-        deadline = time.time() + 3
-        while time.time() < deadline and not result["found"]:
-            reactor.process_once(timeout=0.1)
-        conn.disconnect()
+    def nick_exists(self, nick: str, timeout: float = 3.0) -> bool:
+        """Check if a nick is online via WHOIS on the persistent connection."""
+        result = {"found": False, "done": False}
+
+        def on_whoisuser(conn, event):
+            result["found"] = True
+            result["done"] = True
+
+        def on_endofwhois(conn, event):
+            result["done"] = True
+
+        self._conn.add_global_handler("whoisuser", on_whoisuser)
+        self._conn.add_global_handler("endofwhois", on_endofwhois)
+        self._conn.whois([nick])
+        deadline = time.time() + timeout
+        while time.time() < deadline and not result["done"]:
+            time.sleep(0.1)
+        # Remove handlers to avoid accumulation across calls
+        self._conn.remove_global_handler("whoisuser", on_whoisuser)
+        self._conn.remove_global_handler("endofwhois", on_endofwhois)
         return result["found"]
 
     def wait_for_nick(self, nick: str, timeout: int = 5) -> bool:
@@ -119,28 +130,32 @@ class IrcProbe:
         """Wait for a message matching pattern. Returns the message dict or None."""
         import re
         deadline = time.time() + timeout
-        seen = len(self.messages)
-        while time.time() < deadline:
-            for msg in self.messages[seen:]:
-                if re.search(pattern, msg["text"], re.IGNORECASE):
-                    return msg
+        with self._lock:
             seen = len(self.messages)
+        while time.time() < deadline:
+            with self._lock:
+                for msg in self.messages[seen:]:
+                    if re.search(pattern, msg["text"], re.IGNORECASE):
+                        return msg
+                seen = len(self.messages)
             time.sleep(0.5)
         return None
 
     def _on_pubmsg(self, conn, event):
-        self.messages.append({
-            "nick": event.source.nick,
-            "channel": event.target,
-            "text": event.arguments[0],
-        })
+        with self._lock:
+            self.messages.append({
+                "nick": event.source.nick,
+                "channel": event.target,
+                "text": event.arguments[0],
+            })
 
     def _on_privmsg(self, conn, event):
-        self.messages.append({
-            "nick": event.source.nick,
-            "channel": None,
-            "text": event.arguments[0],
-        })
+        with self._lock:
+            self.messages.append({
+                "nick": event.source.nick,
+                "channel": None,
+                "text": event.arguments[0],
+            })
 ```
 
 ## Pytest Fixtures
@@ -149,36 +164,13 @@ class IrcProbe:
 # tests/e2e/conftest.py
 
 import os
-import json
+import socket
 import shutil
 import subprocess
 import tempfile
 import time
 import pytest
 from irc_probe import IrcProbe
-
-WC_AGENT_HOME = None  # Set per-session
-
-
-def wc_agent(*args):
-    """Run wc-agent CLI command."""
-    project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    cmd = [
-        "uv", "run", "--project", os.path.join(project_dir, "wc-agent"),
-        "python", "-m", "wc_agent.cli",
-        "--project", "e2e-test",
-        *args,
-    ]
-    env = os.environ.copy()
-    env["WC_AGENT_HOME"] = WC_AGENT_HOME
-    if "WC_TMUX_SESSION" not in env:
-        env["WC_TMUX_SESSION"] = tmux_session_name()
-    return subprocess.run(cmd, env=env, capture_output=True, text=True)
-
-
-def tmux_send_keys(pane_id: str, text: str):
-    """Send keys to a tmux pane."""
-    subprocess.run(["tmux", "send-keys", "-t", pane_id, text, "Enter"], capture_output=True)
 
 
 @pytest.fixture(scope="session")
@@ -211,10 +203,23 @@ def ergo_server(e2e_port):
         cwd=ergo_dir,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    time.sleep(2)
+    # Wait for ergo to accept connections (socket check, max 10s)
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", e2e_port), timeout=0.5):
+                break
+        except OSError:
+            time.sleep(0.2)
+    else:
+        proc.kill()
+        raise RuntimeError(f"ergo did not accept connections on port {e2e_port}")
     yield {"host": "127.0.0.1", "port": e2e_port, "proc": proc, "dir": ergo_dir}
     proc.terminate()
-    proc.wait(timeout=5)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
     shutil.rmtree(ergo_dir, ignore_errors=True)
 
 
@@ -228,33 +233,61 @@ def tmux_session():
 
 
 @pytest.fixture(scope="session")
-def project(ergo_server):
-    """Create wc-agent project with test config."""
-    global WC_AGENT_HOME
-    WC_AGENT_HOME = tempfile.mkdtemp(prefix="e2e-wc-agent-")
-    project_dir = os.path.join(WC_AGENT_HOME, "projects", "e2e-test")
+def e2e_context(ergo_server, tmux_session):
+    """Central context dict shared by all e2e fixtures."""
+    home = tempfile.mkdtemp(prefix="e2e-wc-agent-")
+    project_dir = os.path.join(home, "projects", "e2e-test")
     os.makedirs(project_dir)
-    config = {
-        "irc": {
-            "server": ergo_server["host"],
-            "port": ergo_server["port"],
-            "tls": False,
-            "password": "",
-        },
-        "agents": {
-            "default_channels": ["#general"],
-            "username": "alice",
-        },
-    }
-    # Write TOML manually
+    # Write project config
     with open(os.path.join(project_dir, "config.toml"), "w") as f:
-        f.write(f'[irc]\nserver = "{config["irc"]["server"]}"\n')
-        f.write(f'port = {config["irc"]["port"]}\ntls = false\npassword = ""\n\n')
+        f.write(f'[irc]\nserver = "{ergo_server["host"]}"\n')
+        f.write(f'port = {ergo_server["port"]}\ntls = false\npassword = ""\n\n')
         f.write('[agents]\ndefault_channels = ["#general"]\nusername = "alice"\n')
-    with open(os.path.join(WC_AGENT_HOME, "default"), "w") as f:
+    with open(os.path.join(home, "default"), "w") as f:
         f.write("e2e-test")
-    yield "e2e-test"
-    shutil.rmtree(WC_AGENT_HOME, ignore_errors=True)
+    ctx = {
+        "home": home,
+        "project": "e2e-test",
+        "tmux_session": tmux_session,
+        "port": ergo_server["port"],
+    }
+    yield ctx
+    shutil.rmtree(home, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def wc_agent(e2e_context):
+    """Returns a callable for running wc-agent CLI commands.
+
+    Passes WC_AGENT_HOME and WC_TMUX_SESSION only to subprocesses —
+    never mutates os.environ.
+    """
+    project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    def run(*args):
+        cmd = [
+            "uv", "run", "--project", os.path.join(project_dir, "wc-agent"),
+            "python", "-m", "wc_agent.cli",
+            "--project", e2e_context["project"],
+            *args,
+        ]
+        env = os.environ.copy()
+        env["WC_AGENT_HOME"] = e2e_context["home"]
+        env["WC_TMUX_SESSION"] = e2e_context["tmux_session"]
+        return subprocess.run(cmd, env=env, capture_output=True, text=True)
+
+    return run
+
+
+@pytest.fixture(scope="session")
+def tmux_send(e2e_context):
+    """Returns a callable for sending keys to a tmux pane."""
+    def send(pane_id: str, text: str):
+        subprocess.run(
+            ["tmux", "send-keys", "-t", pane_id, text, "Enter"],
+            capture_output=True,
+        )
+    return send
 
 
 @pytest.fixture(scope="session")
@@ -270,17 +303,35 @@ def irc_probe(ergo_server):
 
 
 @pytest.fixture(scope="session")
-def weechat_pane(ergo_server, tmux_session, project):
-    """Start WeeChat in tmux via wc-agent irc start."""
-    os.environ["WC_TMUX_SESSION"] = tmux_session
-    result = wc_agent("irc", "start")
+def weechat_pane(ergo_server, e2e_context, wc_agent):
+    """Start WeeChat in tmux via wc-agent irc start. Yields the pane_id from state.json."""
+    wc_agent("irc", "start")
     time.sleep(3)
-    # Read pane ID from state
-    yield tmux_session  # Commands use the session
+    # Read actual pane ID written by wc-agent into state.json
+    state_path = os.path.join(
+        e2e_context["home"], "projects", e2e_context["project"], "state.json"
+    )
+    import json
+    with open(state_path) as f:
+        state = json.load(f)
+    pane_id = state["weechat_pane"]
+    yield pane_id
     wc_agent("irc", "stop")
 ```
 
+### pytest marker registration
+
+Add to `tests/e2e/conftest.py` (or a top-level `conftest.py`):
+
+```python
+def pytest_configure(config):
+    config.addinivalue_line("markers", "e2e: end-to-end tests requiring ergo + tmux")
+```
+
 ## Test Cases
+
+A single test function with sequential phases eliminates pytest ordering ambiguity
+and mirrors the structure of the original bash script.
 
 ```python
 # tests/e2e/test_e2e.py
@@ -288,53 +339,45 @@ def weechat_pane(ergo_server, tmux_session, project):
 import pytest
 import time
 
-class TestE2ELifecycle:
-    """Full e2e test simulating real user operations."""
 
-    def test_weechat_connects(self, weechat_pane, irc_probe):
-        """wc-agent irc start → WeeChat connects to IRC."""
-        assert irc_probe.wait_for_nick("alice", timeout=5)
+@pytest.mark.e2e
+def test_full_e2e_lifecycle(wc_agent, irc_probe, weechat_pane, tmux_send):
+    """Full e2e test — sequential phases matching real user workflow."""
 
-    def test_agent_joins_irc(self, weechat_pane, irc_probe, project, tmux_session):
-        """wc-agent agent create agent0 → agent joins IRC."""
-        wc_agent("agent", "create", "agent0")
-        assert irc_probe.wait_for_nick("alice-agent0", timeout=15)
+    # Phase 1: WeeChat connected
+    assert irc_probe.wait_for_nick("alice", timeout=5), "alice not on IRC after irc start"
 
-    def test_agent_send_to_channel(self, irc_probe):
-        """wc-agent agent send → agent replies to #general."""
-        wc_agent("agent", "send", "agent0",
-                 'Use the reply MCP tool to send "Hello from agent0!" to #general')
-        msg = irc_probe.wait_for_message("Hello from agent0", timeout=15)
-        assert msg is not None
-        assert msg["nick"] == "alice-agent0"
+    # Phase 2: Create agent0 — joins IRC
+    wc_agent("agent", "create", "agent0")
+    assert irc_probe.wait_for_nick("alice-agent0", timeout=15), "agent0 not on IRC"
 
-    def test_mention_triggers_reply(self, weechat_pane, irc_probe, tmux_session):
-        """@mention in WeeChat → agent auto-responds via IRC."""
-        # Get WeeChat pane and send @mention
-        # (read pane_id from state.json)
-        tmux_send_keys(weechat_pane, "@alice-agent0 what is 2+2?")
-        msg = irc_probe.wait_for_message("alice-agent0", timeout=15)
-        assert msg is not None
+    # Phase 3: agent send — agent replies to channel
+    wc_agent("agent", "send", "agent0",
+             'Use the reply MCP tool to send "Hello from agent0!" to #general')
+    msg = irc_probe.wait_for_message("Hello from agent0", timeout=15)
+    assert msg is not None, "agent0 message not received in #general"
+    assert msg["nick"] == "alice-agent0"
 
-    def test_second_agent(self, irc_probe, project, tmux_session):
-        """wc-agent agent create agent1 → joins IRC, sends message."""
-        wc_agent("agent", "create", "agent1")
-        assert irc_probe.wait_for_nick("alice-agent1", timeout=15)
+    # Phase 4: @mention in WeeChat — agent auto-responds
+    tmux_send(weechat_pane, "@alice-agent0 what is 2+2?")
+    reply = irc_probe.wait_for_message("alice-agent0", timeout=15)
+    assert reply is not None, "agent0 did not respond to @mention"
 
-        wc_agent("agent", "send", "agent1",
-                 'Use the reply MCP tool to send "hello from agent1" to #general')
-        msg = irc_probe.wait_for_message("agent1", timeout=15)
-        assert msg is not None
+    # Phase 5: Second agent — create, send, verify
+    wc_agent("agent", "create", "agent1")
+    assert irc_probe.wait_for_nick("alice-agent1", timeout=15), "agent1 not on IRC"
+    wc_agent("agent", "send", "agent1",
+             'Use the reply MCP tool to send "hello from agent1" to #general')
+    msg1 = irc_probe.wait_for_message("agent1", timeout=15)
+    assert msg1 is not None, "agent1 message not received"
 
-    def test_agent_stop(self, irc_probe):
-        """wc-agent agent stop → agent leaves IRC."""
-        wc_agent("agent", "stop", "agent1")
-        assert irc_probe.wait_for_nick_gone("alice-agent1", timeout=10)
+    # Phase 6: Stop agent1 — leaves IRC
+    wc_agent("agent", "stop", "agent1")
+    assert irc_probe.wait_for_nick_gone("alice-agent1", timeout=10), "agent1 still on IRC after stop"
 
-    def test_shutdown(self, irc_probe):
-        """wc-agent shutdown → all agents + WeeChat gone."""
-        wc_agent("shutdown")
-        assert irc_probe.wait_for_nick_gone("alice-agent0", timeout=10)
+    # Phase 7: Shutdown — all agents + WeeChat gone
+    wc_agent("shutdown")
+    assert irc_probe.wait_for_nick_gone("alice-agent0", timeout=10), "agent0 still on IRC after shutdown"
 ```
 
 ## Manual Testing
@@ -351,10 +394,10 @@ Step-by-step guide with expected results. Recreated after migration (was deleted
 
 ```bash
 # Automated (all e2e tests)
-pytest tests/e2e/ -v --timeout=300
+pytest tests/e2e/ -v -m e2e --timeout=300
 
-# Single test
-pytest tests/e2e/test_e2e.py::TestE2ELifecycle::test_agent_joins_irc -v
+# Single test (entire lifecycle as one function)
+pytest tests/e2e/test_e2e.py::test_full_e2e_lifecycle -v
 
 # Manual
 source tests/e2e/e2e-setup.sh
