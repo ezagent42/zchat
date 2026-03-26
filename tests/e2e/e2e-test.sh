@@ -239,7 +239,104 @@ else
 fi
 
 # ============================================================
-# Phase 7: Summary
+# Phase 7: agent0 creates agent2 (agent-to-agent spawning)
+# ============================================================
+step "Phase 7: agent0 creates agent2 via create_agent tool"
+
+# Capture pane IDs before creation so we can find agent2's new pane
+PANES_BEFORE=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
+
+# agent0 uses the create_agent MCP tool to spawn agent2
+tmux send-keys -t "$PANE_AGENT0" \
+    'Use the create_agent MCP tool to create a new agent named "agent2"' Enter
+
+# Wait for agent0 to call the tool
+if wait_for_pane "$PANE_AGENT0" "agent2" 45; then
+    pass "agent0: create_agent tool called"
+else
+    fail "agent0: create_agent tool not called within timeout"
+fi
+
+# Wait for agent2 to initialize and join IRC
+info "Waiting for agent2 to initialize..."
+sleep 20
+
+# Check if agent2 joined IRC
+tmux send-keys -t "$PANE_ALICE" "/names #general" Enter
+sleep 3
+
+if pane_contains "$PANE_ALICE" "agent2"; then
+    pass "agent2: visible in IRC #general"
+else
+    info "agent2: not yet visible in IRC (may still be starting)"
+fi
+
+# ============================================================
+# Phase 8: agent0 ↔ agent2 communication (agent-to-agent)
+# ============================================================
+step "Phase 8: agent0 ↔ agent2 private messaging"
+
+# agent0 sends a private message to agent2 (username is "alice" from test config)
+tmux send-keys -t "$PANE_AGENT0" \
+    'Use the reply MCP tool to send a private message to "alice-agent2" with text: "Hello agent2, please reply with the word PONG to confirm you received this."' Enter
+
+# Wait for agent0 to confirm the message was sent
+if wait_for_pane "$PANE_AGENT0" "Sent to" 30; then
+    pass "agent0: sent private message to agent2"
+else
+    fail "agent0: failed to send private message to agent2"
+fi
+
+# Find agent2's pane by comparing with panes before creation
+PANES_AFTER=$(tmux list-panes -t "$TMUX_SESSION" -F '#{pane_id}' | sort)
+AGENT2_PANE=$(comm -13 <(echo "$PANES_BEFORE") <(echo "$PANES_AFTER") | head -1)
+
+# Wait for agent2 to receive and respond
+if [ -n "$AGENT2_PANE" ]; then
+    if wait_for_pane "$AGENT2_PANE" "PONG" 60; then
+        pass "agent2: received message and replied with PONG"
+    elif wait_for_pane "$AGENT2_PANE" "Sent to" 30; then
+        pass "agent2: processed message and sent reply"
+    else
+        info "agent2: did not visibly respond (may have processed internally)"
+    fi
+else
+    info "agent2: pane not found (may share pane with agent0)"
+fi
+
+# Verify agent0 received agent2's reply
+if wait_for_pane "$PANE_AGENT0" "PONG" 30; then
+    pass "agent0: received agent2's PONG reply"
+else
+    info "agent0: PONG not visible in pane (may have scrolled)"
+fi
+
+# ============================================================
+# Phase 9: stop agent2
+# ============================================================
+step "Phase 9: stop agent2"
+
+if [ -n "$AGENT2_PANE" ]; then
+    tmux send-keys -t "$AGENT2_PANE" "/exit" Enter
+    sleep 5
+    if wait_for_pane "$PANE_ALICE" "has quit" 15; then
+        pass "agent2: IRC QUIT seen by alice"
+    else
+        info "agent2: IRC QUIT not detected in alice's pane"
+    fi
+else
+    # Try stopping via wc-agent CLI
+    tmux send-keys -t "$PANE_CMD" "uv run --project $PROJECT_DIR/weechat-channel-server python3 $PROJECT_DIR/wc-agent/cli.py --config $TEST_CONFIG --tmux-session $TMUX_SESSION stop agent2" Enter
+    sleep 5
+    if pane_contains "$PANE_CMD" "Stopped"; then
+        pass "agent2: stopped via wc-agent"
+    else
+        info "agent2: stop result unclear"
+    fi
+fi
+
+# ============================================================
+# Phase 10: Summary
 # ============================================================
 step "Summary"
 

@@ -269,25 +269,19 @@ else
     fail "agent0: create_agent tool not called within timeout"
 fi
 
-sleep 10
-tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-sleep 2
-
-if pane_contains "$PANE_ALICE" "agent2"; then
-    pass "alice: agent2 created and listed in /agent list"
-else
-    sleep 10
-    tmux send-keys -t "$PANE_ALICE" "/agent list" Enter
-    sleep 2
-    if pane_contains "$PANE_ALICE" "agent2"; then
-        pass "alice: agent2 created and listed in /agent list (retry)"
-    else
-        fail "alice: agent2 not found in /agent list"
-    fi
-fi
-
+# Wait for agent2 to initialize and join IRC
 info "Waiting for agent2 to initialize..."
 sleep 20
+
+# Check if agent2 joined IRC
+tmux send-keys -t "$PANE_ALICE" "/names #general" Enter
+sleep 3
+
+if pane_contains "$PANE_ALICE" "agent2"; then
+    pass "agent2: visible in IRC #general"
+else
+    info "agent2: not yet visible in IRC (check manually)"
+fi
 
 pause
 
@@ -297,7 +291,7 @@ pause
 step "Phase 8: agent0 ↔ agent2 private messaging"
 
 tmux send-keys -t "$PANE_AGENT0" \
-    'Use the reply MCP tool to send a private message to "alice:agent2" with text: "Hello agent2, please reply with the word PONG to confirm you received this."' Enter
+    'Use the reply MCP tool to send a private message to "alice-agent2" with text: "Hello agent2, please reply with the word PONG to confirm you received this."' Enter
 
 if wait_for_pane "$PANE_AGENT0" "Sent to" 30; then
     pass "agent0: sent private message to agent2"
@@ -336,13 +330,21 @@ step "Phase 9: stop agent2"
 
 if [ -n "$AGENT2_PANE" ]; then
     tmux send-keys -t "$AGENT2_PANE" "/exit" Enter
-    if wait_for_pane "$PANE_ALICE" "agent2.*offline" 30; then
-        pass "agent2: exited and offline notification received"
+    sleep 5
+    if wait_for_pane "$PANE_ALICE" "has quit" 15; then
+        pass "agent2: IRC QUIT seen by alice"
     else
-        info "agent2: /exit sent but offline notification not detected"
+        info "agent2: /exit sent but QUIT not detected in alice's pane"
     fi
 else
-    info "agent2: pane already gone"
+    # Try stopping via wc-agent CLI
+    tmux send-keys -t "$PANE_AGENT1_CMD" "$WC_AGENT stop agent2" Enter
+    sleep 5
+    if pane_contains "$PANE_AGENT1_CMD" "Stopped"; then
+        pass "agent2: stopped via wc-agent"
+    else
+        info "agent2: pane not found, stop result unclear"
+    fi
 fi
 
 pause

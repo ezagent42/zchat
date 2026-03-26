@@ -124,6 +124,7 @@ class AgentManager:
                         "IRC_PORT": str(self.irc_port),
                         "IRC_CHANNELS": channels_str,
                         "IRC_TLS": str(self.irc_tls).lower(),
+                        "WC_TMUX_SESSION": self.tmux_session,
                     },
                 }
             }

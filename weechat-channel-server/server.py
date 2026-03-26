@@ -200,7 +200,8 @@ When you receive a channel notification:
 2. If addressed to you or relevant, respond using the "reply" tool with the same chat_id
 3. For private messages requesting you to stop/exit, save any work and run /exit
 
-Use the "reply" tool to send messages. Use "join_channel" to join new channels."""
+Use the "reply" tool to send messages. Use "join_channel" to join new channels.
+Use "create_agent" to spawn a new agent that can help with tasks."""
 
 
 def create_server():
@@ -242,6 +243,17 @@ def register_tools(server: Server, state: dict):
                     "required": ["channel_name"],
                 },
             ),
+            Tool(
+                name="create_agent",
+                description="Create a new Claude Code agent that joins IRC and can collaborate with you.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Agent name (e.g. 'agent2', 'helper')"},
+                    },
+                    "required": ["name"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -251,6 +263,8 @@ def register_tools(server: Server, state: dict):
             return await _handle_reply(conn, arguments)
         elif name == "join_channel":
             return await _handle_join_channel(conn, arguments)
+        elif name == "create_agent":
+            return await _handle_create_agent(arguments)
         raise ValueError(f"Unknown tool: {name}")
 
 async def _handle_reply(connection, arguments: dict) -> list[TextContent]:
@@ -267,6 +281,38 @@ async def _handle_join_channel(connection, arguments: dict) -> list[TextContent]
     channel = arguments["channel_name"]
     connection.join(f"#{channel}")
     return [TextContent(type="text", text=f"Joined #{channel}")]
+
+
+async def _handle_create_agent(arguments: dict) -> list[TextContent]:
+    """Create a new agent by invoking wc-agent CLI as subprocess."""
+    import subprocess as sp
+    name = arguments["name"]
+    # Find wc-agent CLI relative to channel-server
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    cli_path = os.path.join(script_dir, "..", "wc-agent", "cli.py")
+    config_path = os.path.join(script_dir, "..", "weechat-claude.toml")
+
+    # Build command — pass config and tmux session from env if available
+    cmd = [sys.executable, cli_path]
+    if os.path.isfile(config_path):
+        cmd.extend(["--config", config_path])
+    tmux_session = os.environ.get("WC_TMUX_SESSION")
+    if tmux_session:
+        cmd.extend(["--tmux-session", tmux_session])
+    cmd.extend(["create", name])
+
+    try:
+        result = sp.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            print(f"[channel-server] Created agent {name}: {output}", file=sys.stderr)
+            return [TextContent(type="text", text=f"Agent {name} created. {output}")]
+        else:
+            error = result.stderr.strip() or result.stdout.strip()
+            print(f"[channel-server] Failed to create agent {name}: {error}", file=sys.stderr)
+            return [TextContent(type="text", text=f"Failed to create agent {name}: {error}")]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error creating agent {name}: {e}")]
 
 # ============================================================
 # Main
