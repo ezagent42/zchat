@@ -19,7 +19,14 @@ cd ~/Workspace/weechat-claude
 (cd weechat-channel-server && uv sync)
 ```
 
-All commands below use the wrapper script at project root:
+All commands must be run **inside a tmux session**. Start one first:
+
+```bash
+tmux -CC new -s weechat-claude    # iTerm2 (native tabs/panes)
+tmux new -s weechat-claude         # standard terminal
+```
+
+Then use the wrapper script:
 
 ```bash
 ./wc-agent.sh <command>
@@ -69,24 +76,13 @@ pgrep -x ergo && echo "running"
 
 ## Step 2: Start WeeChat
 
-**Option A — via CLI (recommended):**
-
 ```bash
 ./wc-agent.sh irc start
 ```
 
-This creates a tmux session (`weechat-claude`), spawns WeeChat in a pane, and auto-connects to IRC. Then attach to observe:
+A new tmux pane opens with WeeChat, auto-connected to IRC. The pane is labeled `weechat (alice)` in iTerm2 tabs.
 
-```bash
-tmux -CC attach -t weechat-claude    # iTerm2 (native tabs/panes)
-tmux attach -t weechat-claude        # standard terminal
-```
-
-**Option B — manually in a separate terminal:**
-
-```bash
-weechat -r '/server add wc-local 127.0.0.1/6667 -notls -nicks=alice; /connect wc-local; /join #general'
-```
+Switch to the WeeChat pane to observe: `Ctrl+b, arrow keys` (or click the tab in iTerm2).
 
 ## Step 3: Check IRC status
 

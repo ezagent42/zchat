@@ -16,7 +16,7 @@ CLAUDE_FLAGS="--permission-mode bypassPermissions"
 CLAUDE_CHANNEL_FLAGS="--dangerously-load-development-channels server:weechat-channel"
 
 # WC_AGENT command — use uv to run the CLI with proper deps
-WC_AGENT="uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT --tmux-session $TMUX_SESSION"
+WC_AGENT="uv run --project $PROJECT_DIR/wc-agent python -m wc_agent.cli --project $TEST_PROJECT"
 
 # User directories
 ALICE_WC_DIR="/tmp/e2e-alice-$$"

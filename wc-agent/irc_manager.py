@@ -72,14 +72,6 @@ class IrcManager:
             print(f"WeeChat already running (pane {existing}).")
             return
 
-        # Ensure tmux session exists
-        subprocess.run(["tmux", "has-session", "-t", self.tmux_session],
-                       capture_output=True)
-        if subprocess.run(["tmux", "has-session", "-t", self.tmux_session],
-                          capture_output=True).returncode != 0:
-            subprocess.run(["tmux", "new-session", "-d", "-s", self.tmux_session,
-                            "-x", "220", "-y", "60"])
-
         server = self.irc_config.get("server", "127.0.0.1")
         port = self.irc_config.get("port", 6667)
         tls = self.irc_config.get("tls", False)
@@ -101,6 +93,9 @@ class IrcManager:
             capture_output=True, text=True,
         )
         pane_id = result.stdout.strip()
+        # Set pane title for iTerm2 tab display
+        subprocess.run(["tmux", "select-pane", "-t", pane_id, "-T", f"weechat ({nick})"],
+                       capture_output=True)
         self._state.setdefault("irc", {})["weechat_pane_id"] = pane_id
         self._save_state()
         print(f"WeeChat started (pane {pane_id}, nick {nick}).")

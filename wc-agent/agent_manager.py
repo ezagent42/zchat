@@ -153,6 +153,9 @@ class AgentManager:
             capture_output=True, text=True,
         )
         pane_id = result.stdout.strip()
+        # Set pane title for iTerm2 tab display
+        subprocess.run(["tmux", "select-pane", "-t", pane_id, "-T", f"agent: {name}"],
+                       capture_output=True)
         # Auto-confirm development channels prompt after 3s
         subprocess.Popen(
             ["bash", "-c", f"sleep 3 && tmux send-keys -t {pane_id} Enter"],

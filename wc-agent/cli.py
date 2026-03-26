@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 from typing import Optional
@@ -69,15 +70,48 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
 # Global options
 # ============================================================
 
+def _check_tmux():
+    """Ensure we're running inside tmux. Exit with help if not."""
+    if not os.environ.get("TMUX"):
+        typer.echo("Error: wc-agent must be run inside a tmux session.")
+        typer.echo("")
+        typer.echo("Start a new tmux session first:")
+        typer.echo("  tmux -CC new -s weechat-claude    # iTerm2 native integration")
+        typer.echo("  tmux new -s weechat-claude         # standard terminal")
+        typer.echo("")
+        typer.echo("Then run wc-agent commands inside that session.")
+        raise typer.Exit(1)
+
+
+def _current_tmux_session() -> str:
+    """Get the current tmux session name."""
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "#S"],
+        capture_output=True, text=True,
+    )
+    return result.stdout.strip()
+
+
+def _require_tmux(ctx: typer.Context):
+    """Check tmux and set session in context. Call from commands that create panes."""
+    _check_tmux()
+    ctx.obj["tmux_session"] = _current_tmux_session()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
     project: Optional[str] = typer.Option(None, help="Project name (overrides auto-detection)"),
-    tmux_session: str = typer.Option("weechat-claude", "--tmux-session", help="tmux session name"),
 ):
     """Claude Code agent lifecycle management."""
     ctx.ensure_object(dict)
-    ctx.obj["tmux_session"] = tmux_session
+
+    # Set tmux session if inside tmux (optional for daemon/project/shutdown commands)
+    if os.environ.get("TMUX"):
+        ctx.obj["tmux_session"] = _current_tmux_session()
+    else:
+        ctx.obj["tmux_session"] = "weechat-claude"  # fallback for non-pane commands
+
     resolved = resolve_project(explicit=project)
     if resolved:
         try:
@@ -207,6 +241,7 @@ def cmd_irc_start(
     nick: Optional[str] = typer.Option(None, help="Override nickname from config"),
 ):
     """Start WeeChat in tmux, auto-connect to IRC."""
+    _require_tmux(ctx)
     mgr = _get_irc_manager(ctx)
     mgr.start_weechat(nick_override=nick)
 
@@ -248,6 +283,7 @@ def cmd_agent_create(
     channels: Optional[str] = typer.Option(None, help="Comma-separated channels to join"),
 ):
     """Create and launch a new agent."""
+    _require_tmux(ctx)
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
     info = mgr.create(name, workspace=workspace, channels=ch)
@@ -311,6 +347,7 @@ def cmd_agent_send(
     text: str = typer.Argument(..., help="Text to send to agent's tmux pane"),
 ):
     """Send text to agent's tmux pane (tmux send-keys)."""
+    _require_tmux(ctx)
     mgr = _get_agent_manager(ctx)
     scoped = mgr.scoped(name)
     mgr.send(name, text)
@@ -319,6 +356,7 @@ def cmd_agent_send(
 @agent_app.command("restart")
 def cmd_agent_restart(ctx: typer.Context, name: str = typer.Argument(...)):
     """Restart an agent (stop + create with same config)."""
+    _require_tmux(ctx)
     mgr = _get_agent_manager(ctx)
     scoped = mgr.scoped(name)
     mgr.restart(name)
