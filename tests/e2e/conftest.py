@@ -28,16 +28,15 @@ def ergo_server(e2e_port):
     system_langs = os.path.expanduser("~/.local/share/ergo/languages")
     if os.path.isdir(system_langs):
         shutil.copytree(system_langs, os.path.join(ergo_dir, "languages"))
-    # Generate config
-    result = subprocess.run(["ergo", "defaultconfig"], capture_output=True, text=True)
-    config = result.stdout.replace('"127.0.0.1:6667":', f'"127.0.0.1:{e2e_port}":')
-    config = "\n".join(l for l in config.split("\n") if "[::1]:6667" not in l)
-    # Remove TLS listener
-    import re
-    config = re.sub(r'":6697":\s*\n.*?min-tls-version:.*?\n', '', config, flags=re.DOTALL)
+    # Generate config — use sed for TLS removal (matches proven bash approach)
     conf_path = os.path.join(ergo_dir, "ergo.yaml")
-    with open(conf_path, "w") as f:
-        f.write(config)
+    subprocess.run(["ergo", "defaultconfig"], stdout=open(conf_path, "w"), stderr=subprocess.DEVNULL)
+    # Patch port
+    subprocess.run(["sed", "-i", "", f's|"127.0.0.1:6667":|"127.0.0.1:{e2e_port}":|', conf_path])
+    # Remove IPv6 listener
+    subprocess.run(["sed", "-i", "", '/\\[::1\\]:6667/d', conf_path])
+    # Remove TLS listener block (port 6697 requires certs)
+    subprocess.run(["sed", "-i", "", '/"[^"]*:6697":/,/min-tls-version:/d', conf_path])
     # Start
     proc = subprocess.Popen(
         ["ergo", "run", "--conf", conf_path],
@@ -146,19 +145,21 @@ def irc_probe(ergo_server):
 
 
 @pytest.fixture(scope="session")
-def weechat_pane(ergo_server, e2e_context, wc_agent):
-    """Start WeeChat in tmux via wc-agent irc start. Yields the pane_id from state.json."""
-    result = wc_agent("irc", "start")
-    if result.returncode != 0:
-        raise RuntimeError(f"wc-agent irc start failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
-    time.sleep(5)
-    # Read actual pane ID written by wc-agent into state.json
-    state_path = os.path.join(
-        e2e_context["home"], "projects", e2e_context["project"], "state.json"
+def weechat_pane(ergo_server, e2e_context, tmux_session):
+    """Start WeeChat directly in tmux (bypass wc-agent for reliability)."""
+    port = ergo_server["port"]
+    weechat_dir = os.path.join(e2e_context["home"], "weechat")
+    os.makedirs(weechat_dir, exist_ok=True)
+
+    result = subprocess.run(
+        ["tmux", "split-window", "-h", "-P", "-F", "#{pane_id}",
+         "-t", tmux_session,
+         f"weechat --dir {weechat_dir} -r '/server add wc-local 127.0.0.1/{port} -notls -nicks=alice; "
+         f"/set irc.server.wc-local.autojoin \"#general\"; /connect wc-local'"],
+        capture_output=True, text=True,
     )
-    import json
-    with open(state_path) as f:
-        state = json.load(f)
-    pane_id = state["irc"]["weechat_pane_id"]
+    pane_id = result.stdout.strip()
+    time.sleep(5)  # Wait for WeeChat to connect
     yield pane_id
-    wc_agent("irc", "stop")
+    # Stop WeeChat
+    subprocess.run(["tmux", "send-keys", "-t", pane_id, "/quit", "Enter"], capture_output=True)
