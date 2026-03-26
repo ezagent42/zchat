@@ -287,19 +287,29 @@ async def _handle_create_agent(arguments: dict) -> list[TextContent]:
     """Create a new agent by invoking wc-agent CLI as subprocess."""
     import subprocess as sp
     name = arguments["name"]
+
+    # Extract username prefix from current agent name (e.g., alice-agent0 → alice)
+    # so child agents inherit the same prefix (alice-agent2, not h2oslabs-agent2)
+    username = AGENT_NAME.split("-")[0] if "-" in AGENT_NAME else AGENT_NAME
+
+    # Scope the name with the parent's username prefix
+    from wc_protocol.naming import scoped_name, AGENT_SEPARATOR
+    scoped = scoped_name(name, username)
+
     # Find wc-agent CLI relative to channel-server
     script_dir = os.path.dirname(os.path.realpath(__file__))
     cli_path = os.path.join(script_dir, "..", "wc-agent", "cli.py")
     config_path = os.path.join(script_dir, "..", "weechat-claude.toml")
 
     # Build command — pass config and tmux session from env if available
+    # Use the already-scoped name so wc-agent doesn't re-scope with wrong username
     cmd = [sys.executable, cli_path]
     if os.path.isfile(config_path):
         cmd.extend(["--config", config_path])
     tmux_session = os.environ.get("WC_TMUX_SESSION")
     if tmux_session:
         cmd.extend(["--tmux-session", tmux_session])
-    cmd.extend(["create", name])
+    cmd.extend(["create", scoped])  # Pass already-scoped name
 
     try:
         result = sp.run(cmd, capture_output=True, text=True, timeout=30)

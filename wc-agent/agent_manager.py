@@ -125,6 +125,8 @@ class AgentManager:
                         "IRC_CHANNELS": channels_str,
                         "IRC_TLS": str(self.irc_tls).lower(),
                         "WC_TMUX_SESSION": self.tmux_session,
+                        "no_proxy": f"localhost,127.0.0.1,{self.irc_server}",
+                        "NO_PROXY": f"localhost,127.0.0.1,{self.irc_server}",
                     },
                 }
             }
