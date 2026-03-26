@@ -1,54 +1,41 @@
 #!/bin/bash
-# e2e-test-manual.sh — Create isolated tmux session + test environment
+# e2e-test-manual.sh — Create isolated tmux session for manual testing
 #
-# Usage (from any terminal):
-#   bash tests/e2e/e2e-test-manual.sh
+# Usage: bash tests/e2e/e2e-test-manual.sh
 #
-# What it does:
-#   1. Creates a new tmux session (e2e-$$) with isolated env vars
-#   2. Inside: sets up project, starts ergo, prints guide
-#   3. Attaches you to the session (tmux -CC for iTerm2)
-#
-# The tmux session is self-contained — env vars, ergo, temp dirs
-# are all isolated and won't pollute your dev environment.
+# Creates a new tmux session with everything set up.
+# All panes inherit WC_AGENT_HOME via env file auto-sourced by shell.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# ============================================================
-# Generate unique IDs for this test run
-# ============================================================
-
 E2E_ID="$$"
 E2E_SESSION="e2e-${E2E_ID}"
 E2E_IRC_PORT=$((16667 + (E2E_ID % 1000)))
 E2E_ERGO_DIR="/tmp/e2e-ergo-${E2E_ID}"
 E2E_WC_AGENT_HOME="/tmp/e2e-wc-agent-${E2E_ID}"
+E2E_ENV_FILE="/tmp/e2e-env-${E2E_ID}.sh"
 
 echo "╔══════════════════════════════════════╗"
 echo "║  WeeChat-Claude Manual Test Setup    ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
-echo "  Session:        $E2E_SESSION"
-echo "  IRC port:       $E2E_IRC_PORT"
-echo "  WC_AGENT_HOME:  $E2E_WC_AGENT_HOME"
-echo "  Project dir:    $PROJECT_DIR"
+echo "  Session:  $E2E_SESSION"
+echo "  IRC port: $E2E_IRC_PORT"
 echo ""
 
 # ============================================================
 # Sync deps
 # ============================================================
-
 echo "Syncing dependencies..."
 (cd "$PROJECT_DIR/wc-agent" && uv sync --quiet 2>/dev/null || true)
 (cd "$PROJECT_DIR/weechat-channel-server" && uv sync --quiet 2>/dev/null || true)
 
 # ============================================================
-# Create test project config
+# Create test project
 # ============================================================
-
 echo "Creating test project..."
 mkdir -p "$E2E_WC_AGENT_HOME/projects/e2e"
 cat > "$E2E_WC_AGENT_HOME/projects/e2e/config.toml" << TOMLEOF
@@ -65,75 +52,79 @@ TOMLEOF
 echo "e2e" > "$E2E_WC_AGENT_HOME/default"
 
 # ============================================================
-# Start ergo on unique port
+# Start ergo
 # ============================================================
-
 echo "Starting ergo on port $E2E_IRC_PORT..."
 mkdir -p "$E2E_ERGO_DIR"
-if [ -d "$HOME/.local/share/ergo/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ]; then
+[ -d "$HOME/.local/share/ergo/languages" ] && [ ! -d "$E2E_ERGO_DIR/languages" ] && \
     cp -r "$HOME/.local/share/ergo/languages" "$E2E_ERGO_DIR/"
-fi
+
 ergo defaultconfig > "$E2E_ERGO_DIR/ergo.yaml" 2>/dev/null
 sed -i '' "s|\"127.0.0.1:6667\":|\"127.0.0.1:${E2E_IRC_PORT}\":|" "$E2E_ERGO_DIR/ergo.yaml"
 sed -i '' '/\[::1\]:6667/d' "$E2E_ERGO_DIR/ergo.yaml"
 sed -i '' '/"[^"]*:6697":/,/min-tls-version:/d' "$E2E_ERGO_DIR/ergo.yaml"
 
-cd "$E2E_ERGO_DIR" && ergo run --conf "$E2E_ERGO_DIR/ergo.yaml" &>/dev/null &
+cd "$E2E_ERGO_DIR" && ergo run --conf ergo.yaml &>/dev/null &
 E2E_ERGO_PID=$!
 cd "$PROJECT_DIR"
 sleep 2
 
-if kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
-    echo "  ergo running (pid $E2E_ERGO_PID)"
-else
-    echo "  ERROR: ergo failed to start!"
-    exit 1
+if ! kill -0 "$E2E_ERGO_PID" 2>/dev/null; then
+    echo "ERROR: ergo failed to start!"; exit 1
 fi
+echo "  ergo running (pid $E2E_ERGO_PID)"
 
 # ============================================================
-# Create tmux session with env vars
+# Write env file — sourced by every pane
 # ============================================================
+cat > "$E2E_ENV_FILE" << ENVEOF
+# E2E test environment (auto-generated, id: $E2E_ID)
+export WC_AGENT_HOME="$E2E_WC_AGENT_HOME"
+export E2E_ID="$E2E_ID"
+export E2E_IRC_PORT="$E2E_IRC_PORT"
+export E2E_ERGO_PID="$E2E_ERGO_PID"
+export PATH="/opt/homebrew/bin:/usr/local/bin:\$HOME/.npm-global/bin:\$HOME/.local/bin:\$PATH"
+[ -f "$PROJECT_DIR/claude.local.env" ] && set -a && source "$PROJECT_DIR/claude.local.env" && set +a
+cd "$PROJECT_DIR"
+ENVEOF
 
-echo "Creating tmux session '$E2E_SESSION'..."
-tmux new-session -d -s "$E2E_SESSION" -x 220 -y 60 -c "$PROJECT_DIR"
-
-# Set session-level env vars — all panes in this session inherit these
-tmux set-environment -t "$E2E_SESSION" WC_AGENT_HOME "$E2E_WC_AGENT_HOME"
-tmux set-environment -t "$E2E_SESSION" E2E_IRC_PORT "$E2E_IRC_PORT"
-tmux set-environment -t "$E2E_SESSION" E2E_ID "$E2E_ID"
-tmux set-environment -t "$E2E_SESSION" E2E_ERGO_PID "$E2E_ERGO_PID"
-
-# Write cleanup script that any pane can run
-cat > "/tmp/e2e-cleanup-${E2E_ID}.sh" << CLEANEOF
+# Write cleanup script
+cat > "/tmp/e2e-cleanup-${E2E_ID}.sh" << 'CLEANEOF'
 #!/bin/bash
-echo "Cleaning up e2e environment (id: $E2E_ID)..."
-cd "$PROJECT_DIR" && WC_AGENT_HOME="$E2E_WC_AGENT_HOME" ./wc-agent.sh shutdown 2>/dev/null || true
+source ENVFILE
+echo "Cleaning up e2e-$E2E_ID..."
+./wc-agent.sh shutdown 2>/dev/null || true
 kill $E2E_ERGO_PID 2>/dev/null
 lsof -ti :${E2E_IRC_PORT} 2>/dev/null | xargs kill 2>/dev/null
-rm -rf "$E2E_ERGO_DIR" "$E2E_WC_AGENT_HOME" "/tmp/e2e-cleanup-${E2E_ID}.sh"
-echo "Done. You can close this tmux session: exit"
+rm -rf "/tmp/e2e-ergo-${E2E_ID}" "$WC_AGENT_HOME" "/tmp/e2e-env-${E2E_ID}.sh" "/tmp/e2e-cleanup-${E2E_ID}.sh"
+echo "Done. Run 'exit' to close this tmux session."
 CLEANEOF
+sed -i '' "s|ENVFILE|$E2E_ENV_FILE|" "/tmp/e2e-cleanup-${E2E_ID}.sh"
 chmod +x "/tmp/e2e-cleanup-${E2E_ID}.sh"
 
-# Source proxy env and define e2e-cleanup alias in initial pane
-tmux send-keys -t "$E2E_SESSION" "
-[ -f '$PROJECT_DIR/claude.local.env' ] && set -a && source '$PROJECT_DIR/claude.local.env' && set +a
-alias e2e-cleanup='bash /tmp/e2e-cleanup-${E2E_ID}.sh'
-" Enter
-sleep 1
+# ============================================================
+# Create tmux session — initial shell sources the env file
+# ============================================================
+echo "Creating tmux session '$E2E_SESSION'..."
 
-# Print the guide in the session
-tmux send-keys -t "$E2E_SESSION" "clear" Enter
+# tmux default-command makes EVERY new pane auto-source the env file
+tmux new-session -d -s "$E2E_SESSION" -x 220 -y 60 \
+    "bash --rcfile <(echo 'source $E2E_ENV_FILE; exec bash')"
+
+# Set default-command so new panes also auto-source
+tmux set-option -t "$E2E_SESSION" default-command \
+    "bash --rcfile <(echo 'source $E2E_ENV_FILE; exec bash')"
+
+# Wait for shell to start, then show guide
+sleep 1
 tmux send-keys -t "$E2E_SESSION" "cat << 'GUIDE'
+
 ╔══════════════════════════════════════════════════╗
 ║  Manual Test Environment Ready                   ║
-║  Session: $E2E_SESSION                           ║
-║  IRC port: $E2E_IRC_PORT                         ║
-║  ergo pid: $E2E_ERGO_PID                         ║
+║  Session: $E2E_SESSION  |  Port: $E2E_IRC_PORT          ║
 ╚══════════════════════════════════════════════════╝
 
-All panes in this session have WC_AGENT_HOME set.
-Use ./wc-agent.sh for all commands. cd is: $PROJECT_DIR
+New panes auto-inherit env. Use ./wc-agent.sh for commands.
 
 ━━━ Step 1: Start WeeChat ━━━━━━━━━━━━━━━━━━━━━━━
   ./wc-agent.sh irc start
@@ -143,7 +134,7 @@ Use ./wc-agent.sh for all commands. cd is: $PROJECT_DIR
 
 ━━━ Step 3: Create agent ━━━━━━━━━━━━━━━━━━━━━━━━━
   ./wc-agent.sh agent create agent0
-  # In WeeChat: @alice-agent0 what is the capital of France?
+  (In WeeChat: @alice-agent0 what is the capital of France?)
 
 ━━━ Step 4: Agent commands ━━━━━━━━━━━━━━━━━━━━━━━
   ./wc-agent.sh agent list
@@ -155,21 +146,17 @@ Use ./wc-agent.sh for all commands. cd is: $PROJECT_DIR
   ./wc-agent.sh agent stop helper
 
 ━━━ Cleanup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ./wc-agent.sh shutdown              # stop agents + weechat
-  bash /tmp/e2e-cleanup-${E2E_ID}.sh  # kill ergo + remove temp dirs
-  exit                                # close this session
+  ./wc-agent.sh shutdown
+  bash /tmp/e2e-cleanup-${E2E_ID}.sh
+  exit
 GUIDE" Enter
 
 # ============================================================
-# Attach to the session
+# Attach
 # ============================================================
-
 echo ""
-echo "Attaching to tmux session '$E2E_SESSION'..."
-echo "(Close the session when done — ergo + temp files will remain until you clean up)"
-echo ""
+echo "Attaching..."
 
-# iTerm2 native integration if available
 if [ "$TERM_PROGRAM" = "iTerm.app" ] || [ "$LC_TERMINAL" = "iTerm2" ] || [ -n "$ITERM_SESSION_ID" ]; then
     exec tmux -CC attach -t "$E2E_SESSION"
 else
