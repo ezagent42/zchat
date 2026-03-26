@@ -57,10 +57,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
+ERGO_DATA_DIR="${ERGO_DATA_DIR:-$HOME/.local/share/ergo}"
+
 start_ergo() {
     if ! pgrep -x ergo &>/dev/null; then
-        # Run from project dir so ergo can find languages/
-        (cd "$PROJECT_DIR" && ergo run --conf "$E2E_DIR/ergo-test.yaml" &>/dev/null &)
+        # Ensure ergo data dir exists with languages
+        mkdir -p "$ERGO_DATA_DIR"
+        if [ ! -d "$ERGO_DATA_DIR/languages" ]; then
+            # Copy languages from ergo binary's directory if available
+            ERGO_BIN=$(which ergo 2>/dev/null)
+            if [ -n "$ERGO_BIN" ]; then
+                ERGO_BIN_DIR=$(dirname "$ERGO_BIN")
+                for candidate in "$ERGO_BIN_DIR/../share/ergo/languages" "$ERGO_BIN_DIR/languages" "/tmp/ergo-dl"/*/languages; do
+                    if [ -d "$candidate" ]; then
+                        cp -r "$candidate" "$ERGO_DATA_DIR/languages"
+                        break
+                    fi
+                done
+            fi
+        fi
+        # Run ergo from its own data directory
+        (cd "$ERGO_DATA_DIR" && ergo run --conf "$E2E_DIR/ergo-test.yaml" &>/dev/null &)
         sleep 2
     fi
 }

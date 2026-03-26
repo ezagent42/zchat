@@ -31,7 +31,9 @@ if [ "$IRC_SERVER" = "127.0.0.1" ] || [ "$IRC_SERVER" = "localhost" ]; then
   if command -v ergo &>/dev/null; then
     if ! pgrep -x ergo &>/dev/null; then
       echo "  Starting ergo IRC server..."
-      ergo run --conf "$SCRIPT_DIR/ergo.yaml" &>/dev/null &
+      ERGO_DATA_DIR="${ERGO_DATA_DIR:-$HOME/.local/share/ergo}"
+      mkdir -p "$ERGO_DATA_DIR"
+      (cd "$ERGO_DATA_DIR" && ergo run --conf "$SCRIPT_DIR/ergo.yaml" &>/dev/null &)
       sleep 1
     fi
   else
