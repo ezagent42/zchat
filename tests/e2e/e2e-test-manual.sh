@@ -28,8 +28,21 @@
 #   5. Cleanup:
 #        source tests/e2e/e2e-cleanup.sh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Find project root by walking up from CWD looking for wc-agent.sh
+_find_project_root() {
+    local dir="$PWD"
+    while [ "$dir" != "/" ]; do
+        [ -f "$dir/wc-agent.sh" ] && echo "$dir" && return
+        dir="$(dirname "$dir")"
+    done
+    echo ""
+}
+PROJECT_DIR="$(_find_project_root)"
+if [ -z "$PROJECT_DIR" ]; then
+    echo "ERROR: Cannot find project root (no wc-agent.sh found)."
+    echo "  cd to the project directory first, then source this script."
+    return 1 2>/dev/null || exit 1
+fi
 
 if [ -z "$TMUX" ]; then
     echo "ERROR: Must be inside a tmux session."

@@ -11,6 +11,7 @@ fi
 echo "Cleaning up e2e-${E2E_ID}..."
 
 # Stop agents + weechat
+[ -n "$PROJECT_DIR" ] && cd "$PROJECT_DIR"
 [ -n "$WC_AGENT_HOME" ] && ./wc-agent.sh shutdown 2>/dev/null || true
 
 # Kill ergo
