@@ -69,7 +69,7 @@ zchat/                             # repo root (renamed from weechat-claude)
 | `WC_AGENT_HOME` | `ZCHAT_HOME` | agent_manager.py, project.py, zchat.sh |
 | `WC_TMUX_SESSION` | `ZCHAT_TMUX_SESSION` | cli.py, agent_manager.py |
 | `WC_PROJECT_DIR` | `ZCHAT_PROJECT_DIR` | agent_manager.py |
-| `weechat-claude` (tmux session) | `zchat` | cli.py, agent_manager.py, start.sh, stop.sh |
+| `weechat-claude` (tmux session) | `zchat-{project}` (e.g. `zchat-local`) | cli.py, agent_manager.py, start.sh, stop.sh |
 | `wc-agent.sh` (wrapper) | `zchat.sh` | root dir |
 | `python -m wc_agent.cli` | `python -m zchat.cli` | start.sh, stop.sh, zchat.sh |
 

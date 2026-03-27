@@ -211,14 +211,16 @@ Specific per-file changes:
 **`zchat/cli/app.py`** (from `cli.py`):
 - Rename `wc-agent` references in help strings to `zchat`
 - `WC_TMUX_SESSION` → `ZCHAT_TMUX_SESSION`
-- `weechat-claude` (default session) → `zchat`
+- Default session name: `"weechat-claude"` → `f"zchat-{project}"` (derived from current project name)
+- Remove `--tmux-session` from `start.sh` invocation — session name is now derived from project, not passed as arg
+- `_current_tmux_session()`: check `ZCHAT_TMUX_SESSION` env var first, then tmux query, then fall back to `zchat-{project}`
 - Import paths: `from wc_agent.` → `from zchat.cli.`
 
 **`zchat/cli/agent_manager.py`**:
 - `DEFAULT_STATE_FILE`: `~/.local/state/wc-agent/agents.json` → `~/.local/state/zchat/agents.json`
 - `WC_PROJECT_DIR` → `ZCHAT_PROJECT_DIR`
 - `WC_TMUX_SESSION` → `ZCHAT_TMUX_SESSION`
-- `weechat-claude` → `zchat` (tmux session)
+- `weechat-claude` → `zchat-{project}` (tmux session, derived from project name)
 - `from wc_protocol.` → `from zchat.protocol.`
 - Remove `from_env()` classmethod entirely (lines ~208-221 in original)
 - Update `channel_server_dir` default in `__init__` to use `os.path.join(script_dir, "..", "weechat-channel-server")`  (this path still works in monorepo; Phase 3 will change discovery)
@@ -349,17 +351,19 @@ Note: `--project` now points to root (where `pyproject.toml` lives), not `wc-age
 Apply substitutions:
 - `wc-agent` → `zchat` (CLI command references)
 - `python -m wc_agent.cli` → `python -m zchat.cli`
-- `weechat-claude` → `zchat` (tmux session name)
 - `./wc-agent.sh` → `./zchat.sh`
 - `cd "$SCRIPT_DIR/wc-agent" && uv sync` → `cd "$SCRIPT_DIR" && uv sync` (root pyproject.toml replaces wc-agent/pyproject.toml)
+- Session name: `SESSION="weechat-claude"` → `SESSION="zchat-${PROJECT}"` (derived from project name)
+- Remove `--tmux-session $SESSION` from WC_AGENT command (not a valid CLI arg; session is now derived from project)
+- Pass project via env: `ZCHAT_TMUX_SESSION=$SESSION` if needed for override
 
 - [ ] **Step 3: Update `stop.sh`**
 
 Apply substitutions:
 - `wc-agent` → `zchat`
 - `python -m wc_agent.cli` → `python -m zchat.cli`
-- `weechat-claude` → `zchat` (tmux session)
 - `./wc-agent.sh` → `./zchat.sh`
+- Session name: derive from project — `SESSION="zchat-${PROJECT}"` to match start.sh
 
 - [ ] **Step 4: Delete old `wc-agent.sh`**
 
