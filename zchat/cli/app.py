@@ -52,7 +52,7 @@ def _get_irc_manager(ctx: typer.Context) -> IrcManager:
 def _get_agent_manager(ctx: typer.Context) -> AgentManager:
     cfg = _get_config(ctx)
     project_name = ctx.obj["project"]
-    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return AgentManager(
         irc_server=cfg["irc"]["server"],
         irc_port=cfg["irc"]["port"],
@@ -179,7 +179,7 @@ def cmd_project_remove(name: str):
     # Safety: check for running agents
     try:
         cfg = load_project_config(name)
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         mgr = AgentManager(
             irc_server=cfg["irc"]["server"], irc_port=cfg["irc"]["port"],
             irc_tls=cfg["irc"].get("tls", False),

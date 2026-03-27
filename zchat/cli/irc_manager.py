@@ -126,7 +126,7 @@ class IrcManager:
         tls_flag = "" if tls else " -notls"
 
         # Source proxy env if available
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         env_file = os.path.join(script_dir, "claude.local.env")
         source_env = f"[ -f '{env_file}' ] && set -a && source '{env_file}' && set +a; " if os.path.isfile(env_file) else ""
 
