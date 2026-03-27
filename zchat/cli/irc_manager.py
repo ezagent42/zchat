@@ -132,7 +132,12 @@ class IrcManager:
 
         # Use irc.server.wc-local.autojoin instead of /join — /connect is async so /join may run before connected
         autojoin = ",".join(channels)
-        cmd = f"{source_env}weechat -r '/server add wc-local {server}/{port}{tls_flag} -nicks={nick}; /set irc.server.wc-local.autojoin \"{autojoin}\"; /connect wc-local'"
+        # Load zchat plugin if available
+        plugin_dir = os.path.join(script_dir, "weechat-zchat-plugin")
+        plugin_path = os.path.join(plugin_dir, "zchat.py")
+        load_plugin = f"; /script load {plugin_path}" if os.path.isfile(plugin_path) else ""
+
+        cmd = f"{source_env}weechat -r '/server add wc-local {server}/{port}{tls_flag} -nicks={nick}; /set irc.server.wc-local.autojoin \"{autojoin}\"; /connect wc-local{load_plugin}'"
 
         result = subprocess.run(
             ["tmux", "split-window", "-v", "-P", "-F", "#{pane_id}",
