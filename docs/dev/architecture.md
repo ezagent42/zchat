@@ -2,7 +2,7 @@
 
 ## 设计原则
 
-**关注点分离**：三个组件通过 Zenoh topic 约定通信，互不知道对方的实现细节。weechat-zenoh 不知道 Claude Code 的存在；channel-server 不知道 WeeChat 的存在。Zenoh topic 约定是唯一的耦合点。
+**关注点分离**：组件通过 IRC 协议通信，互不知道对方的实现细节。WeeChat 使用原生 IRC 功能；channel-server 作为 IRC client 桥接到 MCP。IRC 协议是唯一的耦合点。
 
 ## 系统架构
 
@@ -10,68 +10,45 @@
 
 | 组件 | 类型 | 职责 |
 |------|------|------|
-| **zenohd** | 本地 Zenoh 路由 | 消息中转。start.sh 自动启动在 `tcp/127.0.0.1:7447`，跨 session 持续运行 |
-| **weechat-zenoh** | WeeChat Python 插件 | P2P channel/private 通信，在线状态追踪。对所有参与者一视同仁 |
-| **weechat-channel-server** | Claude Code plugin (MCP server) | 桥接 Claude Code ↔ Zenoh。只知道 Zenoh topic 和 MCP 协议 |
-| **weechat-agent** | WeeChat Python 插件 | Agent 生命周期管理。通过 WeeChat 命令和 signal 与 weechat-zenoh 交互 |
+| **ergo** | 本地 IRC server | 消息中转。`zchat irc daemon start` 启动 |
+| **weechat-zchat-plugin** | WeeChat Python 插件 | `/agent` 命令、系统消息渲染、Agent 状态显示 |
+| **weechat-channel-server** | Claude Code plugin (MCP server) | 桥接 Claude Code ↔ IRC。作为 IRC client 连接 server |
+| **zchat CLI** | 独立 CLI 工具 | Agent 生命周期管理、项目配置、IRC server 管理 |
 
-所有 Zenoh session 使用 client mode（`mode: "client"`, `connect: ["tcp/127.0.0.1:7447"]`），通过本地 zenohd 路由通信。
+所有组件通过标准 IRC 协议（RFC 2812）通信，连接本地 ergo server。
 
 ## 消息协议
 
-所有消息是 JSON 格式，通过 Zenoh pub/sub 传输：
+### 用户消息
 
-```json
-{
-  "id": "uuid-v4",
-  "nick": "alice",
-  "type": "msg",
-  "body": "hello everyone",
-  "ts": 1711036800.123
-}
-```
-
-**消息类型 (`type`)**：
-
-| 类型 | 说明 |
-|------|------|
-| `msg` | 普通消息 |
-| `action` | /me 动作（如 `/me waves`） |
-| `join` | 加入 channel |
-| `leave` | 离开 channel |
-| `nick` | 昵称变更 |
-
-## Zenoh Topic 层级
+标准 IRC PRIVMSG，无特殊格式：
 
 ```
-wc/
-├── channels/{channel_id}/
-│   ├── messages                  # channel 消息 (pub/sub)
-│   └── presence/{nick}           # channel 成员在线状态 (liveliness)
-├── private/{sorted_pair}/
-│   └── messages                  # private 消息 (pair 按字母序排列，如 alice_bob)
-└── presence/{nick}               # 全局在线状态 (liveliness)
+PRIVMSG #general :hello everyone
+PRIVMSG alice-agent0 :help me with this bug
 ```
 
-**关键设计**：Agent 的回复走和普通用户完全相同的 topic。weechat-zenoh 收到消息后不区分是人类还是 Agent 发的——只看 `nick` 字段。
+### @mention Agent
 
-## Signal 约定
+在 channel 中 `@alice-agent0 question`，channel-server 检测 @mention 并转发给 Claude。
 
-weechat-zenoh 通过 WeeChat signal 机制暴露事件给其他插件（如 weechat-agent）：
+### 系统消息
 
-```python
-# 收到消息时
-weechat.hook_signal_send("zenoh_message_received",
-    weechat.WEECHAT_HOOK_SIGNAL_STRING,
-    json.dumps({"buffer": "channel:#team", "nick": "alice", "body": "hello"}))
+IRC PRIVMSG + `__zchat_sys:` 前缀 + JSON payload：
 
-# 在线状态变化时
-weechat.hook_signal_send("zenoh_presence_changed",
-    weechat.WEECHAT_HOOK_SIGNAL_STRING,
-    json.dumps({"nick": "bob", "online": True}))
+```
+PRIVMSG #general :__zchat_sys:{"type":"agent_join","agent":"alice-agent0"}
 ```
 
-`buffer` 字段格式：`channel:#name` 或 `private:@nick`。
+### Presence
+
+IRC 原生 JOIN/PART/QUIT 事件。
+
+## Agent 命名
+
+- 分隔符：`-`（IRC RFC 2812 禁止 `:` 在 nick 中）
+- 格式：`{username}-{agent_name}`，如 `alice-agent0`、`alice-helper`
+- `scoped_name("helper", "alice")` → `"alice-helper"`
 
 ## 组件间通信流
 
@@ -79,19 +56,15 @@ weechat.hook_signal_send("zenoh_presence_changed",
 
 ```
 1. 用户在 WeeChat buffer 输入消息
-2. weechat-zenoh buffer_input_cb() 触发
-3. → _publish_event() 序列化为 JSON，通过 Zenoh put() 发布到对应 topic
-4. → hook_signal_send("zenoh_message_received") 广播给其他插件
+2. WeeChat 通过 IRC PRIVMSG 发送到 ergo server
 
-5. channel-server 的 Zenoh subscriber 收到消息
-6. → on_private() / on_channel() 回调，过滤自身消息、检查 @mention
-7. → 入队到 asyncio.Queue（非阻塞，通过 call_soon_threadsafe 桥接）
-8. → poll_zenoh_queue() 出队
-9. → inject_message() 构造 MCP notification，写入 write_stream
+3. channel-server 的 IRC client 收到消息
+4. → 过滤自身消息、检查 @mention
+5. → 入队到 asyncio.Queue
+6. → inject_message() 构造 MCP notification，写入 write_stream
 
-10. Claude Code 收到 notification，处理后调用 reply() tool
-11. → reply() 通过 Zenoh put() 发布回复到对应 topic
+7. Claude Code 收到 notification，处理后调用 reply() tool
+8. → reply() 通过 IRC PRIVMSG 发布回复
 
-12. weechat-zenoh subscriber 收到回复
-13. → poll_queues_cb() (50ms timer) 出队，渲染到 WeeChat buffer
+9. WeeChat 通过 IRC 收到回复，渲染到 buffer
 ```

@@ -9,44 +9,40 @@
 | [WeeChat](https://weechat.org/) | ≥ 4.0 | 终端聊天客户端 |
 | [tmux](https://github.com/tmux/tmux) | — | 终端多窗口管理器 |
 | Python | ≥ 3.10 | 运行时 |
-| [zenohd](https://zenoh.io/) | ≥ 1.0.0 | Zenoh router daemon |
+| [ergo](https://ergo.chat/) | ≥ 2.0 | 本地 IRC server |
 
 ## 一键启动
 
 ```bash
-git clone https://github.com/ezagent42/weechat-claude.git
-cd weechat-claude
-./start.sh ~/my-project alice
+git clone https://github.com/ezagent42/zchat.git
+cd zchat
+./start.sh ~/my-project
 ```
 
 `start.sh` 会自动完成以下步骤：
 
-1. **检查依赖** — 确认 claude、uv、weechat、tmux、zenohd 都已安装
-2. **确保 zenohd 运行** — 在 `tcp/127.0.0.1:7447` 启动 Zenoh router（如果尚未运行）
-3. **安装依赖** — `uv sync` 安装 channel-server 依赖，`uv pip install --system eclipse-zenoh` 让 WeeChat 的系统 Python 能 import zenoh
-4. **复制插件** — 将 weechat-zenoh.py 和 weechat-agent.py 复制到 WeeChat 插件目录
-5. **创建 tmux session** — 分为两个 pane：
-   - **Pane 0**：Claude Code (`alice:agent0`) + channel plugin
-   - **Pane 1**：WeeChat + zenoh/agent 插件已加载
+1. **检查依赖** — 确认 claude、uv、weechat、tmux、ergo 都已安装
+2. **确保 ergo 运行** — 启动本地 IRC server（如果尚未运行）
+3. **安装依赖** — `uv sync` 安装 channel-server 依赖
+4. **创建 tmux session** — 分为多个 pane：
+   - Claude Code (`agent0`) + channel plugin
+   - WeeChat 连接到本地 IRC server
 
 ## 第一次对话
 
 启动后，你会看到 WeeChat 界面。和 agent0 打个招呼：
 
 ```
-/zenoh join @agent0
-hello agent0，你能帮我做什么？
+/msg agent0 hello，你能帮我做什么？
 ```
 
-agent0 会通过 Zenoh 收到你的消息，然后通过 MCP channel 回复到你的 WeeChat buffer 中。
+agent0 会通过 IRC 收到你的消息，然后通过 MCP channel 回复到你的 WeeChat buffer 中。
 
 ## 停止系统
 
 ```bash
 ./stop.sh
 ```
-
-这会关闭 tmux session。如果要同时停止 zenohd，使用 `./stop.sh --all`。
 
 ## 下一步
 

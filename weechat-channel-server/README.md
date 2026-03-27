@@ -1,6 +1,6 @@
 # weechat-channel-server
 
-Claude Code Channel plugin — bridges Zenoh P2P messaging and Claude Code via MCP.
+Claude Code Channel plugin — bridges IRC messaging and Claude Code via MCP.
 
 ## Install
 
@@ -14,11 +14,12 @@ claude plugin install weechat-channel
 # Start Claude Code with the channel plugin
 claude --dangerously-load-development-channels plugin:weechat-channel
 
-# Agent joins Zenoh mesh as "agent0" (configurable via AGENT_NAME env var)
-# Any WeeChat user with weechat-zenoh can /zenoh join @agent0 to chat
+# Agent joins IRC server as "agent0" (configurable via AGENT_NAME env var)
+# Any IRC client can interact with the agent
 ```
 
 ## Environment Variables
 
 - `AGENT_NAME` — agent identifier (default: `agent0`)
-- `ZENOH_CONNECT` — Zenoh router endpoints (default: tcp/127.0.0.1:7447)
+- `IRC_SERVER` — IRC server address (default: 127.0.0.1)
+- `IRC_PORT` — IRC server port (default: 6667)

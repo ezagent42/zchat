@@ -2,107 +2,92 @@
 
 ## 命令速查
 
-### 聊天命令（weechat-zenoh）
+### 聊天命令（IRC 原生）
+
+WeeChat 原生支持 IRC，无需额外插件：
 
 | 命令 | 说明 |
 |------|------|
-| `/zenoh join #channel` | 加入一个 channel（群聊） |
-| `/zenoh join @nick` | 开启 private buffer（私聊） |
-| `/zenoh leave [target]` | 离开当前或指定的 channel/private |
-| `/zenoh nick <name>` | 修改昵称（会广播给所有已加入的 channel） |
-| `/zenoh list` | 列出已加入的 channel 和 private |
-| `/zenoh status` | 显示 Zenoh session 状态（zid, peers, routers） |
-| `/zenoh send <target> <msg>` | 程序化发送消息（供其他插件调用） |
+| `/join #channel` | 加入一个 channel（群聊） |
+| `/msg nick message` | 发送 private message（私聊） |
+| `/part [#channel]` | 离开当前或指定的 channel |
+| `/nick <name>` | 修改昵称 |
+| `/names` | 列出当前 channel 的成员 |
 
-### Agent 管理命令（weechat-agent）
+### Agent 管理命令（zchat CLI）
 
 | 命令 | 说明 |
 |------|------|
-| `/agent create <name> [--workspace <path>]` | 启动新的 Claude Code 实例（名称自动加 `{username}:` 前缀） |
-| `/agent stop <name>` | 停止一个 Agent（不能停 primary agent `{username}:agent0`） |
-| `/agent restart <name>` | 重启一个 Agent |
-| `/agent list` | 列出所有 Agent 及状态 |
-| `/agent join <agent> #channel` | 让 Agent 加入一个 channel |
+| `zchat agent create <name>` | 启动新的 Claude Code 实例（名称自动加 `{username}-` 前缀） |
+| `zchat agent stop <name>` | 停止一个 Agent |
+| `zchat agent restart <name>` | 重启一个 Agent |
+| `zchat agent list` | 列出所有 Agent 及状态 |
+| `zchat agent send <name> <msg>` | 向 Agent 发送文本 |
+
+### WeeChat 插件命令（zchat.py）
+
+| 命令 | 说明 |
+|------|------|
+| `/agent create <name>` | 在 WeeChat 内创建 Agent |
+| `/agent stop <name>` | 停止 Agent |
+| `/agent list` | 列出 Agent 状态 |
+| `/agent restart <name>` | 重启 Agent |
 
 ## 使用场景
 
 ### 场景 1：人 ↔ 人聊天
 
-只需要 weechat-zenoh，不需要 Claude Code。适合局域网内的终端用户聊天。
+使用标准 IRC，不需要 Claude Code。适合局域网内的终端用户聊天。
 
 ```
-┌─────────┐  Zenoh  ┌─────────┐
+┌─────────┐  IRC   ┌─────────┐
 │ WeeChat │ ◄─────► │ WeeChat │
-│ + zenoh │         │ + zenoh │
 │ (Alice) │         │ (Bob)   │
 └─────────┘         └─────────┘
+      ▲                  ▲
+      └───────┬──────────┘
+         ┌────▼────┐
+         │  ergo   │
+         │ (IRC)   │
+         └─────────┘
 ```
 
 ```bash
 # 终端 A
 weechat
-/python load /path/to/weechat-zenoh.py
-/zenoh nick alice
-/zenoh join #team
+/connect localhost
+/join #team
 
 # 终端 B（同一局域网）
 weechat
-/python load /path/to/weechat-zenoh.py
-/zenoh nick bob
-/zenoh join #team
+/connect localhost
+/join #team
 ```
 
 ### 场景 2：人 ↔ Agent 对话
 
-使用 weechat-zenoh + weechat-channel-server，不需要 weechat-agent 管理器。
+使用 WeeChat + channel-server，通过 IRC 通信。
 
 ```
-┌─────────┐  Zenoh  ┌───────────────────┐
+┌─────────┐  IRC   ┌───────────────────┐
 │ WeeChat │ ◄─────► │ weechat-channel   │
-│ + zenoh │         │ (MCP server)      │
-│ (Alice) │         │    ↕ stdio        │
-└─────────┘         │ Claude Code       │
+│ (Alice) │         │ (MCP server)      │
+└─────────┘         │    ↕ stdio        │
+                    │ Claude Code       │
                     └───────────────────┘
-```
-
-```bash
-# 终端 A：启动 Claude Code + channel plugin
-cd weechat-channel-server
-claude --dangerously-load-development-channels plugin:weechat-channel
-
-# 终端 B：WeeChat
-weechat
-/python load /path/to/weechat-zenoh.py
-/zenoh nick alice
-/zenoh join @agent0
 ```
 
 ### 场景 3：完整部署
 
-三个组件全部启动，通过 tmux 管理。这是 `./start.sh` 做的事。
-
-```
-┌─────────────────────────────────┐
-│ WeeChat                         │
-│  weechat-zenoh.py   (P2P 通信)  │
-│  weechat-agent.py   (Agent 管理)│
-└────────┬────────────────┬───────┘
-         │  Zenoh mesh    │ subprocess
-    ┌────▼────┐      ┌───▼──────────┐
-    │ WeeChat │      │ Claude Code  │
-    │ (Bob)   │      │ + channel    │
-    └─────────┘      │ (agent0)     │
-                     └──────────────┘
-```
+通过 `./start.sh` 一键启动，tmux 管理所有组件。
 
 ```bash
-./start.sh ~/my-project alice
+./start.sh ~/my-project
 ```
 
 在 WeeChat 中你可以动态创建更多 Agent：
 
 ```
-/agent create helper --workspace ~/another-project
-/zenoh join @helper
-hello helper，帮我看看这个 bug
+/agent create helper
+@helper 帮我看看这个 bug
 ```

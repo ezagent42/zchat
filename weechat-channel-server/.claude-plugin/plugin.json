@@ -1,6 +1,6 @@
 {
   "name": "weechat-channel",
-  "description": "Connect WeeChat to Claude Code via Zenoh P2P messaging",
+  "description": "Connect WeeChat to Claude Code via IRC messaging",
   "version": "0.1.0",
-  "keywords": ["weechat", "zenoh", "channel", "p2p"]
+  "keywords": ["weechat", "irc", "channel", "mcp"]
 }

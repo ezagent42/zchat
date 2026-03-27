@@ -1,6 +1,6 @@
-# WeeChat-Claude
+# zchat
 
-基于 [WeeChat](https://weechat.org/) 和 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 的本地多 Agent 协作系统，通过 [Zenoh](https://zenoh.io/) P2P 消息总线连接。
+基于 [WeeChat](https://weechat.org/) 和 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 的本地多 Agent 协作系统，通过 IRC 协议连接。
 
 ## 它能做什么
 
@@ -17,10 +17,9 @@
 
 ### 开发文档
 
-- [架构与协议](docs/dev/architecture.md) — 系统架构、消息协议、Zenoh topic
-- [weechat-zenoh](docs/dev/weechat-zenoh.md) — P2P 聊天插件
+- [架构与协议](docs/dev/architecture.md) — 系统架构、消息协议、IRC channel
 - [channel-server](docs/dev/channel-server.md) — MCP server 桥接
-- [weechat-agent](docs/dev/agent.md) — Agent 生命周期管理
+- [agent](docs/dev/agent.md) — Agent 生命周期管理
 - [测试](docs/dev/testing.md) — 测试策略与手动测试
 
 ### 设计文档
