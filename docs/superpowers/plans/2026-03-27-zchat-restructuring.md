@@ -365,27 +365,52 @@ Apply substitutions:
 - `./wc-agent.sh` → `./zchat.sh`
 - Session name: derive from project — `SESSION="zchat-${PROJECT}"` to match start.sh
 
-- [ ] **Step 4: Delete old `wc-agent.sh`**
+- [ ] **Step 4: Update e2e test files**
+
+New e2e tests were merged from the `feat/e2e-pytest-migration` PR. These need renaming too.
+
+**`tests/e2e/conftest.py`:**
+- `sys.path.insert(0, os.path.join(project_dir, "wc-agent"))` → remove (zchat is now a proper package)
+- `from wc_agent.irc_manager import IrcManager` → `from zchat.cli.irc_manager import IrcManager`
+- `tempfile.mkdtemp(prefix="e2e-wc-agent-")` → `tempfile.mkdtemp(prefix="e2e-zchat-")`
+- `WC_AGENT_HOME` → `ZCHAT_HOME`
+- `WC_TMUX_SESSION` → `ZCHAT_TMUX_SESSION`
+- `os.path.join(project_dir, "wc-agent", "cli.py")` → `os.path.join(project_dir, "zchat", "cli", "app.py")`
+- `"uv", "run", "--project", os.path.join(project_dir, "wc-agent")` → `"uv", "run", "--project", project_dir`
+- Rename the `wc_agent` fixture to `zchat_cli`
+
+**`tests/e2e/test_e2e.py`:**
+- All `wc_agent(` calls → `zchat_cli(` (matching fixture rename)
+- All docstrings: `wc-agent` → `zchat`
+
+**`tests/e2e/e2e-setup.sh`:**
+- `wc-agent.sh` → `zchat.sh`
+- `WC_AGENT_HOME` → `ZCHAT_HOME`
+- `e2e-wc-agent-` → `e2e-zchat-`
+- `wc-agent` → `zchat` in all user-facing messages
+- `cd "$PROJECT_DIR/wc-agent" && uv sync` → `cd "$PROJECT_DIR" && uv sync`
+
+- [ ] **Step 5: Delete old `wc-agent.sh`**
 
 ```bash
 git rm wc-agent.sh
 ```
 
-- [ ] **Step 5: Update `pytest.ini` if needed**
+- [ ] **Step 6: Update `pytest.ini` if needed**
 
 Verify `testpaths = tests` is correct (should be fine since tests/ dir is unchanged).
 
-- [ ] **Step 6: Run full test suite**
+- [ ] **Step 7: Run full test suite**
 
 Run: `cd weechat-channel-server && uv run python -m pytest ../tests/unit/ -v`
 Expected: All PASS
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add zchat.sh start.sh stop.sh pytest.ini
+git add zchat.sh start.sh stop.sh pytest.ini tests/e2e/
 git rm wc-agent.sh
-git commit -m "refactor: rename scripts wc-agent→zchat, update tmux session name"
+git commit -m "refactor: rename scripts and e2e tests wc-agent→zchat, session name zchat-{project}"
 ```
 
 ---
