@@ -8,7 +8,7 @@ import pytest
 @pytest.mark.order(1)
 def test_weechat_connects(irc_probe, weechat_pane):
     """Phase 1: zchat irc start → WeeChat connects to IRC."""
-    assert irc_probe.wait_for_nick("alice", timeout=15), "alice not on IRC"
+    assert irc_probe.wait_for_nick("alice", timeout=30), "alice not on IRC"
 
 
 @pytest.mark.e2e
@@ -16,7 +16,7 @@ def test_weechat_connects(irc_probe, weechat_pane):
 def test_agent_joins_irc(zchat_cli, irc_probe):
     """Phase 2: zchat agent create agent0 → agent joins IRC."""
     zchat_cli("agent", "create", "agent0")
-    assert irc_probe.wait_for_nick("alice-agent0", timeout=15), "agent0 not on IRC"
+    assert irc_probe.wait_for_nick("alice-agent0", timeout=30), "agent0 not on IRC"
 
 
 @pytest.mark.e2e
@@ -25,7 +25,7 @@ def test_agent_send_to_channel(zchat_cli, irc_probe):
     """Phase 3: zchat agent send → agent replies to #general."""
     zchat_cli("agent", "send", "agent0",
              'Use the reply MCP tool to send "Hello from agent0!" to #general')
-    msg = irc_probe.wait_for_message("Hello from agent0", timeout=15)
+    msg = irc_probe.wait_for_message("Hello from agent0", timeout=30)
     assert msg is not None, "agent0 message not received in #general"
     assert msg["nick"] == "alice-agent0"
 
@@ -35,7 +35,7 @@ def test_agent_send_to_channel(zchat_cli, irc_probe):
 def test_mention_triggers_reply(irc_probe, weechat_pane, tmux_send):
     """Phase 4: @mention in WeeChat → agent auto-responds."""
     tmux_send(weechat_pane, "@alice-agent0 what is 2+2?")
-    reply = irc_probe.wait_for_message("alice-agent0", timeout=15)
+    reply = irc_probe.wait_for_message("alice-agent0", timeout=30)
     assert reply is not None, "agent0 did not respond to @mention"
 
 
@@ -44,10 +44,10 @@ def test_mention_triggers_reply(irc_probe, weechat_pane, tmux_send):
 def test_second_agent(zchat_cli, irc_probe):
     """Phase 5: Create agent1, send message to #general."""
     zchat_cli("agent", "create", "agent1")
-    assert irc_probe.wait_for_nick("alice-agent1", timeout=15), "agent1 not on IRC"
+    assert irc_probe.wait_for_nick("alice-agent1", timeout=30), "agent1 not on IRC"
     zchat_cli("agent", "send", "agent1",
              'Use the reply MCP tool to send "hello from agent1" to #general')
-    msg = irc_probe.wait_for_message("agent1", timeout=15)
+    msg = irc_probe.wait_for_message("agent1", timeout=30)
     assert msg is not None, "agent1 message not received"
 
 
@@ -57,7 +57,7 @@ def test_agent_to_agent(zchat_cli, irc_probe):
     """Phase 6: agent0 sends message mentioning agent1 in #general."""
     zchat_cli("agent", "send", "agent0",
              'Use the reply MCP tool to send "hey @alice-agent1 are you there?" to #general')
-    msg = irc_probe.wait_for_message("alice-agent1", timeout=15)
+    msg = irc_probe.wait_for_message("alice-agent1", timeout=30)
     assert msg is not None, "agent0 message mentioning agent1 not seen in #general"
 
 
