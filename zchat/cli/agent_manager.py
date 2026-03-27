@@ -100,7 +100,7 @@ class AgentManager:
 
     def _create_workspace(self, name: str, channels: list[str]) -> str:
         safe = name.replace(AGENT_SEPARATOR, "_")
-        workspace = os.path.join(tempfile.gettempdir(), f"wc-agent-{safe}")
+        workspace = os.path.join(tempfile.gettempdir(), f"zchat-{safe}")
         os.makedirs(workspace, exist_ok=True)
         self._write_mcp_json(name, workspace, channels)
         return workspace
