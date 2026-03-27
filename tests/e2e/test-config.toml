@@ -1,7 +1,0 @@
-[irc]
-server = "127.0.0.1"
-port = 6667
-
-[agents]
-default_channels = ["#general"]
-username = "alice"

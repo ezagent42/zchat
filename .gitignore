@@ -10,3 +10,4 @@ ircd.db
 ircd.lock
 claude.local.env.example
 languages/
+.claude/worktrees/

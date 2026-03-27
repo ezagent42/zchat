@@ -65,7 +65,7 @@ wc-agent agent restart helper         # 重启 agent
 wc-agent shutdown                     # 停止所有 agent
 
 cd weechat-channel-server && uv run python -m pytest ../tests/unit/ -v   # Unit 测试
-bash tests/e2e/e2e-test.sh           # E2E 测试（需要 ergo）
+pytest tests/e2e/ -v -m e2e          # E2E 测试（需要 ergo + tmux）
 ```
 
 ### 配置

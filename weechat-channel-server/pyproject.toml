@@ -9,7 +9,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-asyncio"]
+test = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-order>=1.3.0",
+    "pytest-timeout",
+]
 
 [project.scripts]
 weechat-channel = "server:main"
