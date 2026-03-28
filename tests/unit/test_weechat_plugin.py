@@ -5,8 +5,8 @@ the local protocol implementation matches zchat.protocol behavior.
 """
 import json
 
-from zchat.protocol.naming import scoped_name, AGENT_SEPARATOR
-from zchat.protocol.sys_messages import (
+from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
+from zchat_protocol.sys_messages import (
     IRC_SYS_PREFIX, encode_sys_for_irc, decode_sys_from_irc, make_sys_message,
 )
 

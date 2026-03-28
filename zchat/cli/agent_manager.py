@@ -10,7 +10,7 @@ import time
 import libtmux
 
 from zchat.cli.tmux import get_session, find_pane, pane_alive
-from zchat.protocol.naming import scoped_name, AGENT_SEPARATOR
+from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
 
 
 DEFAULT_STATE_FILE = os.path.expanduser("~/.local/state/zchat/agents.json")

@@ -9,8 +9,7 @@ import os
 import sys
 import time
 import threading
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
-from zchat.protocol.sys_messages import (
+from zchat_protocol.sys_messages import (
     is_sys_message, make_sys_message,
     encode_sys_for_irc, decode_sys_from_irc,
 )

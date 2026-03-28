@@ -1,4 +1,4 @@
-from zchat.protocol.sys_messages import (
+from zchat_protocol.sys_messages import (
     SYS_PREFIX, IRC_SYS_PREFIX, is_sys_message, make_sys_message,
     encode_sys_for_irc, decode_sys_from_irc,
 )

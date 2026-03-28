@@ -6,7 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "libtmux>=0.55,<0.56",
     "typer[all]>=0.9.0",
+    "zchat-protocol",
 ]
+
+[tool.uv.sources]
+zchat-protocol = { path = "zchat-protocol", editable = true }
 
 [project.scripts]
 zchat = "zchat.cli.app:app"

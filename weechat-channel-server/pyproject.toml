@@ -6,7 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "mcp[cli]>=1.2.0",
     "irc>=20.0",
+    "zchat-protocol",
 ]
+
+[tool.uv.sources]
+zchat-protocol = { path = "../zchat-protocol", editable = true }
 
 [project.optional-dependencies]
 test = [
