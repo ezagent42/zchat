@@ -59,6 +59,7 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
         default_channels=cfg["agents"]["default_channels"],
         env_file=cfg["agents"].get("env_file", ""),
         claude_args=cfg["agents"].get("claude_args"),
+        mcp_server_cmd=cfg["agents"].get("mcp_server_cmd"),
         tmux_session=ctx.obj.get("tmux_session", "zchat"),
         state_file=state_file_path(project_name),
     )

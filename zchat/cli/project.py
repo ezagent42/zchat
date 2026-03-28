@@ -94,6 +94,7 @@ def load_project_config(name: str) -> dict:
         "--permission-mode", "bypassPermissions",
         "--dangerously-load-development-channels", "server:zchat-channel",
     ])
+    agents.setdefault("mcp_server_cmd", ["zchat-channel"])
     return cfg
 
 

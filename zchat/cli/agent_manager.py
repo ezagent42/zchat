@@ -21,6 +21,7 @@ class AgentManager:
                  username: str, default_channels: list[str],
                  env_file: str = "",
                  claude_args: list[str] | None = None,
+                 mcp_server_cmd: list[str] | None = None,
                  tmux_session: str = "zchat",
                  state_file: str = DEFAULT_STATE_FILE):
         self.irc_server = irc_server
@@ -33,6 +34,7 @@ class AgentManager:
             "--permission-mode", "bypassPermissions",
             "--dangerously-load-development-channels", "server:zchat-channel",
         ]
+        self.mcp_server_cmd = mcp_server_cmd or ["zchat-channel"]
         self._tmux_session_name = tmux_session
         self._tmux_session: libtmux.Session | None = None
         self._state_file = state_file
@@ -135,23 +137,24 @@ class AgentManager:
         with open(os.path.join(claude_dir, "settings.local.json"), "w") as f:
             json.dump(settings, f, indent=2)
 
-        # MCP server config — tells Claude how to reach the channel server
+        # MCP server config — project-scoped, only affects this workspace
         channels_str = ",".join(ch.lstrip("#") for ch in channels)
-        config = {
-            "mcpServers": {
-                "zchat-channel": {
-                    "type": "stdio",
-                    "command": "zchat-channel",
-                    "env": {
-                        "AGENT_NAME": name,
-                        "IRC_SERVER": self.irc_server,
-                        "IRC_PORT": str(self.irc_port),
-                        "IRC_CHANNELS": channels_str,
-                        "IRC_TLS": str(self.irc_tls).lower(),
-                    },
-                }
-            }
+        command = self.mcp_server_cmd[0]
+        args = self.mcp_server_cmd[1:] if len(self.mcp_server_cmd) > 1 else []
+        server_config = {
+            "type": "stdio",
+            "command": command,
+            "env": {
+                "AGENT_NAME": name,
+                "IRC_SERVER": self.irc_server,
+                "IRC_PORT": str(self.irc_port),
+                "IRC_CHANNELS": channels_str,
+                "IRC_TLS": str(self.irc_tls).lower(),
+            },
         }
+        if args:
+            server_config["args"] = args
+        config = {"mcpServers": {"zchat-channel": server_config}}
         with open(os.path.join(workspace, ".mcp.json"), "w") as f:
             json.dump(config, f, indent=2)
 

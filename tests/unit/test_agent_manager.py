@@ -49,6 +49,24 @@ def test_create_workspace_has_config():
     shutil.rmtree(ws)
 
 
+def test_create_workspace_custom_mcp_cmd():
+    """mcp_server_cmd should be configurable."""
+    mgr = AgentManager(
+        irc_server="localhost", irc_port=6667, irc_tls=False,
+        username="alice", default_channels=["#general"],
+        mcp_server_cmd=["uv", "run", "--project", "/opt/zchat-channel", "zchat-channel"],
+        state_file="/tmp/test-agents-ws3.json",
+    )
+    ws = mgr._create_workspace("alice-helper", ["#general"])
+    with open(os.path.join(ws, ".mcp.json")) as f:
+        mcp = json.load(f)
+    srv = mcp["mcpServers"]["zchat-channel"]
+    assert srv["command"] == "uv"
+    assert srv["args"] == ["run", "--project", "/opt/zchat-channel", "zchat-channel"]
+    import shutil
+    shutil.rmtree(ws)
+
+
 def test_agent_state_persistence(tmp_path):
     state_file = str(tmp_path / "agents.json")
     mgr = _make_manager(state_file=state_file)
