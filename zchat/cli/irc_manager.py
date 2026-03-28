@@ -136,17 +136,15 @@ class IrcManager:
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
         tls_flag = "" if tls else " -notls"
 
-        # Source proxy env if available
-        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        env_file = os.path.join(script_dir, "claude.local.env")
-        source_env = f"[ -f '{env_file}' ] && set -a && source '{env_file}' && set +a; " if os.path.isfile(env_file) else ""
+        # Source env file if configured
+        env_file = self.config.get("agents", {}).get("env_file", "")
+        source_env = f"[ -f '{env_file}' ] && set -a && source '{env_file}' && set +a; " if env_file else ""
 
         # Use irc.server.wc-local.autojoin instead of /join — /connect is async so /join may run before connected
         autojoin = ",".join(channels)
-        # Load zchat plugin if available
-        plugin_dir = os.path.join(script_dir, "weechat-zchat-plugin")
-        plugin_path = os.path.join(plugin_dir, "zchat.py")
-        load_plugin = f"; /script load {plugin_path}" if os.path.isfile(plugin_path) else ""
+        # Load zchat plugin — look in well-known locations
+        plugin_path = self._find_weechat_plugin()
+        load_plugin = f"; /script load {plugin_path}" if plugin_path else ""
 
         cmd = f"{source_env}weechat -r '/server add wc-local {server}/{port}{tls_flag} -nicks={nick}; /set irc.server.wc-local.autojoin \"{autojoin}\"; /connect wc-local{load_plugin}'"
 
@@ -189,6 +187,20 @@ class IrcManager:
                 "nick": self.config.get("agents", {}).get("username"),
             },
         }
+
+    def _find_weechat_plugin(self) -> str | None:
+        """Find zchat.py WeeChat plugin. Checks config, then common locations."""
+        plugin_path = self.config.get("weechat", {}).get("plugin_path", "")
+        if plugin_path and os.path.isfile(plugin_path):
+            return plugin_path
+        candidates = [
+            os.path.expanduser("~/.config/weechat/python/autoload/zchat.py"),  # XDG (WeeChat 4.x)
+            os.path.expanduser("~/.weechat/python/autoload/zchat.py"),         # Legacy
+        ]
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
 
     def _port_in_use(self, port: int) -> bool:
         return subprocess.run(["lsof", "-i", f":{port}"],
