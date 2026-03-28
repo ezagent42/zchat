@@ -1,6 +1,6 @@
 {
-  "name": "weechat-channel",
-  "description": "Connect WeeChat to Claude Code via IRC messaging",
+  "name": "zchat",
+  "description": "IRC channel for Claude Code — reply, join, dm, broadcast via slash commands",
   "version": "0.1.0",
-  "keywords": ["weechat", "irc", "channel", "mcp"]
+  "keywords": ["irc", "channel", "zchat"]
 }

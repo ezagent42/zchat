@@ -6,6 +6,7 @@
     "skill-creator@claude-plugins-official": true,
     "hookify@claude-plugins-official": true,
     "learning-output-style@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true
+    "code-simplifier@claude-plugins-official": true,
+    "zchat@ezagent42": true
   }
 }

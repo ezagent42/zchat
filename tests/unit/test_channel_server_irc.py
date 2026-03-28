@@ -45,3 +45,15 @@ def test_detect_mention_with_dash_separator():
     """Agent names use - separator (IRC compliant)."""
     assert detect_mention("@alice-helper hello", "alice-helper") is True
     assert detect_mention("@alice:helper hello", "alice-helper") is False
+
+
+def test_channel_instructions_mention_slash_commands():
+    """CHANNEL_INSTRUCTIONS should reference available /zchat: commands."""
+    from server import CHANNEL_INSTRUCTIONS
+    assert "/zchat:reply" in CHANNEL_INSTRUCTIONS
+    assert "/zchat:join" in CHANNEL_INSTRUCTIONS
+    assert "/zchat:dm" in CHANNEL_INSTRUCTIONS
+    assert "/zchat:broadcast" in CHANNEL_INSTRUCTIONS
+    # Verify original core instructions are preserved
+    assert "chat_id" in CHANNEL_INSTRUCTIONS
+    assert "reply" in CHANNEL_INSTRUCTIONS
