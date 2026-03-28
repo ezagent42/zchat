@@ -5,6 +5,10 @@ import os
 import subprocess
 import time
 
+import libtmux
+
+from zchat.cli.tmux import get_session, find_pane, pane_alive
+
 
 class IrcManager:
     """Manage ergo IRC daemon and WeeChat tmux pane."""
@@ -12,9 +16,16 @@ class IrcManager:
     def __init__(self, config: dict, state_file: str, tmux_session: str = "zchat"):
         self.config = config
         self._state_file = state_file
-        self.tmux_session = tmux_session
+        self._tmux_session_name = tmux_session
+        self._tmux_session: libtmux.Session | None = None
         self._state: dict = {}
         self._load_state()
+
+    @property
+    def tmux_session(self) -> libtmux.Session:
+        if self._tmux_session is None:
+            self._tmux_session = get_session(self._tmux_session_name)
+        return self._tmux_session
 
     @property
     def irc_config(self) -> dict:
@@ -139,15 +150,10 @@ class IrcManager:
 
         cmd = f"{source_env}weechat -r '/server add wc-local {server}/{port}{tls_flag} -nicks={nick}; /set irc.server.wc-local.autojoin \"{autojoin}\"; /connect wc-local{load_plugin}'"
 
-        result = subprocess.run(
-            ["tmux", "split-window", "-v", "-P", "-F", "#{pane_id}",
-             "-t", self.tmux_session, cmd],
-            capture_output=True, text=True,
-        )
-        pane_id = result.stdout.strip()
-        # Set pane title for iTerm2 tab display
-        subprocess.run(["tmux", "select-pane", "-t", pane_id, "-T", f"weechat ({nick})"],
-                       capture_output=True)
+        window = self.tmux_session.active_window
+        pane = window.split(attach=False, direction=libtmux.constants.PaneDirection.Below, shell=cmd)
+        pane_id = pane.pane_id
+        pane.cmd("select-pane", "-T", f"weechat ({nick})")
         self._state.setdefault("irc", {})["weechat_pane_id"] = pane_id
         self._save_state()
         print(f"WeeChat started (pane {pane_id}, nick {nick}).")
@@ -156,8 +162,9 @@ class IrcManager:
         """Stop WeeChat by sending /quit."""
         pane = self._state.get("irc", {}).get("weechat_pane_id")
         if pane and self._pane_alive(pane):
-            subprocess.run(["tmux", "send-keys", "-t", pane, "/quit", "Enter"],
-                           capture_output=True)
+            p = find_pane(self.tmux_session, pane)
+            if p:
+                p.send_keys("/quit", enter=True)
             self._state.get("irc", {}).pop("weechat_pane_id", None)
             self._save_state()
             print("WeeChat stopped.")
@@ -192,9 +199,7 @@ class IrcManager:
         return self._port_in_use(port)
 
     def _pane_alive(self, pane_id: str) -> bool:
-        result = subprocess.run(["tmux", "list-panes", "-F", "#{pane_id}"],
-                                capture_output=True, text=True)
-        return pane_id in result.stdout
+        return pane_alive(self.tmux_session, pane_id)
 
     def _load_state(self):
         if os.path.isfile(self._state_file):

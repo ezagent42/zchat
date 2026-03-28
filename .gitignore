@@ -5,9 +5,7 @@ __pycache__/
 
 # Runtime artifacts
 .mcp.json
-claude.local.env
 ircd.db
 ircd.lock
-claude.local.env.example
 languages/
 .claude/worktrees/

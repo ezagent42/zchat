@@ -48,10 +48,12 @@ def ergo_server(e2e_port, e2e_context):
 @pytest.fixture(scope="session")
 def tmux_session():
     """Create headless tmux session, destroy on teardown."""
+    import libtmux
+    srv = libtmux.Server()
     name = f"e2e-pytest-{os.getpid()}"
-    subprocess.run(["tmux", "new-session", "-d", "-s", name, "-x", "220", "-y", "60"])
+    session = srv.new_session(session_name=name, attach=False, x=220, y=60)
     yield name
-    subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
+    session.kill()
 
 
 @pytest.fixture(scope="session")
@@ -102,11 +104,12 @@ def zchat_cli(e2e_context):
 @pytest.fixture(scope="session")
 def tmux_send(e2e_context):
     """Returns a callable for sending keys to a tmux pane."""
+    from zchat.cli.tmux import get_session, find_pane
     def send(pane_id: str, text: str):
-        subprocess.run(
-            ["tmux", "send-keys", "-t", pane_id, text, "Enter"],
-            capture_output=True,
-        )
+        session = get_session(e2e_context["tmux_session"])
+        pane = find_pane(session, pane_id)
+        if pane:
+            pane.send_keys(text, enter=True)
     return send
 
 
@@ -125,19 +128,25 @@ def irc_probe(ergo_server):
 @pytest.fixture(scope="session")
 def weechat_pane(ergo_server, e2e_context, tmux_session):
     """Start WeeChat directly in tmux (bypass zchat CLI for reliability)."""
+    import libtmux
+    from zchat.cli.tmux import get_session
+
     port = ergo_server["port"]
     weechat_dir = os.path.join(e2e_context["home"], "weechat")
     os.makedirs(weechat_dir, exist_ok=True)
 
-    result = subprocess.run(
-        ["tmux", "split-window", "-h", "-P", "-F", "#{pane_id}",
-         "-t", tmux_session,
-         f"weechat --dir {weechat_dir} -r '/server add wc-local 127.0.0.1/{port} -notls -nicks=alice; "
-         f"/set irc.server.wc-local.autojoin \"#general\"; /connect wc-local'"],
-        capture_output=True, text=True,
+    session = get_session(tmux_session)
+    window = session.active_window
+    cmd = (
+        f"weechat --dir {weechat_dir} -r '/server add wc-local 127.0.0.1/{port} -notls -nicks=alice; "
+        f"/set irc.server.wc-local.autojoin \"#general\"; /connect wc-local'"
     )
-    pane_id = result.stdout.strip()
+    pane = window.split(
+        attach=False,
+        direction=libtmux.constants.PaneDirection.Right,
+        shell=cmd,
+    )
+    pane_id = pane.pane_id
     time.sleep(5)  # Wait for WeeChat to connect
     yield pane_id
-    # Stop WeeChat
-    subprocess.run(["tmux", "send-keys", "-t", pane_id, "/quit", "Enter"], capture_output=True)
+    pane.send_keys("/quit", enter=True)
