@@ -12,10 +12,10 @@
 ## 架构
 
 四个组件，通过 IRC 协议连接：
-- `zchat-channel-server/` — MCP server 桥接 IRC ↔ Claude Code（每个 agent 一个实例）
+- `zchat-channel-server/` — MCP server 桥接 IRC ↔ Claude Code（git submodule → `ezagent42/claude-zchat-channel`）
 - `zchat/cli/` — CLI 工具，管理 agent 生命周期（create/stop/list/restart）
-- `zchat/protocol/` — 协议规范（命名、系统消息）
-- `weechat-zchat-plugin/` — WeeChat Python script（/agent 命令、状态显示、系统消息渲染）
+- `zchat-protocol/` — 协议规范（git submodule → `ezagent42/zchat-protocol`）
+- `weechat-zchat-plugin/` — WeeChat Python script（git submodule → `ezagent42/weechat-zchat-plugin`）
 - IRC server — 任意 IRC server（本地 ergo、公司内网、Libera.Chat 等）
 
 ```
@@ -65,8 +65,10 @@ zchat agent stop helper               # 停止 agent
 zchat agent restart helper            # 重启 agent
 zchat shutdown                        # 停止所有 agent
 
-cd zchat-channel-server && uv run python -m pytest ../tests/unit/ -v   # Unit 测试
-pytest tests/e2e/ -v -m e2e          # E2E 测试（需要 ergo + tmux）
+uv run pytest tests/unit/ -v                                              # CLI unit 测试
+cd zchat-protocol && uv run pytest tests/ -v                              # Protocol 测试
+cd zchat-channel-server && uv run pytest tests/ -v                        # Channel server 测试
+uv run pytest tests/e2e/ -v -m e2e                                        # E2E 测试（需要 ergo + tmux）
 ```
 
 ### 配置
@@ -82,6 +84,9 @@ password = ""
 [agents]
 default_channels = ["#general"]
 username = ""  # 空则从 $USER 读取
+env_file = ""  # 代理/API 密钥环境文件路径（可选）
+claude_args = ["--permission-mode", "bypassPermissions", "--dangerously-load-development-channels", "server:zchat-channel"]
+mcp_server_cmd = ["zchat-channel"]  # 开发时可用 ["uv", "run", "--project", "<path>", "zchat-channel"]
 ```
 
 ### 依赖
@@ -111,7 +116,7 @@ username = ""  # 空则从 $USER 读取
 
 1. 在 `server.py` 的 `register_tools()` 中添加 `@server.list_tools()` entry 和 `@server.call_tool()` handler
 2. 在模块顶层实现 `_handle_<toolname>()` 函数
-3. 在 `tests/unit/test_channel_server_irc.py` 添加测试
+3. 在 `zchat-channel-server/tests/test_channel_server.py` 添加测试
 
 ### 关键约束
 
@@ -120,3 +125,11 @@ username = ""  # 空则从 $USER 读取
 - Agent 的 IRC nick 必须符合 RFC 2812（无 `:` 等特殊字符）
 - channel-server 运行在 IRC reactor 线程中，通过 asyncio.Queue 桥接到 MCP
 - tmux session 名为 `zchat-{project}`（如 `zchat-local`），避免多项目冲突
+
+### Git Submodules
+
+三个组件是独立仓库，通过 git submodule 引入：
+- `git clone --recurse-submodules` 获取完整代码
+- `git submodule update --init` 初始化子模块
+- Protocol import：`from zchat_protocol.naming import scoped_name`（注意下划线）
+- 每个子模块有独立的 `pyproject.toml`、venv 和测试
