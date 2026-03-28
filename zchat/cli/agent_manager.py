@@ -7,6 +7,9 @@ import subprocess
 import tempfile
 import time
 
+import libtmux
+
+from zchat.cli.tmux import get_session, find_pane, pane_alive
 from zchat.protocol.naming import scoped_name, AGENT_SEPARATOR
 
 
@@ -25,10 +28,17 @@ class AgentManager:
         self.channel_server_dir = channel_server_dir
         self.username = username
         self.default_channels = default_channels
-        self.tmux_session = tmux_session
+        self._tmux_session_name = tmux_session
+        self._tmux_session: libtmux.Session | None = None
         self._state_file = state_file
         self._agents: dict[str, dict] = {}
         self._load_state()
+
+    @property
+    def tmux_session(self) -> libtmux.Session:
+        if self._tmux_session is None:
+            self._tmux_session = get_session(self._tmux_session_name)
+        return self._tmux_session
 
     def scoped(self, name: str) -> str:
         return scoped_name(name, self.username)
@@ -122,7 +132,7 @@ class AgentManager:
                         "IRC_PORT": str(self.irc_port),
                         "IRC_CHANNELS": channels_str,
                         "IRC_TLS": str(self.irc_tls).lower(),
-                        "ZCHAT_TMUX_SESSION": self.tmux_session,
+                        "ZCHAT_TMUX_SESSION": self._tmux_session_name,
                         "ZCHAT_PROJECT_DIR": os.path.dirname(self._state_file),
                         "no_proxy": f"localhost,127.0.0.1,{self.irc_server}",
                         "NO_PROXY": f"localhost,127.0.0.1,{self.irc_server}",
@@ -145,15 +155,11 @@ class AgentManager:
             f"--permission-mode bypassPermissions "
             f"--dangerously-load-development-channels server:weechat-channel"
         )
-        result = subprocess.run(
-            ["tmux", "split-window", "-v", "-P", "-F", "#{pane_id}",
-             "-t", self.tmux_session, cmd],
-            capture_output=True, text=True,
-        )
-        pane_id = result.stdout.strip()
+        window = self.tmux_session.active_window
+        pane = window.split(attach=False, direction=libtmux.constants.PaneDirection.Below, shell=cmd)
+        pane_id = pane.pane_id
         # Set pane title for iTerm2 tab display
-        subprocess.run(["tmux", "select-pane", "-t", pane_id, "-T", f"agent: {name}"],
-                       capture_output=True)
+        pane.cmd("select-pane", "-T", f"agent: {name}")
         # Auto-confirm development channels prompt after 3s
         subprocess.Popen(
             ["bash", "-c", f"sleep 3 && tmux send-keys -t {pane_id} Enter"],
@@ -164,10 +170,9 @@ class AgentManager:
     def _force_stop(self, name: str):
         agent = self._agents.get(name)
         if agent and agent.get("pane_id"):
-            subprocess.run(
-                ["tmux", "send-keys", "-t", agent["pane_id"], "/exit", "Enter"],
-                capture_output=True,
-            )
+            pane = find_pane(self.tmux_session, agent["pane_id"])
+            if pane:
+                pane.send_keys("/exit", enter=True)
 
     def _cleanup_workspace(self, name: str):
         agent = self._agents.get(name)
@@ -180,15 +185,8 @@ class AgentManager:
         agent = self._agents.get(name)
         if not agent or not agent.get("pane_id"):
             return "offline"
-        try:
-            result = subprocess.run(
-                ["tmux", "list-panes", "-t", self.tmux_session, "-F", "#{pane_id}"],
-                capture_output=True, text=True,
-            )
-            if agent["pane_id"] in result.stdout:
-                return "running"
-        except Exception:
-            pass
+        if pane_alive(self.tmux_session, agent["pane_id"]):
+            return "running"
         return "offline"
 
     def send(self, name: str, text: str):
@@ -197,11 +195,11 @@ class AgentManager:
         agent = self._agents.get(name)
         if not agent:
             raise ValueError(f"Unknown agent: {name}")
-        pane = agent.get("pane_id")
-        if not pane or not self._check_alive(name) == "running":
+        if self._check_alive(name) != "running":
             raise ValueError(f"{name} is not running")
-        subprocess.run(["tmux", "send-keys", "-t", pane, text, "Enter"],
-                       capture_output=True)
+        pane = find_pane(self.tmux_session, agent["pane_id"])
+        if pane:
+            pane.send_keys(text, enter=True)
 
     def _load_state(self):
         if os.path.isfile(self._state_file):
