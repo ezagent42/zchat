@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 import time
 from typing import Optional
@@ -88,11 +87,14 @@ def _current_tmux_session() -> str:
     env_session = os.environ.get("ZCHAT_TMUX_SESSION")
     if env_session:
         return env_session
-    result = subprocess.run(
-        ["tmux", "display-message", "-p", "#S"],
-        capture_output=True, text=True,
-    )
-    return result.stdout.strip()
+    from zchat.cli.tmux import server
+    s = server()
+    attached = s.attached_sessions
+    if attached:
+        return attached[0].session_name
+    if s.sessions:
+        return s.sessions[0].session_name
+    return "zchat"
 
 
 def _require_tmux(ctx: typer.Context):
