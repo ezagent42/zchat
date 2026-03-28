@@ -142,7 +142,6 @@ class AgentManager:
         command = self.mcp_server_cmd[0]
         args = self.mcp_server_cmd[1:] if len(self.mcp_server_cmd) > 1 else []
         server_config = {
-            "type": "stdio",
             "command": command,
             "env": {
                 "AGENT_NAME": name,

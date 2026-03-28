@@ -29,7 +29,7 @@ test = [
 ]
 
 [project.scripts]
-zchat-channel = "server:main"
+zchat-channel = "server:entry_point"
 
 [dependency-groups]
 dev = [

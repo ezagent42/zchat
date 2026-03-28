@@ -1,6 +1,7 @@
 # tests/e2e/test_e2e.py
 """E2E tests — each phase is a separate test, ordered by pytest-order."""
 
+import os
 import pytest
 
 
@@ -13,10 +14,29 @@ def test_weechat_connects(irc_probe, weechat_pane):
 
 @pytest.mark.e2e
 @pytest.mark.order(2)
-def test_agent_joins_irc(zchat_cli, irc_probe):
+def test_agent_joins_irc(zchat_cli, irc_probe, e2e_context):
     """Phase 2: zchat agent create agent0 → agent joins IRC."""
-    zchat_cli("agent", "create", "agent0")
-    assert irc_probe.wait_for_nick("alice-agent0", timeout=30), "agent0 not on IRC"
+    result = zchat_cli("agent", "create", "agent0")
+    if result.returncode != 0:
+        raise RuntimeError(f"agent create failed: {result.stderr or result.stdout}")
+    # Capture agent workspace + mcp.json for debugging
+    import json, glob
+    ws_match = [line for line in (result.stdout or "").splitlines() if "workspace:" in line]
+    if ws_match:
+        ws_path = ws_match[0].split("workspace:")[-1].strip()
+        mcp_path = os.path.join(ws_path, ".mcp.json")
+        if os.path.isfile(mcp_path):
+            with open(mcp_path) as f:
+                print(f"[DEBUG] .mcp.json: {json.dumps(json.load(f), indent=2)}")
+    if not irc_probe.wait_for_nick("alice-agent0", timeout=30):
+        # Capture tmux pane content for debugging
+        import subprocess as sp
+        pane_id = result.stdout.split("pane:")[1].split("\n")[0].strip() if "pane:" in result.stdout else ""
+        pane_content = ""
+        if pane_id:
+            r = sp.run(["tmux", "capture-pane", "-t", pane_id, "-p"], capture_output=True, text=True)
+            pane_content = r.stdout[-500:] if r.stdout else ""
+        raise AssertionError(f"agent0 not on IRC.\nCLI: {result.stdout}\nPane: {pane_content}")
 
 
 @pytest.mark.e2e

@@ -309,5 +309,9 @@ async def main():
         finally:
             connection.disconnect("Agent shutting down")
 
-if __name__ == "__main__":
+def entry_point():
+    """Synchronous entry point for console_scripts."""
     asyncio.run(main())
+
+if __name__ == "__main__":
+    entry_point()
