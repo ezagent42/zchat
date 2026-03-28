@@ -56,6 +56,8 @@ class AgentManager:
 
         channels = channels or list(self.default_channels)
         agent_workspace = self._create_workspace(name, channels) if not workspace else workspace
+        if workspace:
+            self._write_workspace_config(name, workspace, channels)
 
         pane_id = self._spawn_tmux(name, agent_workspace)
 
@@ -114,11 +116,12 @@ class AgentManager:
         safe = name.replace(AGENT_SEPARATOR, "_")
         workspace = os.path.join(tempfile.gettempdir(), f"zchat-{safe}")
         os.makedirs(workspace, exist_ok=True)
-        self._write_claude_settings(workspace)
+        self._write_workspace_config(name, workspace, channels)
         return workspace
 
-    def _write_claude_settings(self, workspace: str):
-        """Write .claude/settings.local.json so Claude auto-allows MCP tools."""
+    def _write_workspace_config(self, name: str, workspace: str, channels: list[str]):
+        """Write .claude/settings.local.json and .mcp.json for the agent workspace."""
+        # Claude settings — auto-allow MCP tools
         claude_dir = os.path.join(workspace, ".claude")
         os.makedirs(claude_dir, exist_ok=True)
         settings = {
@@ -132,20 +135,35 @@ class AgentManager:
         with open(os.path.join(claude_dir, "settings.local.json"), "w") as f:
             json.dump(settings, f, indent=2)
 
+        # MCP server config — tells Claude how to reach the channel server
+        channels_str = ",".join(ch.lstrip("#") for ch in channels)
+        config = {
+            "mcpServers": {
+                "zchat-channel": {
+                    "type": "stdio",
+                    "command": "zchat-channel",
+                    "env": {
+                        "AGENT_NAME": name,
+                        "IRC_SERVER": self.irc_server,
+                        "IRC_PORT": str(self.irc_port),
+                        "IRC_CHANNELS": channels_str,
+                        "IRC_TLS": str(self.irc_tls).lower(),
+                    },
+                }
+            }
+        }
+        with open(os.path.join(workspace, ".mcp.json"), "w") as f:
+            json.dump(config, f, indent=2)
+
     def _spawn_tmux(self, name: str, workspace: str) -> str:
         source_env = ""
         if self.env_file:
             source_env = f"[ -f '{self.env_file}' ] && set -a && source '{self.env_file}' && set +a; "
         args_str = " ".join(self.claude_args)
-        channels_str = ",".join(ch.lstrip("#") for ch in self.default_channels)
         cmd = (
             f"{source_env}"
             f"cd '{workspace}' && "
             f"AGENT_NAME='{name}' "
-            f"IRC_SERVER='{self.irc_server}' "
-            f"IRC_PORT='{self.irc_port}' "
-            f"IRC_CHANNELS='{channels_str}' "
-            f"IRC_TLS='{'true' if self.irc_tls else 'false'}' "
             f"claude {args_str}"
         )
         window = self.tmux_session.active_window

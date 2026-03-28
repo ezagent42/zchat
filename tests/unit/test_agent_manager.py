@@ -21,18 +21,30 @@ def test_scope_agent_name():
     assert mgr.scoped("alice-helper") == "alice-helper"
 
 
-def test_create_workspace_has_claude_settings():
-    """Workspace should contain .claude/settings.local.json with MCP tool permissions."""
+def test_create_workspace_has_config():
+    """Workspace should have .claude/settings.local.json and .mcp.json."""
     mgr = _make_manager(state_file="/tmp/test-agents-ws2.json")
     ws = mgr._create_workspace("alice-helper", ["#general"])
     assert os.path.isdir(ws)
-    assert not os.path.exists(os.path.join(ws, ".mcp.json"))
+
+    # Check .claude/settings.local.json
     settings_path = os.path.join(ws, ".claude", "settings.local.json")
     assert os.path.isfile(settings_path)
     with open(settings_path) as f:
         settings = json.load(f)
     assert "mcp__zchat-channel__reply" in settings["permissions"]["allow"]
-    assert "mcp__zchat-channel__join_channel" in settings["permissions"]["allow"]
+
+    # Check .mcp.json
+    mcp_path = os.path.join(ws, ".mcp.json")
+    assert os.path.isfile(mcp_path)
+    with open(mcp_path) as f:
+        mcp = json.load(f)
+    env = mcp["mcpServers"]["zchat-channel"]["env"]
+    assert env["AGENT_NAME"] == "alice-helper"
+    assert env["IRC_SERVER"] == "localhost"
+    assert env["IRC_CHANNELS"] == "general"
+    assert mcp["mcpServers"]["zchat-channel"]["command"] == "zchat-channel"
+
     import shutil
     shutil.rmtree(ws)
 
