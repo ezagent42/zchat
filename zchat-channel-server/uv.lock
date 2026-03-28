@@ -1009,7 +1009,7 @@ wheels = [
 [[package]]
 name = "zchat-channel-server"
 version = "0.2.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "irc" },
     { name = "mcp", extra = ["cli"] },
