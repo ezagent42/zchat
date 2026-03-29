@@ -124,15 +124,16 @@ def set_config_value(name: str, key: str, value: str):
     for part in parts[:-1]:
         target = target.setdefault(part, {})
 
-    # Type coercion: try int, bool, then string
+    # Type coercion: try bool, int, then keep as string
+    coerced: str | int | bool = value
     if value.lower() in ("true", "false"):
-        value = value.lower() == "true"
+        coerced = value.lower() == "true"
     else:
         try:
-            value = int(value)
+            coerced = int(value)
         except ValueError:
             pass
-    target[parts[-1]] = value
+    target[parts[-1]] = coerced
 
     with open(config_path, "wb") as f:
         tomli_w.dump(cfg, f)

@@ -437,8 +437,9 @@ def cmd_agent_list(ctx: typer.Context):
                 uptime = f"{elapsed:.0f}s"
         else:
             uptime = "—"
+        agent_type = info.get("type", "unknown")
         ch = ", ".join(info.get("channels", []))
-        typer.echo(f"  {name}\t{status}\t{uptime}\t{pane}\t{ch}\t{ws}")
+        typer.echo(f"  {name}\t{agent_type}\t{status}\t{uptime}\t{pane}\t{ch}\t{ws}")
 
 @agent_app.command("status")
 def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
@@ -449,6 +450,7 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
     elapsed = time.time() - info.get("created_at", time.time())
     mins, secs = divmod(int(elapsed), 60)
     typer.echo(f"{scoped}")
+    typer.echo(f"  type:      {info.get('type', 'unknown')}")
     typer.echo(f"  status:    {info['status']}")
     typer.echo(f"  uptime:    {mins}m {secs}s")
     typer.echo(f"  pane:      {info.get('pane_id', '—')}")
