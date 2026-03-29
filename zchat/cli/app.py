@@ -107,10 +107,20 @@ def cmd_project_create(name: str):
     if os.path.exists(pdir):
         typer.echo(f"Project '{name}' already exists.")
         raise typer.Exit(1)
-    server = typer.prompt("IRC server", default="127.0.0.1")
-    port = typer.prompt("IRC port", default=6667, type=int)
-    tls = typer.confirm("TLS", default=False)
-    password = typer.prompt("Password", default="", show_default=False)
+    typer.echo("IRC Server:")
+    typer.echo("  1) zchat.inside.h2os.cloud (recommended)")
+    typer.echo("  2) Custom server")
+    server_choice = typer.prompt("Choose", default="1")
+    if server_choice == "1":
+        server = "zchat.inside.h2os.cloud"
+        port = 6697
+        tls = True
+        password = ""
+    else:
+        server = typer.prompt("IRC server", default="127.0.0.1")
+        port = typer.prompt("IRC port", default=6667, type=int)
+        tls = typer.confirm("TLS", default=False)
+        password = typer.prompt("Password", default="", show_default=False)
     nick = typer.prompt("Nickname", default=os.environ.get("USER", "user"))
     channels = typer.prompt("Default channels", default="#general")
     proxy = typer.prompt("HTTP proxy (ip:port, leave empty for direct connection)",
