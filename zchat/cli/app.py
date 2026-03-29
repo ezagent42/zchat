@@ -413,5 +413,44 @@ def cmd_setup_weechat(
     setup_weechat(force=force)
 
 
+# ============================================================
+# self-update
+# ============================================================
+
+_GIT_REPOS = [
+    "zchat-protocol @ git+https://github.com/ezagent42/zchat-protocol.git@main",
+    "zchat-channel-server @ git+https://github.com/ezagent42/claude-zchat-channel.git@main",
+    "zchat @ git+https://github.com/ezagent42/zchat.git@main",
+]
+
+
+@app.command("self-update")
+def cmd_self_update():
+    """Update zchat to the latest version from GitHub."""
+    import subprocess
+    import sys
+
+    python = sys.executable
+    typer.echo("Updating zchat from GitHub (main)...")
+    result = subprocess.run(
+        [python, "-m", "pip", "install", "--force-reinstall", "--no-deps"] + _GIT_REPOS,
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        typer.echo(f"Error:\n{result.stderr}")
+        raise typer.Exit(1)
+
+    # Show installed commit
+    result2 = subprocess.run(
+        [python, "-m", "pip", "show", "zchat"],
+        capture_output=True, text=True,
+    )
+    for line in result2.stdout.splitlines():
+        if line.startswith("Version:"):
+            typer.echo(f"Updated to {line}")
+            break
+    typer.echo("Done. Restart any running zchat commands to use the new version.")
+
+
 if __name__ == "__main__":
     app()
