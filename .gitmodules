@@ -7,3 +7,6 @@
 [submodule "weechat-zchat-plugin"]
 	path = weechat-zchat-plugin
 	url = git@github.com:ezagent42/weechat-zchat-plugin.git
+[submodule "homebrew-zchat"]
+	path = homebrew-zchat
+	url = https://github.com/ezagent42/homebrew-zchat.git
