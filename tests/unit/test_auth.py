@@ -118,3 +118,56 @@ def test_device_code_flow_success(tmp_path, capsys):
     assert "expires_at" in result
     captured = capsys.readouterr()
     assert "ABCD-1234" in captured.out
+
+
+from zchat.cli.auth import refresh_token_if_needed, get_credentials
+
+
+def test_refresh_token_if_needed_refreshes_expired(tmp_path):
+    save_token(str(tmp_path), {
+        "access_token": "old-token",
+        "refresh_token": "valid-refresh",
+        "expires_at": time.time() - 10,
+        "username": "alice",
+        "userinfo_endpoint": "https://kc.test/userinfo",
+    })
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "token" in url:
+            return httpx.Response(200, json={
+                "access_token": "new-token",
+                "refresh_token": "new-refresh",
+                "expires_in": 300,
+            })
+        if "userinfo" in url:
+            return httpx.Response(200, json={"preferred_username": "alice"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.Client(transport=transport)
+    result = refresh_token_if_needed(
+        str(tmp_path),
+        token_endpoint="https://kc.test/token",
+        client_id="zchat-cli",
+        http_client=client,
+    )
+    assert result is not None
+    assert result["access_token"] == "new-token"
+
+
+def test_get_credentials_returns_username_and_token(tmp_path):
+    save_token(str(tmp_path), {
+        "access_token": "good-token",
+        "refresh_token": "refresh",
+        "expires_at": time.time() + 3600,
+        "username": "alice",
+    })
+    username, token = get_credentials(str(tmp_path))
+    assert username == "alice"
+    assert token == "good-token"
+
+
+def test_get_credentials_returns_none_when_no_token(tmp_path):
+    result = get_credentials(str(tmp_path))
+    assert result is None

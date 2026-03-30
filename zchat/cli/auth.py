@@ -101,3 +101,68 @@ def device_code_flow(
         "token_endpoint": endpoints["token_endpoint"],
         "userinfo_endpoint": endpoints["userinfo_endpoint"],
     }
+
+
+def refresh_token_if_needed(
+    project_dir: str,
+    token_endpoint: str,
+    client_id: str,
+    http_client: httpx.Client | None = None,
+) -> dict | None:
+    """Refresh the access token using the refresh_token. Returns updated token data or None."""
+    auth_path = os.path.join(project_dir, AUTH_FILE)
+    if not os.path.isfile(auth_path):
+        return None
+    with open(auth_path) as f:
+        data = json.load(f)
+    refresh_tok = data.get("refresh_token")
+    if not refresh_tok:
+        return None
+    client = http_client or httpx.Client()
+    resp = client.post(token_endpoint, data={
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "refresh_token": refresh_tok,
+    })
+    if resp.status_code != 200:
+        return None
+    new_tokens = resp.json()
+    data["access_token"] = new_tokens["access_token"]
+    data["refresh_token"] = new_tokens.get("refresh_token", refresh_tok)
+    data["expires_at"] = time.time() + new_tokens.get("expires_in", 300)
+    save_token(project_dir, data)
+    return data
+
+
+def get_credentials(
+    project_dir: str,
+    client_id: str = "",
+    http_client: httpx.Client | None = None,
+) -> tuple[str, str] | None:
+    """Return (username, access_token) if valid credentials exist.
+
+    Auto-refreshes if access_token is expired but refresh_token + token_endpoint are available.
+    client_id is read from stored auth.json if not provided (saved during device_code_flow).
+    Returns None if no valid credentials can be obtained.
+    """
+    data = load_cached_token(project_dir)
+    if data is None:
+        auth_path = os.path.join(project_dir, AUTH_FILE)
+        if not os.path.isfile(auth_path):
+            return None
+        with open(auth_path) as f:
+            stored = json.load(f)
+        token_endpoint = stored.get("token_endpoint", "")
+        cid = client_id or stored.get("client_id", "")
+        if token_endpoint and cid and stored.get("refresh_token"):
+            data = refresh_token_if_needed(
+                project_dir, token_endpoint=token_endpoint,
+                client_id=cid, http_client=http_client,
+            )
+        if data is None:
+            return None
+    username = data.get("username", "")
+    token = data.get("access_token", "")
+    if not username or not token:
+        return None
+    return (username, token)
