@@ -45,40 +45,46 @@ else
   ARGS_LINE=""
 fi
 
-# Build proxy env entries if set
-PROXY_ENV=""
+# Build env object with jq for valid JSON (no trailing comma issues)
+ENV_JSON=$(jq -n \
+  --arg agent "$AGENT_NAME" \
+  --arg server "$IRC_SERVER" \
+  --arg port "$IRC_PORT" \
+  --arg channels "$IRC_CHANNELS" \
+  --arg tls "$IRC_TLS" \
+  --arg password "${IRC_PASSWORD:-}" \
+  --arg sasl_user "${IRC_SASL_USER:-}" \
+  --arg sasl_pass "${IRC_SASL_PASS:-}" \
+  '{
+    AGENT_NAME: $agent,
+    IRC_SERVER: $server,
+    IRC_PORT: $port,
+    IRC_CHANNELS: $channels,
+    IRC_TLS: $tls,
+    IRC_PASSWORD: $password,
+    IRC_SASL_USER: $sasl_user,
+    IRC_SASL_PASS: $sasl_pass
+  }')
+
+# Add proxy env if set
 if [ -n "${HTTP_PROXY:-}" ]; then
-  PROXY_ENV="${PROXY_ENV}\"HTTP_PROXY\": \"$HTTP_PROXY\","
+  ENV_JSON=$(echo "$ENV_JSON" | jq --arg v "$HTTP_PROXY" '. + {HTTP_PROXY: $v}')
 fi
 if [ -n "${HTTPS_PROXY:-}" ]; then
-  PROXY_ENV="${PROXY_ENV}\"HTTPS_PROXY\": \"$HTTPS_PROXY\","
+  ENV_JSON=$(echo "$ENV_JSON" | jq --arg v "$HTTPS_PROXY" '. + {HTTPS_PROXY: $v}')
 fi
 
-cat > .mcp.json << EOF
-{
-  "mcpServers": {
-    "zchat-channel": {
-      "command": "$MCP_CMD",
-      ${ARGS_LINE}
-      "env": {
-        "AGENT_NAME": "$AGENT_NAME",
-        "IRC_SERVER": "$IRC_SERVER",
-        "IRC_PORT": "$IRC_PORT",
-        "IRC_CHANNELS": "$IRC_CHANNELS",
-        "IRC_TLS": "$IRC_TLS",
-        "IRC_PASSWORD": "${IRC_PASSWORD:-}",
-        "IRC_SASL_USER": "${IRC_SASL_USER:-}",
-        "IRC_SASL_PASS": "${IRC_SASL_PASS:-}",
-        ${PROXY_ENV}
-        "placeholder_": ""
-      }
-    }
-  }
-}
-EOF
+# Build server config object
+SERVER_JSON=$(jq -n --arg cmd "$MCP_CMD" --argjson env "$ENV_JSON" '{command: $cmd, env: $env}')
 
-# Clean up trailing comma workaround: remove placeholder_ line
-sed -i '' '/"placeholder_"/d' .mcp.json 2>/dev/null || sed -i '/"placeholder_"/d' .mcp.json
+# Add args if present
+if [ ${#MCP_ARGS[@]} -gt 0 ]; then
+  ARGS_JSON=$(printf '%s\n' "${MCP_ARGS[@]}" | jq -R . | jq -s .)
+  SERVER_JSON=$(echo "$SERVER_JSON" | jq --argjson args "$ARGS_JSON" '. + {args: $args}')
+fi
+
+# Write .mcp.json
+jq -n --argjson srv "$SERVER_JSON" '{"mcpServers": {"zchat-channel": $srv}}' > .mcp.json
 
 exec claude --permission-mode bypassPermissions \
   --dangerously-load-development-channels server:zchat-channel
