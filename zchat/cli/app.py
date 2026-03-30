@@ -122,6 +122,8 @@ def cmd_project_create(name: str):
     if os.path.exists(pdir):
         typer.echo(f"Project '{name}' already exists.")
         raise typer.Exit(1)
+
+    # --- IRC server ---
     typer.echo("IRC Server:")
     typer.echo("  1) zchat.inside.h2os.cloud (recommended)")
     typer.echo("  2) Custom server")
@@ -136,57 +138,53 @@ def cmd_project_create(name: str):
         port = typer.prompt("IRC port", default=6667, type=int)
         tls = typer.confirm("TLS", default=False)
         password = typer.prompt("Password", default="", show_default=False)
+
+    # --- Channels ---
     channels = typer.prompt("Default channels", default="#general")
-    proxy = typer.prompt("HTTP proxy (ip:port, leave empty for direct connection)",
-                         default="", show_default=False)
 
-    # Authentication
-    typer.echo("Authentication:")
-    typer.echo("  1) EZagent login (recommended)")
-    typer.echo("  2) Custom OIDC provider")
-    typer.echo("  3) None (manual nickname)")
-    auth_choice = typer.prompt("Choose", default="1")
-    auth_provider = "none"
-    auth_issuer = ""
-    auth_client_id = ""
-    if auth_choice == "1":
-        auth_provider = "oidc"
-        auth_issuer = "https://6fzzkh.logto.app/"
-        auth_client_id = "t7ddhdfqrfgwpmounxdsx"
-    elif auth_choice == "2":
-        auth_provider = "oidc"
-        auth_issuer = typer.prompt("OIDC issuer URL")
-        auth_client_id = typer.prompt("OIDC client ID")
+    # --- Agent type multi-select ---
+    from zchat.cli.template_loader import list_templates
+    templates = list_templates()
+    if not templates:
+        typer.echo("Error: No agent templates found.")
+        raise typer.Exit(1)
+    typer.echo("Agent types:")
+    for i, tpl in enumerate(templates, 1):
+        tname = tpl["template"]["name"]
+        tdesc = tpl["template"].get("description", "")
+        typer.echo(f"  {i}) {tname} - {tdesc}")
+    selection = typer.prompt("Select types (comma-separated)", default="1")
+    selected_indices = [int(s.strip()) - 1 for s in selection.split(",") if s.strip().isdigit()]
+    selected_types = []
+    for idx in selected_indices:
+        if 0 <= idx < len(templates):
+            selected_types.append(templates[idx]["template"]["name"])
+    if not selected_types:
+        selected_types = [templates[0]["template"]["name"]]
+    default_type = selected_types[0]
 
-    # Nickname — skip when OIDC enabled (username comes from IdP after auth login)
-    if auth_provider == "oidc":
-        nick = ""
-    else:
-        nick = typer.prompt("Nickname", default=os.environ.get("USER", "user"))
-
-    # Generate env file if proxy is set
+    # --- Type-specific config: Claude ---
     env_file = ""
-    if proxy:
-        proxy_url = proxy if proxy.startswith("http") else f"http://{proxy}"
-        env_path = os.path.join(pdir, "claude.local.env")
-        os.makedirs(pdir, exist_ok=True)
-        with open(env_path, "w") as f:
-            f.write(f"HTTP_PROXY={proxy_url}\n")
-            f.write(f"HTTPS_PROXY={proxy_url}\n")
-        env_file = env_path
+    if "claude" in selected_types:
+        typer.echo("Claude configuration:")
+        proxy = typer.prompt("  HTTP proxy (ip:port, leave empty for direct connection)",
+                             default="", show_default=False)
+        if proxy:
+            proxy_url = proxy if proxy.startswith("http") else f"http://{proxy}"
+            env_path = os.path.join(pdir, "claude.local.env")
+            os.makedirs(pdir, exist_ok=True)
+            with open(env_path, "w") as f:
+                f.write(f"HTTP_PROXY={proxy_url}\n")
+                f.write(f"HTTPS_PROXY={proxy_url}\n")
+            env_file = env_path
 
     create_project_config(name, server=server, port=port, tls=tls,
-                          password=password, nick=nick, channels=channels,
-                          env_file=env_file,
-                          auth_provider=auth_provider,
-                          auth_issuer=auth_issuer,
-                          auth_client_id=auth_client_id)
+                          password=password, nick="", channels=channels,
+                          env_file=env_file, default_type=default_type)
     typer.echo(f"\nProject '{name}' created at {pdir}/")
     typer.echo(f"Config saved to {pdir}/config.toml")
-    if proxy:
+    if env_file:
         typer.echo(f"Proxy config saved to {pdir}/claude.local.env")
-    if auth_provider == "oidc":
-        typer.echo(f"\nOIDC auth configured. Run 'zchat auth login --project {name}' to authenticate.")
 
 @project_app.command("list")
 def cmd_project_list():

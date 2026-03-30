@@ -88,3 +88,25 @@ def test_create_project_config_no_auth_section(tmp_path, monkeypatch):
                           password="", nick="", channels="#general")
     cfg = load_project_config("test")
     assert "auth" not in cfg
+
+
+def test_project_create_config_with_default_type(tmp_path, monkeypatch):
+    """create_project_config stores the selected default_type."""
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    create_project_config("typed", server="127.0.0.1", port=6667, tls=False,
+                          password="", nick="", channels="#general",
+                          default_type="claude")
+    cfg = load_project_config("typed")
+    assert cfg["agents"]["default_type"] == "claude"
+    assert "auth" not in cfg
+
+
+def test_project_create_with_env_file(tmp_path, monkeypatch):
+    """Proxy env_file path is stored in config."""
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    env_path = str(tmp_path / "projects" / "proxy-test" / "claude.local.env")
+    create_project_config("proxy-test", server="127.0.0.1", port=6667, tls=False,
+                          password="", nick="", channels="#general",
+                          env_file=env_path)
+    cfg = load_project_config("proxy-test")
+    assert cfg["agents"]["env_file"] == env_path
