@@ -210,13 +210,20 @@ def cmd_project_use(name: str):
     cfg = load_project_config(name)
     session_name = cfg.get("tmux", {}).get("session", f"zchat-{name}")
     typer.echo(f"Default project set to '{name}'.")
-    # Attach to the project's tmux session
+    # Attach to the project's tmux session if it exists
     import subprocess
+    result = subprocess.run(
+        ["tmux", "has-session", "-t", session_name],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        typer.echo(
+            f"Session not running. Use 'zchat irc start' to start it."
+        )
+        return
     if os.environ.get("TMUX"):
-        # Already inside tmux — switch client
         subprocess.run(["tmux", "switch-client", "-t", session_name])
     else:
-        # Outside tmux — attach
         subprocess.run(["tmux", "attach", "-t", session_name])
 
 @project_app.command("remove")
