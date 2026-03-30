@@ -83,10 +83,19 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
     )
 
 
+def _version_callback(value: bool):
+    if value:
+        from zchat._version import __version__
+        typer.echo(f"zchat {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
     project: Optional[str] = typer.Option(None, help="Project name (overrides auto-detection)"),
+    version: bool = typer.Option(False, "--version", "-V", callback=_version_callback,
+                                 is_eager=True, help="Show version and exit"),
 ):
     """Claude Code agent lifecycle management."""
     ctx.ensure_object(dict)

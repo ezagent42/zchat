@@ -1,6 +1,6 @@
 [project]
 name = "zchat"
-version = "0.3.0"
+dynamic = ["version"]
 description = "Multi-agent collaboration over IRC"
 requires-python = ">=3.11"
 dependencies = [
@@ -26,8 +26,14 @@ zchat-protocol = { path = "zchat-protocol", editable = true }
 zchat-channel-server = { path = "zchat-channel-server", editable = true }
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "zchat/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zchat"]
