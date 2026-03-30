@@ -21,9 +21,7 @@ def _generate_tmux_session_name(project_name: str) -> str:
 
 def create_project_config(name: str, server: str, port: int, tls: bool,
                           password: str, nick: str, channels: str,
-                          env_file: str = "", default_type: str = "claude",
-                          auth_provider: str = "none", auth_issuer: str = "",
-                          auth_client_id: str = ""):
+                          env_file: str = "", default_type: str = "claude"):
     """Create project directory and write config.toml."""
     pdir = project_dir(name)
     os.makedirs(pdir, exist_ok=True)
@@ -44,11 +42,6 @@ env_file = "{env_file}"
 
 [tmux]
 session = "{tmux_session}"
-
-[auth]
-provider = "{auth_provider}"
-issuer = "{auth_issuer}"
-client_id = "{auth_client_id}"
 '''
     with open(os.path.join(pdir, "config.toml"), "w") as f:
         f.write(config_content)
@@ -104,10 +97,6 @@ def load_project_config(name: str) -> dict:
         agents["username"] = os.environ.get("USER", "user")
     agents.setdefault("env_file", "")
     agents.setdefault("default_type", "claude")
-    auth = cfg.setdefault("auth", {})
-    auth.setdefault("provider", "none")
-    auth.setdefault("issuer", "")
-    auth.setdefault("client_id", "")
     return cfg
 
 
