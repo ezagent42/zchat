@@ -1,5 +1,3 @@
-import json
-import os
 import time
 
 from zchat.cli.auth import save_token, load_cached_token
