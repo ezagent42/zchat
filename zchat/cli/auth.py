@@ -52,7 +52,7 @@ def device_code_flow(
 
     resp = client.post(
         endpoints["device_authorization_endpoint"],
-        data={"client_id": client_id, "scope": "openid profile email"},
+        data={"client_id": client_id, "scope": "openid offline_access profile email"},
     )
     resp.raise_for_status()
     device = resp.json()
@@ -96,7 +96,7 @@ def device_code_flow(
         "access_token": token_data["access_token"],
         "refresh_token": token_data.get("refresh_token", ""),
         "expires_at": time.time() + token_data.get("expires_in", 300),
-        "username": userinfo.get("preferred_username", ""),
+        "username": userinfo.get("username") or userinfo.get("preferred_username", ""),
         "client_id": client_id,
         "token_endpoint": endpoints["token_endpoint"],
         "userinfo_endpoint": endpoints["userinfo_endpoint"],

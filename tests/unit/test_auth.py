@@ -118,6 +118,50 @@ def test_device_code_flow_success(tmp_path, capsys):
     assert "ABCD-1234" in captured.out
 
 
+def test_device_code_flow_logto_username(capsys):
+    """Logto returns 'username' instead of 'preferred_username' in userinfo."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "well-known" in url:
+            return httpx.Response(200, json={
+                "token_endpoint": "https://logto.test/oidc/token",
+                "device_authorization_endpoint": "https://logto.test/oidc/device/auth",
+                "userinfo_endpoint": "https://logto.test/oidc/me",
+            })
+        if "device/auth" in url:
+            return httpx.Response(200, json={
+                "device_code": "dc-logto",
+                "user_code": "LOGTO-1234",
+                "verification_uri": "https://logto.test/device",
+                "interval": 0,
+                "expires_in": 600,
+            })
+        if "oidc/token" in url:
+            return httpx.Response(200, json={
+                "access_token": "logto-at",
+                "refresh_token": "logto-rt",
+                "expires_in": 3600,
+            })
+        if "oidc/me" in url:
+            # Logto uses "username" not "preferred_username"
+            return httpx.Response(200, json={
+                "sub": "user123",
+                "username": "bob",
+                "name": "Bob",
+            })
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.Client(transport=transport)
+    result = device_code_flow(
+        issuer="https://logto.test",
+        client_id="logto-app",
+        http_client=client,
+    )
+    assert result["username"] == "bob"
+    assert result["client_id"] == "logto-app"
+
+
 from zchat.cli.auth import refresh_token_if_needed, get_credentials
 
 

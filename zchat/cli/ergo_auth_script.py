@@ -43,7 +43,8 @@ def validate_credentials(
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-    preferred_username = userinfo.get("preferred_username", "")
+    # Logto uses "username", Keycloak uses "preferred_username"
+    preferred_username = userinfo.get("username") or userinfo.get("preferred_username", "")
 
     # For agents (e.g., "alice-agent0"), check that the owner matches
     if AGENT_SEPARATOR in account_name:
