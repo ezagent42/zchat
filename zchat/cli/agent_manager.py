@@ -25,7 +25,8 @@ class AgentManager:
                  env_file: str = "",
                  default_type: str = "claude",
                  tmux_session: str = "zchat",
-                 state_file: str = DEFAULT_STATE_FILE):
+                 state_file: str = DEFAULT_STATE_FILE,
+                 project_dir: str = ""):
         self.irc_server = irc_server
         self.irc_port = irc_port
         self.irc_tls = irc_tls
@@ -37,6 +38,7 @@ class AgentManager:
         self._tmux_session_name = tmux_session
         self._tmux_session: libtmux.Session | None = None
         self._state_file = state_file
+        self.project_dir = project_dir
         self._agents: dict[str, dict] = {}
         self._load_state()
 
@@ -125,7 +127,7 @@ class AgentManager:
     def _build_env_context(self, name: str, workspace: str, channels: list[str]) -> dict:
         """Build the context dict for template placeholder rendering."""
         channels_str = ",".join(ch.lstrip("#") for ch in channels)
-        return {
+        context = {
             "agent_name": name,
             "irc_server": self.irc_server,
             "irc_port": str(self.irc_port),
@@ -133,7 +135,19 @@ class AgentManager:
             "irc_tls": str(self.irc_tls).lower(),
             "irc_password": self.irc_password,
             "workspace": workspace,
+            "irc_sasl_user": "",
+            "irc_sasl_pass": "",
+            "auth_token_file": "",
         }
+        if self.project_dir:
+            from zchat.cli.auth import get_credentials
+            creds = get_credentials(self.project_dir)
+            if creds:
+                _, sasl_pass = creds
+                context["irc_sasl_user"] = name
+                context["irc_sasl_pass"] = sasl_pass
+                context["auth_token_file"] = os.path.join(self.project_dir, "auth.json")
+        return context
 
     def _spawn_tmux(self, name: str, workspace: str, agent_type: str,
                     channels: list[str]) -> str:

@@ -79,6 +79,7 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
         default_type=cfg["agents"].get("default_type", "claude"),
         tmux_session=_get_tmux_session(ctx),
         state_file=state_file_path(project_name),
+        project_dir=project_dir(project_name),
     )
 
 
