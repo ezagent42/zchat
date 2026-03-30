@@ -47,3 +47,74 @@ def test_load_cached_token_returns_none_when_expired(tmp_path):
 def test_load_cached_token_returns_none_when_missing(tmp_path):
     result = load_cached_token(str(tmp_path))
     assert result is None
+
+
+import httpx
+
+from zchat.cli.auth import discover_oidc_endpoints, device_code_flow
+
+
+def test_discover_oidc_endpoints():
+    discovery_doc = {
+        "token_endpoint": "https://kc.test/token",
+        "device_authorization_endpoint": "https://kc.test/device",
+        "userinfo_endpoint": "https://kc.test/userinfo",
+    }
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=discovery_doc))
+    client = httpx.Client(transport=transport)
+    endpoints = discover_oidc_endpoints("https://kc.test/realms/zchat", client=client)
+    assert endpoints["token_endpoint"] == "https://kc.test/token"
+    assert endpoints["device_authorization_endpoint"] == "https://kc.test/device"
+    assert endpoints["userinfo_endpoint"] == "https://kc.test/userinfo"
+
+
+def test_device_code_flow_success(tmp_path, capsys):
+    call_count = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "well-known" in url:
+            return httpx.Response(200, json={
+                "token_endpoint": "https://kc.test/token",
+                "device_authorization_endpoint": "https://kc.test/device",
+                "userinfo_endpoint": "https://kc.test/userinfo",
+            })
+        if url == "https://kc.test/device":
+            return httpx.Response(200, json={
+                "device_code": "dev-code-123",
+                "user_code": "ABCD-1234",
+                "verification_uri": "https://kc.test/device",
+                "interval": 0,
+                "expires_in": 600,
+            })
+        if url == "https://kc.test/token":
+            call_count["n"] += 1
+            if call_count["n"] < 2:
+                return httpx.Response(400, json={"error": "authorization_pending"})
+            return httpx.Response(200, json={
+                "access_token": "at-12345",
+                "refresh_token": "rt-67890",
+                "expires_in": 300,
+                "id_token": "dummy",
+            })
+        if url == "https://kc.test/userinfo":
+            return httpx.Response(200, json={
+                "preferred_username": "alice",
+                "email": "alice@test.com",
+            })
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.Client(transport=transport)
+    result = device_code_flow(
+        issuer="https://kc.test/realms/zchat",
+        client_id="zchat-cli",
+        http_client=client,
+    )
+    assert result["access_token"] == "at-12345"
+    assert result["refresh_token"] == "rt-67890"
+    assert result["username"] == "alice"
+    assert result["client_id"] == "zchat-cli"
+    assert "expires_at" in result
+    captured = capsys.readouterr()
+    assert "ABCD-1234" in captured.out
