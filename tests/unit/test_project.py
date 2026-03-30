@@ -78,3 +78,41 @@ def test_set_config_value(tmp_path, monkeypatch):
     set_config_value("test-set", "agents.default_type", "codex")
     cfg = load_project_config("test-set")
     assert cfg["agents"]["default_type"] == "codex"
+
+
+def test_create_project_config_with_auth(tmp_path, monkeypatch):
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    create_project_config(
+        "auth-proj", server="10.0.0.1", port=6667,
+        tls=True, password="", nick="alice", channels="#general",
+        auth_provider="oidc",
+        auth_issuer="https://kc.test/realms/zchat",
+        auth_client_id="zchat-cli",
+    )
+    cfg = load_project_config("auth-proj")
+    assert cfg["auth"]["provider"] == "oidc"
+    assert cfg["auth"]["issuer"] == "https://kc.test/realms/zchat"
+    assert cfg["auth"]["client_id"] == "zchat-cli"
+
+
+def test_load_project_config_defaults_auth_to_none(tmp_path, monkeypatch):
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    create_project_config("old-proj", server="10.0.0.1", port=6667,
+                          tls=False, password="", nick="alice", channels="#general")
+    cfg = load_project_config("old-proj")
+    assert cfg["auth"]["provider"] == "none"
+
+
+def test_create_project_config_oidc_empty_nick(tmp_path, monkeypatch):
+    """When OIDC is enabled, nick can be empty — will be set after auth login."""
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    create_project_config(
+        "oidc-proj", server="10.0.0.1", port=6667,
+        tls=True, password="", nick="", channels="#general",
+        auth_provider="oidc",
+        auth_issuer="https://kc.test/realms/zchat",
+        auth_client_id="zchat-cli",
+    )
+    cfg = load_project_config("oidc-proj")
+    assert cfg["agents"]["username"] != ""
+    assert cfg["auth"]["provider"] == "oidc"
