@@ -43,9 +43,9 @@ def validate_credentials(
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-    # Extract username with fallback: username → preferred_username → name → email → sub
+    # Extract username with fallback: username → preferred_username → email → sub
     preferred_username = ""
-    for field in ("username", "preferred_username", "name"):
+    for field in ("username", "preferred_username"):
         val = userinfo.get(field)
         if val:
             preferred_username = val

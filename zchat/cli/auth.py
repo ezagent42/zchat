@@ -61,9 +61,10 @@ def discover_oidc_endpoints(issuer: str, client: httpx.Client | None = None) -> 
 def _extract_username(userinfo: dict) -> str:
     """Extract username from OIDC userinfo with fallback chain.
 
-    Priority: username → preferred_username → name → email (local part) → sub
+    Priority: username → preferred_username → email (local part) → sub
+    Skips 'name' — it may be a full name with spaces or non-ASCII chars.
     """
-    for field in ("username", "preferred_username", "name"):
+    for field in ("username", "preferred_username"):
         val = userinfo.get(field)
         if val:
             return val
