@@ -23,12 +23,14 @@ irc_app = typer.Typer(help="IRC server and client management")
 irc_daemon_app = typer.Typer(help="Local ergo IRC server")
 agent_app = typer.Typer(help="Claude Code agent lifecycle")
 setup_app = typer.Typer(help="Install and configure components")
+template_app = typer.Typer(help="Agent template management")
 
 app.add_typer(project_app, name="project")
 app.add_typer(irc_app, name="irc")
 irc_app.add_typer(irc_daemon_app, name="daemon")
 app.add_typer(agent_app, name="agent")
 app.add_typer(setup_app, name="setup")
+app.add_typer(template_app, name="template")
 
 
 def _get_config(ctx: typer.Context) -> dict:
@@ -67,11 +69,11 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
         irc_server=cfg["irc"]["server"],
         irc_port=cfg["irc"]["port"],
         irc_tls=cfg["irc"].get("tls", False),
+        irc_password=cfg["irc"].get("password", ""),
         username=cfg["agents"]["username"],
         default_channels=cfg["agents"]["default_channels"],
         env_file=cfg["agents"].get("env_file", ""),
-        claude_args=cfg["agents"].get("claude_args"),
-        mcp_server_cmd=cfg["agents"].get("mcp_server_cmd"),
+        default_type=cfg["agents"].get("default_type", "claude"),
         tmux_session=_get_tmux_session(ctx),
         state_file=state_file_path(project_name),
     )
@@ -189,6 +191,7 @@ def cmd_project_remove(name: str):
         mgr = AgentManager(
             irc_server=cfg["irc"]["server"], irc_port=cfg["irc"]["port"],
             irc_tls=cfg["irc"].get("tls", False),
+            irc_password=cfg["irc"].get("password", ""),
             username=cfg["agents"]["username"],
             default_channels=cfg["agents"]["default_channels"],
             state_file=state_file_path(name),
@@ -220,6 +223,107 @@ def cmd_project_show(name: Optional[str] = typer.Argument(None)):
     typer.echo(f"  TLS: {cfg['irc']['tls']}")
     typer.echo(f"  Nickname: {cfg['agents']['username']}")
     typer.echo(f"  Channels: {', '.join(cfg['agents']['default_channels'])}")
+
+
+@app.command("set")
+def cmd_set(
+    ctx: typer.Context,
+    key: str = typer.Argument(..., help="Config key (dotted, e.g. agents.default_type)"),
+    value: str = typer.Argument(..., help="Value to set"),
+):
+    """Set a project config value."""
+    from zchat.cli.project import set_config_value
+    project_name = ctx.obj.get("project")
+    if not project_name:
+        typer.echo("Error: No project selected.")
+        raise typer.Exit(1)
+    set_config_value(project_name, key, value)
+    typer.echo(f"Set {key} = {value}")
+
+
+# ============================================================
+# template commands
+# ============================================================
+
+@template_app.command("list")
+def cmd_template_list():
+    """List available agent templates."""
+    from zchat.cli.template_loader import list_templates
+    templates = list_templates()
+    if not templates:
+        typer.echo("No templates found.")
+        return
+    for tpl in templates:
+        name = tpl["template"]["name"]
+        desc = tpl["template"].get("description", "")
+        source = tpl.get("source", "")
+        typer.echo(f"  {name}\t{desc}\t({source})")
+
+
+@template_app.command("show")
+def cmd_template_show(name: str = typer.Argument(..., help="Template name")):
+    """Show template details."""
+    from zchat.cli.template_loader import load_template, resolve_template_dir
+    try:
+        tpl = load_template(name)
+        tpl_dir = resolve_template_dir(name)
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
+    typer.echo(f"Template: {tpl['template']['name']}")
+    typer.echo(f"  Description: {tpl['template'].get('description', '')}")
+    typer.echo(f"  Location: {tpl_dir}")
+    typer.echo(f"  pre_stop: {tpl['hooks'].get('pre_stop', '')!r}")
+
+
+@template_app.command("set")
+def cmd_template_set(
+    name: str = typer.Argument(..., help="Template name"),
+    key: str = typer.Argument(..., help="Environment variable name"),
+    value: str = typer.Argument(..., help="Value"),
+):
+    """Set a template .env variable."""
+    from zchat.cli.template_loader import resolve_template_dir, _parse_env_file
+    from zchat.cli.project import ZCHAT_DIR
+    try:
+        tpl_dir = resolve_template_dir(name)
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
+    # If template is built-in (inside package), .env goes to user dir
+    user_tpl_dir = os.path.join(ZCHAT_DIR, "templates", name)
+    if not tpl_dir.startswith(ZCHAT_DIR):
+        os.makedirs(user_tpl_dir, exist_ok=True)
+        env_path = os.path.join(user_tpl_dir, ".env")
+    else:
+        env_path = os.path.join(tpl_dir, ".env")
+    env = _parse_env_file(env_path)
+    env[key] = value
+    with open(env_path, "w") as f:
+        for k, v in env.items():
+            f.write(f"{k}={v}\n")
+    typer.echo(f"Set {key} in {name} template .env")
+
+
+@template_app.command("create")
+def cmd_template_create(name: str = typer.Argument(..., help="Template name")):
+    """Create an empty template scaffold."""
+    from zchat.cli.project import ZCHAT_DIR
+    tpl_dir = os.path.join(ZCHAT_DIR, "templates", name)
+    if os.path.exists(tpl_dir):
+        typer.echo(f"Template '{name}' already exists at {tpl_dir}")
+        raise typer.Exit(1)
+    os.makedirs(tpl_dir)
+    with open(os.path.join(tpl_dir, "template.toml"), "w") as f:
+        f.write(f'[template]\nname = "{name}"\ndescription = ""\n\n[hooks]\npre_stop = ""\n')
+    with open(os.path.join(tpl_dir, "start.sh"), "w") as f:
+        f.write("#!/bin/bash\nset -euo pipefail\nexec echo \"TODO: implement start script\"\n")
+    os.chmod(os.path.join(tpl_dir, "start.sh"), 0o755)
+    with open(os.path.join(tpl_dir, ".env.example"), "w") as f:
+        f.write("# Auto-injected by zchat\nAGENT_NAME={{agent_name}}\nIRC_SERVER={{irc_server}}\n"
+                "IRC_PORT={{irc_port}}\nIRC_CHANNELS={{irc_channels}}\nIRC_TLS={{irc_tls}}\n"
+                "IRC_PASSWORD={{irc_password}}\nWORKSPACE={{workspace}}\n")
+    typer.echo(f"Created template scaffold at {tpl_dir}/")
 
 
 # ============================================================
@@ -292,14 +396,14 @@ def cmd_agent_create(
     name: str = typer.Argument(..., help="Agent name"),
     workspace: Optional[str] = typer.Option(None, help="Custom workspace path"),
     channels: Optional[str] = typer.Option(None, help="Comma-separated channels to join"),
+    agent_type: Optional[str] = typer.Option(None, "--type", "-t", help="Template type (default: from config)"),
 ):
     """Create and launch a new agent."""
-
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
-    info = mgr.create(name, workspace=workspace, channels=ch)
+    info = mgr.create(name, workspace=workspace, channels=ch, agent_type=agent_type)
     scoped = mgr.scoped(name)
-    typer.echo(f"Created {scoped}")
+    typer.echo(f"Created {scoped} (type: {info['type']})")
     typer.echo(f"  pane: {info['pane_id']}")
     typer.echo(f"  workspace: {info['workspace']}")
 
@@ -333,8 +437,9 @@ def cmd_agent_list(ctx: typer.Context):
                 uptime = f"{elapsed:.0f}s"
         else:
             uptime = "—"
+        agent_type = info.get("type", "unknown")
         ch = ", ".join(info.get("channels", []))
-        typer.echo(f"  {name}\t{status}\t{uptime}\t{pane}\t{ch}\t{ws}")
+        typer.echo(f"  {name}\t{agent_type}\t{status}\t{uptime}\t{pane}\t{ch}\t{ws}")
 
 @agent_app.command("status")
 def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
@@ -345,6 +450,7 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
     elapsed = time.time() - info.get("created_at", time.time())
     mins, secs = divmod(int(elapsed), 60)
     typer.echo(f"{scoped}")
+    typer.echo(f"  type:      {info.get('type', 'unknown')}")
     typer.echo(f"  status:    {info['status']}")
     typer.echo(f"  uptime:    {mins}m {secs}s")
     typer.echo(f"  pane:      {info.get('pane_id', '—')}")

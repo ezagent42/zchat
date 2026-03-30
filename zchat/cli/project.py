@@ -3,6 +3,7 @@
 import os
 import shutil
 import tomllib
+import tomli_w
 import uuid
 
 ZCHAT_DIR = os.environ.get("ZCHAT_HOME", os.path.expanduser("~/.zchat"))
@@ -20,18 +21,12 @@ def _generate_tmux_session_name(project_name: str) -> str:
 
 def create_project_config(name: str, server: str, port: int, tls: bool,
                           password: str, nick: str, channels: str,
-                          env_file: str = "", claude_args: list[str] | None = None):
+                          env_file: str = "", default_type: str = "claude"):
     """Create project directory and write config.toml."""
     pdir = project_dir(name)
     os.makedirs(pdir, exist_ok=True)
     channels_list = [ch.strip() for ch in channels.split(",") if ch.strip()]
     channels_toml = ", ".join(f'"{ch}"' for ch in channels_list)
-    if claude_args is None:
-        claude_args = [
-            "--permission-mode", "bypassPermissions",
-            "--dangerously-load-development-channels", "server:zchat-channel",
-        ]
-    args_toml = ", ".join(f'"{a}"' for a in claude_args)
     tmux_session = _generate_tmux_session_name(name)
     config_content = f'''[irc]
 server = "{server}"
@@ -40,10 +35,10 @@ tls = {"true" if tls else "false"}
 password = "{password}"
 
 [agents]
+default_type = "{default_type}"
 default_channels = [{channels_toml}]
 username = "{nick}"
 env_file = "{env_file}"
-claude_args = [{args_toml}]
 
 [tmux]
 session = "{tmux_session}"
@@ -101,11 +96,7 @@ def load_project_config(name: str) -> dict:
     if not agents.get("username"):
         agents["username"] = os.environ.get("USER", "user")
     agents.setdefault("env_file", "")
-    agents.setdefault("claude_args", [
-        "--permission-mode", "bypassPermissions",
-        "--dangerously-load-development-channels", "server:zchat-channel",
-    ])
-    agents.setdefault("mcp_server_cmd", ["zchat-channel"])
+    agents.setdefault("default_type", "claude")
     return cfg
 
 
@@ -119,3 +110,30 @@ def remove_project(name: str):
 def state_file_path(name: str) -> str:
     """Return path to project state.json."""
     return os.path.join(project_dir(name), "state.json")
+
+
+def set_config_value(name: str, key: str, value: str):
+    """Set a dotted key in project config.toml. e.g., 'agents.default_type' = 'codex'."""
+    config_path = os.path.join(project_dir(name), "config.toml")
+    with open(config_path, "rb") as f:
+        cfg = tomllib.load(f)
+
+    # Navigate dotted key
+    parts = key.split(".")
+    target = cfg
+    for part in parts[:-1]:
+        target = target.setdefault(part, {})
+
+    # Type coercion: try bool, int, then keep as string
+    coerced: str | int | bool = value
+    if value.lower() in ("true", "false"):
+        coerced = value.lower() == "true"
+    else:
+        try:
+            coerced = int(value)
+        except ValueError:
+            pass
+    target[parts[-1]] = coerced
+
+    with open(config_path, "wb") as f:
+        tomli_w.dump(cfg, f)

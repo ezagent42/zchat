@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +11,7 @@ import time
 import libtmux
 
 from zchat.cli.tmux import get_or_create_session, find_pane, pane_alive
+from zchat.cli.template_loader import load_template, render_env, get_start_script, _parse_env_file
 from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
 
 
@@ -18,23 +20,20 @@ DEFAULT_STATE_FILE = os.path.expanduser("~/.local/state/zchat/agents.json")
 
 class AgentManager:
     def __init__(self, irc_server: str, irc_port: int, irc_tls: bool,
+                 irc_password: str,
                  username: str, default_channels: list[str],
                  env_file: str = "",
-                 claude_args: list[str] | None = None,
-                 mcp_server_cmd: list[str] | None = None,
+                 default_type: str = "claude",
                  tmux_session: str = "zchat",
                  state_file: str = DEFAULT_STATE_FILE):
         self.irc_server = irc_server
         self.irc_port = irc_port
         self.irc_tls = irc_tls
+        self.irc_password = irc_password
         self.username = username
         self.default_channels = default_channels
         self.env_file = env_file
-        self.claude_args = claude_args or [
-            "--permission-mode", "bypassPermissions",
-            "--dangerously-load-development-channels", "server:zchat-channel",
-        ]
-        self.mcp_server_cmd = mcp_server_cmd or ["zchat-channel"]
+        self.default_type = default_type
         self._tmux_session_name = tmux_session
         self._tmux_session: libtmux.Session | None = None
         self._state_file = state_file
@@ -50,20 +49,22 @@ class AgentManager:
     def scoped(self, name: str) -> str:
         return scoped_name(name, self.username)
 
-    def create(self, name: str, workspace: str | None = None, channels: list[str] | None = None) -> dict:
+    def create(self, name: str, workspace: str | None = None,
+               channels: list[str] | None = None,
+               agent_type: str | None = None) -> dict:
         """Create and launch a new agent. Returns agent info dict."""
         name = self.scoped(name)
         if name in self._agents and self._agents[name].get("status") == "running":
             raise ValueError(f"{name} already exists and is running")
 
+        agent_type = agent_type or self.default_type
         channels = channels or list(self.default_channels)
-        agent_workspace = self._create_workspace(name, channels) if not workspace else workspace
-        if workspace:
-            self._write_workspace_config(name, workspace, channels)
+        agent_workspace = workspace or self._create_workspace(name)
 
-        pane_id = self._spawn_tmux(name, agent_workspace)
+        pane_id = self._spawn_tmux(name, agent_workspace, agent_type, channels)
 
         self._agents[name] = {
+            "type": agent_type,
             "workspace": agent_workspace,
             "pane_id": pane_id,
             "status": "starting",
@@ -93,9 +94,10 @@ class AgentManager:
         if not agent:
             raise ValueError(f"Unknown agent: {name}")
         channels = list(agent.get("channels", self.default_channels))
+        agent_type = agent.get("type", self.default_type)
         self.stop(name)
         base_name = name.split(AGENT_SEPARATOR, 1)[-1] if AGENT_SEPARATOR in name else name
-        self.create(base_name, channels=channels)
+        self.create(base_name, channels=channels, agent_type=agent_type)
 
     def list_agents(self) -> dict[str, dict]:
         """Return all agents with refreshed status."""
@@ -114,65 +116,52 @@ class AgentManager:
             agent["status"] = self._check_alive(name)
         return agent
 
-    def _create_workspace(self, name: str, channels: list[str]) -> str:
+    def _create_workspace(self, name: str) -> str:
         safe = name.replace(AGENT_SEPARATOR, "_")
         workspace = os.path.join(tempfile.gettempdir(), f"zchat-{safe}")
         os.makedirs(workspace, exist_ok=True)
-        self._write_workspace_config(name, workspace, channels)
         return workspace
 
-    def _write_workspace_config(self, name: str, workspace: str, channels: list[str]):
-        """Write .claude/settings.local.json and .mcp.json for the agent workspace."""
-        # Claude settings — auto-allow MCP tools
-        claude_dir = os.path.join(workspace, ".claude")
-        os.makedirs(claude_dir, exist_ok=True)
-        settings = {
-            "permissions": {
-                "allow": [
-                    "mcp__zchat-channel__reply",
-                    "mcp__zchat-channel__join_channel",
-                ]
-            }
-        }
-        with open(os.path.join(claude_dir, "settings.local.json"), "w") as f:
-            json.dump(settings, f, indent=2)
-
-        # MCP server config — project-scoped, only affects this workspace
+    def _build_env_context(self, name: str, workspace: str, channels: list[str]) -> dict:
+        """Build the context dict for template placeholder rendering."""
         channels_str = ",".join(ch.lstrip("#") for ch in channels)
-        command = self.mcp_server_cmd[0]
-        args = self.mcp_server_cmd[1:] if len(self.mcp_server_cmd) > 1 else []
-        server_config = {
-            "command": command,
-            "env": {
-                "AGENT_NAME": name,
-                "IRC_SERVER": self.irc_server,
-                "IRC_PORT": str(self.irc_port),
-                "IRC_CHANNELS": channels_str,
-                "IRC_TLS": str(self.irc_tls).lower(),
-            },
+        return {
+            "agent_name": name,
+            "irc_server": self.irc_server,
+            "irc_port": str(self.irc_port),
+            "irc_channels": channels_str,
+            "irc_tls": str(self.irc_tls).lower(),
+            "irc_password": self.irc_password,
+            "workspace": workspace,
         }
-        if args:
-            server_config["args"] = args
-        config = {"mcpServers": {"zchat-channel": server_config}}
-        with open(os.path.join(workspace, ".mcp.json"), "w") as f:
-            json.dump(config, f, indent=2)
 
-    def _spawn_tmux(self, name: str, workspace: str) -> str:
-        source_env = ""
-        if self.env_file:
-            source_env = f"[ -f '{self.env_file}' ] && set -a && source '{self.env_file}' && set +a; "
-        args_str = " ".join(self.claude_args)
-        cmd = (
-            f"{source_env}"
-            f"cd '{workspace}' && "
-            f"AGENT_NAME='{name}' "
-            f"claude {args_str}"
-        )
+    def _spawn_tmux(self, name: str, workspace: str, agent_type: str,
+                    channels: list[str]) -> str:
+        context = self._build_env_context(name, workspace, channels)
+        env = render_env(agent_type, context)
+
+        # Overlay project-level env_file (lower priority than template env)
+        if self.env_file and os.path.isfile(self.env_file):
+            project_env = _parse_env_file(self.env_file)
+            merged = dict(project_env)
+            merged.update(env)
+            env = merged
+
+        start_script = get_start_script(agent_type)
+
+        # Write env to a temp file to avoid shell quoting issues
+        env_file_path = os.path.join(workspace, ".zchat-env")
+        with open(env_file_path, "w") as f:
+            for k, v in env.items():
+                f.write(f"export {k}={shlex.quote(v)}\n")
+
+        cmd = f"cd '{workspace}' && source .zchat-env && bash '{start_script}'"
+
         window = self.tmux_session.active_window
         pane = window.split(attach=False, direction=libtmux.constants.PaneDirection.Below, shell=cmd)
         pane_id = pane.pane_id
         pane.cmd("select-pane", "-T", f"agent: {name}")
-        # Auto-confirm development channels prompt after 3s
+        # Auto-confirm development channels prompt after 3s (needed for Claude)
         subprocess.Popen(
             ["bash", "-c", f"sleep 3 && tmux send-keys -t {pane_id} Enter"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -181,10 +170,31 @@ class AgentManager:
 
     def _force_stop(self, name: str):
         agent = self._agents.get(name)
-        if agent and agent.get("pane_id"):
-            pane = find_pane(self.tmux_session, agent["pane_id"])
-            if pane:
-                pane.send_keys("/exit", enter=True)
+        if not agent or not agent.get("pane_id"):
+            return
+        pane = find_pane(self.tmux_session, agent["pane_id"])
+        if not pane:
+            return
+
+        agent_type = agent.get("type", self.default_type)
+        try:
+            tpl = load_template(agent_type)
+            pre_stop = tpl.get("hooks", {}).get("pre_stop", "")
+        except Exception:
+            pre_stop = ""
+
+        if pre_stop:
+            pane.send_keys(pre_stop, enter=True)
+            # Poll for up to 5 seconds
+            for _ in range(10):
+                time.sleep(0.5)
+                if not pane_alive(self.tmux_session, agent["pane_id"]):
+                    return
+        # Kill pane as fallback
+        try:
+            pane.cmd("kill-pane")
+        except Exception:
+            pass
 
     def _cleanup_workspace(self, name: str):
         agent = self._agents.get(name)

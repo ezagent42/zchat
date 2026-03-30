@@ -1,0 +1,6 @@
+[template]
+name = "claude"
+description = "Claude Code agent with MCP channel server"
+
+[hooks]
+pre_stop = "/exit"
