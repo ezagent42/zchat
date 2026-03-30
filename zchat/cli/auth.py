@@ -145,11 +145,13 @@ def device_code_flow(
     userinfo_resp.raise_for_status()
     userinfo = userinfo_resp.json()
 
+    email = userinfo.get("email", "")
     return {
         "access_token": token_data["access_token"],
         "refresh_token": token_data.get("refresh_token", ""),
         "expires_at": time.time() + token_data.get("expires_in", 300),
-        "username": _extract_username(userinfo),
+        "email": email,
+        "username": email.split("@")[0] if "@" in email else _extract_username(userinfo),
         "client_id": client_id,
         "token_endpoint": endpoints["token_endpoint"],
         "userinfo_endpoint": endpoints["userinfo_endpoint"],

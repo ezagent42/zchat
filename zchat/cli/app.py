@@ -282,17 +282,6 @@ def cmd_set(
     typer.echo(f"Set {key} = {value}")
 
 
-def _prompt_nickname(username: str) -> str:
-    """Prompt user for a short nickname if the OIDC username is unwieldy."""
-    needs_nick = not username or "@" in username or len(username) > 16 or username.isdigit()
-    if needs_nick:
-        typer.echo("Your username may not work well as an IRC nick.")
-        nick = typer.prompt("Choose a nickname", default=username.split("@")[0] if "@" in username else username)
-    else:
-        nick = typer.prompt("Nickname", default=username)
-    return nick
-
-
 # ============================================================
 # auth commands
 # ============================================================
@@ -323,12 +312,13 @@ def cmd_auth_login(ctx: typer.Context):
         raise typer.Exit(1)
     from zchat.cli.auth import _global_auth_dir
     save_token(_global_auth_dir(), result)
-    username = result["username"]
-    typer.echo(f"\nLogged in as: {username}")
-    # Let user set a short nickname if the OIDC username is unwieldy
-    nick = _prompt_nickname(username)
+    email = result.get("email", result["username"])
+    nick = email.split("@")[0] if "@" in email else email
+    result["username"] = nick
+    save_token(_global_auth_dir(), result)
     from zchat.cli.project import set_config_value
     set_config_value(ctx.obj["project"], "agents.username", nick)
+    typer.echo(f"\nLogged in as: {nick} ({email})")
 
 
 @auth_app.command("status")
