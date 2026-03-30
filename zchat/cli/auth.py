@@ -40,12 +40,22 @@ def load_cached_token(base_dir: str) -> dict | None:
 
 
 def discover_oidc_endpoints(issuer: str, client: httpx.Client | None = None) -> dict:
-    """Fetch OIDC discovery document and return endpoint URLs."""
-    url = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
+    """Fetch OIDC discovery document and return endpoint URLs.
+
+    Tries standard path first, then /oidc/ prefix (Logto uses this).
+    """
     c = client or httpx.Client()
-    resp = c.get(url)
+    base = issuer.rstrip("/")
+    for path in [
+        f"{base}/.well-known/openid-configuration",
+        f"{base}/oidc/.well-known/openid-configuration",
+    ]:
+        resp = c.get(path)
+        if resp.status_code == 200:
+            return resp.json()
+    # All paths failed — raise with the last response
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()  # unreachable, but satisfies type checker
 
 
 def device_code_flow(
