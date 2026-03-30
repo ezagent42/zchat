@@ -185,6 +185,23 @@ class IrcManager:
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
         tls_flag = "" if tls else " -notls"
 
+        # SASL config (must come before /connect)
+        sasl_cmds = ""
+        if self._auth_config.get("provider") == "oidc":
+            from zchat.cli.auth import get_credentials
+            pdir = os.path.dirname(self._state_file)
+            creds = get_credentials(pdir, client_id=self._auth_config.get("client_id", ""))
+            if creds:
+                sasl_user, sasl_pass = creds
+                nick = sasl_user
+                sasl_cmds = (
+                    f"; /set irc.server.wc-local.sasl_mechanism PLAIN"
+                    f"; /set irc.server.wc-local.sasl_username {sasl_user}"
+                    f"; /set irc.server.wc-local.sasl_password {sasl_pass}"
+                )
+            else:
+                print("Warning: OIDC configured but no credentials. Run 'zchat auth login'.")
+
         # Source env file if configured
         env_file = self.config.get("agents", {}).get("env_file", "")
         source_env = f"[ -f '{env_file}' ] && set -a && source '{env_file}' && set +a; " if env_file else ""
@@ -195,7 +212,13 @@ class IrcManager:
         plugin_path = self._find_weechat_plugin()
         load_plugin = f"; /script load {plugin_path}" if plugin_path else ""
 
-        cmd = f"{source_env}weechat -r '/server add wc-local {server}/{port}{tls_flag} -nicks={nick}; /set irc.server.wc-local.autojoin \"{autojoin}\"; /connect wc-local{load_plugin}'"
+        cmd = (
+            f"{source_env}weechat -r '"
+            f"/server add wc-local {server}/{port}{tls_flag} -nicks={nick}"
+            f"; /set irc.server.wc-local.autojoin \"{autojoin}\""
+            f"{sasl_cmds}"
+            f"; /connect wc-local{load_plugin}'"
+        )
 
         window = self.tmux_session.active_window
         pane = window.split(attach=False, direction=libtmux.constants.PaneDirection.Below, shell=cmd)
