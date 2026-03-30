@@ -1,6 +1,6 @@
 [project]
 name = "zchat"
-version = "0.3.0.dev15"
+dynamic = ["version"]
 description = "Multi-agent collaboration over IRC"
 requires-python = ">=3.11"
 dependencies = [
@@ -8,8 +8,8 @@ dependencies = [
     "libtmux>=0.55,<0.56",
     "tomli-w>=1.0.0",
     "typer[all]>=0.9.0",
-    "zchat-protocol>=0.3.0.dev15",
-    "zchat-channel-server>=0.3.0.dev15",
+    "zchat-protocol>=0.1.0",
+    "zchat-channel-server>=0.2.0",
 ]
 license = "MIT"
 authors = [{ name = "ezagent42" }]
@@ -26,14 +26,18 @@ zchat-protocol = { path = "zchat-protocol", editable = true }
 zchat-channel-server = { path = "zchat-channel-server", editable = true }
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.build.hooks.vcs]
+version-file = "zchat/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zchat"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"zchat/cli/templates" = "zchat/cli/templates"
 
 [dependency-groups]
 dev = [
