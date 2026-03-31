@@ -72,20 +72,35 @@ def _print_qr(url: str):
         print(f"\n  {url}\n")
 
 
+def _sanitize_irc_nick(raw: str) -> str:
+    """Sanitize a string into a valid IRC nick (RFC 2812).
+
+    Keeps letters, digits, and - _ \\ [ ] { } ^ |
+    Strips everything else (. / @ : ! # etc.).
+    Ensures the first character is a letter or allowed special char.
+    """
+    import re
+    nick = re.sub(r"[^A-Za-z0-9\-_\\\[\]\{\}\^|]", "", raw)
+    # First char must be a letter or special (not digit or -)
+    nick = nick.lstrip("0123456789-")
+    return nick or "user"
+
+
 def _extract_username(userinfo: dict) -> str:
     """Extract username from OIDC userinfo with fallback chain.
 
     Priority: username → preferred_username → email (local part) → sub
     Skips 'name' — it may be a full name with spaces or non-ASCII chars.
+    Result is sanitized to be a valid IRC nick.
     """
     for field in ("username", "preferred_username"):
         val = userinfo.get(field)
         if val:
-            return val
+            return _sanitize_irc_nick(val)
     email = userinfo.get("email", "")
     if email:
-        return email.split("@")[0]
-    return userinfo.get("sub", "")
+        return _sanitize_irc_nick(email.split("@")[0])
+    return _sanitize_irc_nick(userinfo.get("sub", ""))
 
 
 def device_code_flow(

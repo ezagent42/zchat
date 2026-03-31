@@ -152,9 +152,10 @@ def weechat_window(ergo_server, e2e_context, tmux_session):
     os.makedirs(weechat_dir, exist_ok=True)
 
     session = get_session(tmux_session)
+    srv_name = f"{e2e_context['project']}-ergo"
     cmd = (
-        f"weechat --dir {weechat_dir} -r '/server add wc-local 127.0.0.1/{port} -notls -nicks=alice; "
-        f"/set irc.server.wc-local.autojoin \"#general\"; /connect wc-local'"
+        f"weechat --dir {weechat_dir} -r '/server add {srv_name} 127.0.0.1/{port} -notls -nicks=alice; "
+        f"/set irc.server.{srv_name}.autojoin \"#general\"; /connect {srv_name}'"
     )
     window = session.new_window(
         window_name="weechat", window_shell=cmd, attach=False,

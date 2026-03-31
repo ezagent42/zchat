@@ -199,6 +199,14 @@ class IrcManager:
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
         tls_flag = "" if tls else " -notls"
 
+        # Per-project WeeChat config dir to avoid cross-project conflicts
+        weechat_home = os.path.join(project_dir, ".weechat")
+        os.makedirs(weechat_home, exist_ok=True)
+
+        # WeeChat IRC server name: {project}-ergo
+        project_name = os.path.basename(project_dir)
+        srv_name = f"{project_name}-ergo"
+
         # SASL config
         sasl_cmds = ""
         from zchat.cli.auth import get_credentials
@@ -207,9 +215,9 @@ class IrcManager:
             sasl_user, sasl_pass = creds
             nick = sasl_user
             sasl_cmds = (
-                f"; /set irc.server.wc-local.sasl_mechanism PLAIN"
-                f"; /set irc.server.wc-local.sasl_username {sasl_user}"
-                f"; /set irc.server.wc-local.sasl_password {sasl_pass}"
+                f"; /set irc.server.{srv_name}.sasl_mechanism PLAIN"
+                f"; /set irc.server.{srv_name}.sasl_username {sasl_user}"
+                f"; /set irc.server.{srv_name}.sasl_password {sasl_pass}"
             )
 
         # Source env file if configured
@@ -221,11 +229,11 @@ class IrcManager:
         load_plugin = f"; /script load {plugin_path}" if plugin_path else ""
 
         cmd = (
-            f"{source_env}weechat -r '"
-            f"/server add wc-local {server}/{port}{tls_flag} -nicks={nick}"
-            f"; /set irc.server.wc-local.autojoin \"{autojoin}\""
+            f"{source_env}weechat -d {weechat_home} -r '"
+            f"/server add {srv_name} {server}/{port}{tls_flag} -nicks={nick}"
+            f"; /set irc.server.{srv_name}.autojoin \"{autojoin}\""
             f"{sasl_cmds}"
-            f"; /connect wc-local{load_plugin}'"
+            f"; /connect {srv_name}{load_plugin}'"
         )
 
         # Check if weechat window already exists (from tmuxp load)
@@ -291,11 +299,12 @@ class IrcManager:
         }
 
     def _find_weechat_plugin(self) -> str | None:
-        """Find zchat.py WeeChat plugin. Checks config, then common locations."""
+        """Find zchat.py WeeChat plugin. Checks config, project dir, then common locations."""
         plugin_path = self.config.get("weechat", {}).get("plugin_path", "")
         if plugin_path and os.path.isfile(plugin_path):
             return plugin_path
         candidates = [
+            os.path.join(self._project_dir, ".weechat", "python", "autoload", "zchat.py"),
             os.path.expanduser("~/.config/weechat/python/autoload/zchat.py"),  # XDG (WeeChat 4.x)
             os.path.expanduser("~/.weechat/python/autoload/zchat.py"),         # Legacy
         ]

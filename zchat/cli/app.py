@@ -309,8 +309,9 @@ def cmd_auth_login(
     except Exception as e:
         typer.echo(f"Login failed: {e}")
         raise typer.Exit(1)
+    from zchat.cli.auth import _sanitize_irc_nick
     email = result.get("email", result["username"])
-    nick = email.split("@")[0] if "@" in email else email
+    nick = _sanitize_irc_nick(email.split("@")[0] if "@" in email else email)
     result["username"] = nick
     save_token(auth_dir, result)
     typer.echo(f"\nLogged in as: {nick} ({email})")
