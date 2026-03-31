@@ -598,7 +598,7 @@ def cli(zchat_cmd, e2e_home, tmux_session):
 
 
 @pytest.fixture(scope="session")
-def project(cli, e2e_port):
+def project(cli, e2e_port, tmux_session):
     """Create the main test project via CLI. Teardown removes it."""
     cli(
         "project", "create", PROJECT_NAME,
@@ -608,7 +608,7 @@ def project(cli, e2e_port):
         "--agent-type", "claude",
     )
     # Set the tmux session name in config to match our test session
-    cli("set", "tmux.session", os.environ.get("ZCHAT_TMUX_SESSION", ""))
+    cli("set", "tmux.session", tmux_session)
     yield PROJECT_NAME
     try:
         cli("project", "remove", PROJECT_NAME, check=False)
@@ -726,7 +726,7 @@ def test_project_list(cli, project):
 @pytest.mark.order(2)
 def test_project_show(cli, project):
     """project show displays correct config values."""
-    result = cli("project", "show")
+    result = cli("project", "show", PROJECT_NAME)
     assert "127.0.0.1" in result.stdout
     assert "Channels" in result.stdout or "#general" in result.stdout
 
@@ -735,7 +735,7 @@ def test_project_show(cli, project):
 def test_project_set(cli, project, e2e_port):
     """zchat set updates config, then restore original value."""
     cli("set", "irc.port", "6668")
-    result = cli("project", "show")
+    result = cli("project", "show", PROJECT_NAME)
     assert "6668" in result.stdout
     # Restore
     cli("set", "irc.port", str(e2e_port))
@@ -997,8 +997,10 @@ def test_agent_create_second(cli, irc_probe):
 def test_agent_restart(cli, irc_probe):
     """Restart agent1, verify it re-joins IRC."""
     cli("agent", "restart", "agent1")
+    import os
+    username = os.environ.get("USER", "user")
     assert irc_probe.wait_for_nick(
-        f"{_username(cli)}-agent1", timeout=30
+        f"{username}-agent1", timeout=30
     ), "agent1 not back on IRC after restart"
 
 
@@ -1186,7 +1188,7 @@ def test_irc_daemon_restart(cli, e2e_port):
 
 
 @pytest.mark.order(3)
-def test_shutdown(cli, irc_probe):
+def test_shutdown(cli):
     """zchat shutdown stops all agents and infrastructure."""
     result = cli("shutdown", check=False)
     assert result.returncode == 0, f"shutdown failed: {result.stderr}"
