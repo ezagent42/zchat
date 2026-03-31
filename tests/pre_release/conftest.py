@@ -17,11 +17,15 @@ from tests.shared.cli_runner import make_cli_runner
 from tests.pre_release import PROJECT_NAME
 
 
-def pytest_collection_modifyitems(items):
-    """Auto-add prerelease marker to all tests in this directory."""
+def pytest_collection_modifyitems(config, items):
+    """Auto-add prerelease marker and enforce module-scoped ordering."""
     for item in items:
         if "pre_release" in str(item.fspath):
             item.add_marker(pytest.mark.prerelease)
+    # Ensure pytest-order sorts within each module, not globally.
+    # Without this, all order(1) tests across files run first, breaking
+    # the file-level sequencing (test_00 → test_01 → ... → test_08).
+    config.option.order_scope = "module"
 
 
 @pytest.fixture(scope="session")

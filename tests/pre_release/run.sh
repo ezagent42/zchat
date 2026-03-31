@@ -19,4 +19,4 @@ echo "ZCHAT_CMD: ${ZCHAT_CMD:-zchat (default)}"
 echo "Marker:    $MARKER"
 echo ""
 
-exec uv run pytest tests/pre_release/ -v -m "$MARKER" --timeout=120 "$@"
+exec uv run pytest tests/pre_release/ -v -m "$MARKER" --timeout=120 -p pytest_order --order-scope=module "$@"
