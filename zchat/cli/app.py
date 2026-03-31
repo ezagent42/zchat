@@ -116,70 +116,117 @@ def main(
 # ============================================================
 
 @project_app.command("create")
-def cmd_project_create(name: str):
-    """Create a new project with interactive config setup."""
+def cmd_project_create(
+    name: str,
+    server: Optional[str] = typer.Option(None, help="IRC server address"),
+    port: Optional[int] = typer.Option(None, help="IRC port"),
+    tls: Optional[bool] = typer.Option(None, help="Enable TLS"),
+    password: Optional[str] = typer.Option(None, help="IRC password"),
+    channels: Optional[str] = typer.Option(None, help="Default channels (comma-separated)"),
+    agent_type: Optional[str] = typer.Option(None, "--agent-type", help="Agent template name (e.g. 'claude')"),
+    proxy: Optional[str] = typer.Option(None, help="HTTP proxy (ip:port, empty string for none)"),
+):
+    """Create a new project with config setup.
+
+    When all required options are provided, runs non-interactively.
+    Otherwise, prompts for missing values.
+    """
     pdir = project_dir(name)
     if os.path.exists(pdir):
         typer.echo(f"Project '{name}' already exists.")
         raise typer.Exit(1)
 
     # --- IRC server ---
-    typer.echo("IRC Server:")
-    typer.echo("  1) zchat.inside.h2os.cloud (recommended)")
-    typer.echo("  2) Custom server")
-    server_choice = typer.prompt("Choose", default="1")
-    if server_choice == "1":
-        server = "zchat.inside.h2os.cloud"
-        port = 6697
-        tls = True
-        password = ""
+    _server: str
+    _port: int
+    _tls: bool
+    _password: str
+    if server is not None:
+        _server = server
+        if server == "zchat.inside.h2os.cloud":
+            _port = port if port is not None else 6697
+            _tls = tls if tls is not None else True
+        else:
+            _port = port if port is not None else 6667
+            _tls = tls if tls is not None else False
+        _password = password if password is not None else ""
     else:
-        server = typer.prompt("IRC server", default="127.0.0.1")
-        port = typer.prompt("IRC port", default=6667, type=int)
-        tls = typer.confirm("TLS", default=False)
-        password = typer.prompt("Password", default="", show_default=False)
+        typer.echo("IRC Server:")
+        typer.echo("  1) zchat.inside.h2os.cloud (recommended)")
+        typer.echo("  2) Custom server")
+        server_choice = typer.prompt("Choose", default="1")
+        if server_choice == "1":
+            _server = "zchat.inside.h2os.cloud"
+            _port = 6697
+            _tls = True
+            _password = ""
+        else:
+            _server = typer.prompt("IRC server", default="127.0.0.1")
+            _port = typer.prompt("IRC port", default=6667, type=int)
+            _tls = typer.confirm("TLS", default=False)
+            _password = typer.prompt("Password", default="", show_default=False)
 
     # --- Channels ---
-    channels = typer.prompt("Default channels", default="#general")
+    _channels: str = channels if channels is not None else typer.prompt("Default channels", default="#general")
 
-    # --- Agent type multi-select ---
+    # --- Agent type ---
     from zchat.cli.template_loader import list_templates
     templates = list_templates()
     if not templates:
         typer.echo("Error: No agent templates found.")
         raise typer.Exit(1)
-    typer.echo("Agent types:")
-    for i, tpl in enumerate(templates, 1):
-        tname = tpl["template"]["name"]
-        tdesc = tpl["template"].get("description", "")
-        typer.echo(f"  {i}) {tname} - {tdesc}")
-    selection = typer.prompt("Select types (comma-separated)", default="1")
-    selected_indices = [int(s.strip()) - 1 for s in selection.split(",") if s.strip().isdigit()]
-    selected_types = []
-    for idx in selected_indices:
-        if 0 <= idx < len(templates):
-            selected_types.append(templates[idx]["template"]["name"])
-    if not selected_types:
-        selected_types = [templates[0]["template"]["name"]]
-    default_type = selected_types[0]
+
+    if agent_type is not None:
+        matched = [t for t in templates if t["template"]["name"] == agent_type]
+        if not matched:
+            typer.echo(f"Error: Agent type '{agent_type}' not found. Available: "
+                       + ", ".join(t["template"]["name"] for t in templates))
+            raise typer.Exit(1)
+        default_type = agent_type
+        selected_types = [agent_type]
+    else:
+        typer.echo("Agent types:")
+        for i, tpl in enumerate(templates, 1):
+            tname = tpl["template"]["name"]
+            tdesc = tpl["template"].get("description", "")
+            typer.echo(f"  {i}) {tname} - {tdesc}")
+        selection = typer.prompt("Select types (comma-separated)", default="1")
+        selected_indices = [int(s.strip()) - 1 for s in selection.split(",") if s.strip().isdigit()]
+        selected_types = []
+        for idx in selected_indices:
+            if 0 <= idx < len(templates):
+                selected_types.append(templates[idx]["template"]["name"])
+        if not selected_types:
+            selected_types = [templates[0]["template"]["name"]]
+        default_type = selected_types[0]
 
     # --- Type-specific config: Claude ---
     env_file = ""
     if "claude" in selected_types:
-        typer.echo("Claude configuration:")
-        proxy = typer.prompt("  HTTP proxy (ip:port, leave empty for direct connection)",
-                             default="", show_default=False)
-        if proxy:
-            proxy_url = proxy if proxy.startswith("http") else f"http://{proxy}"
-            env_path = os.path.join(pdir, "claude.local.env")
-            os.makedirs(pdir, exist_ok=True)
-            with open(env_path, "w") as f:
-                f.write(f"HTTP_PROXY={proxy_url}\n")
-                f.write(f"HTTPS_PROXY={proxy_url}\n")
-            env_file = env_path
+        if proxy is not None:
+            if proxy:
+                proxy_url = proxy if proxy.startswith("http") else f"http://{proxy}"
+                env_path = os.path.join(pdir, "claude.local.env")
+                os.makedirs(pdir, exist_ok=True)
+                with open(env_path, "w") as f:
+                    f.write(f"HTTP_PROXY={proxy_url}\n")
+                    f.write(f"HTTPS_PROXY={proxy_url}\n")
+                env_file = env_path
+        else:
+            typer.echo("Claude configuration:")
+            proxy_input = typer.prompt("  HTTP proxy (ip:port, leave empty for direct connection)",
+                                       default="", show_default=False)
+            if proxy_input:
+                proxy_url = proxy_input if proxy_input.startswith("http") else f"http://{proxy_input}"
+                env_path = os.path.join(pdir, "claude.local.env")
+                os.makedirs(pdir, exist_ok=True)
+                with open(env_path, "w") as f:
+                    f.write(f"HTTP_PROXY={proxy_url}\n")
+                    f.write(f"HTTPS_PROXY={proxy_url}\n")
+                env_file = env_path
 
-    create_project_config(name, server=server, port=port, tls=tls,
-                          password=password, nick="", channels=channels,
+    create_project_config(name, server=_server, port=_port, tls=_tls,
+                          password=_password, nick="", channels=_channels,
                           env_file=env_file, default_type=default_type)
     typer.echo(f"\nProject '{name}' created at {pdir}/")
     typer.echo(f"Config saved to {pdir}/config.toml")
