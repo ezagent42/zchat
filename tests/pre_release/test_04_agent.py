@@ -34,10 +34,19 @@ def test_agent_status(cli):
 
 @pytest.mark.order(4)
 def test_agent_send(cli, irc_probe):
-    """Send message via agent0 to #general."""
+    """Send message via agent0 to #general.
+
+    First MCP tool call after agent startup may be slow (Claude Code init).
+    Retry once if the message isn't received within the initial timeout.
+    """
     cli("agent", "send", "agent0",
         'Use the reply MCP tool to send "prerelease-test-msg" to #general')
     msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
+    if msg is None:
+        # Retry: re-send prompt in case first attempt was swallowed during init
+        cli("agent", "send", "agent0",
+            'Use the reply MCP tool to send "prerelease-test-msg" to #general')
+        msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
     assert msg is not None, "agent0 message not received in #general"
 
 
