@@ -24,25 +24,25 @@ This creates an isolated test environment (unique ergo port, temp `WC_AGENT_HOME
 ### 1. Start ergo
 
 ```bash
-./wc-agent.sh irc daemon start
+zchat irc daemon start
 ```
 
 ### 2. Start WeeChat
 
 ```bash
-./wc-agent.sh irc start
+zchat irc start
 ```
 
 ### 3. Check status
 
 ```bash
-./wc-agent.sh irc status
+zchat irc status
 ```
 
 ### 4. Create agent
 
 ```bash
-./wc-agent.sh agent create agent0
+zchat agent create agent0
 ```
 
 In WeeChat `#general`, verify `alice-agent0` joined.
@@ -59,22 +59,22 @@ Agent should respond within ~15s.
 ### 6. Agent commands
 
 ```bash
-./wc-agent.sh agent list
-./wc-agent.sh agent status agent0
-./wc-agent.sh agent send agent0 'Use the reply MCP tool to send "Hello!" to #general'
+zchat agent list
+zchat agent status agent0
+zchat agent send agent0 'Use the reply MCP tool to send "Hello!" to #general'
 ```
 
 ### 7. Second agent
 
 ```bash
-./wc-agent.sh agent create helper
-./wc-agent.sh agent stop helper
+zchat agent create helper
+zchat agent stop helper
 ```
 
 ### 8. Shutdown
 
 ```bash
-./wc-agent.sh shutdown
+zchat shutdown
 source tests/e2e/e2e-cleanup.sh    # if cleanup script exists
 ```
 

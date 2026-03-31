@@ -51,3 +51,26 @@ def test_pane_alive(tmux_env):
     pane = session.active_window.active_pane
     assert pane_alive(session, pane.pane_id) is True
     assert pane_alive(session, "%99999") is False
+
+
+def test_find_window_returns_window(tmux_env):
+    from zchat.cli.tmux import get_session, find_window
+    session = get_session(tmux_env)
+    window = session.active_window
+    found = find_window(session, window.window_name)
+    assert found is not None
+    assert found.window_name == window.window_name
+
+
+def test_find_window_returns_none_for_missing(tmux_env):
+    from zchat.cli.tmux import get_session, find_window
+    session = get_session(tmux_env)
+    assert find_window(session, "nonexistent-window-xyz") is None
+
+
+def test_window_alive(tmux_env):
+    from zchat.cli.tmux import get_session, window_alive
+    session = get_session(tmux_env)
+    window = session.active_window
+    assert window_alive(session, window.window_name) is True
+    assert window_alive(session, "nonexistent-window-xyz") is False

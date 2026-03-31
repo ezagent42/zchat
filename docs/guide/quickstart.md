@@ -48,13 +48,10 @@ zchat project create local
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| IRC server | `127.0.0.1` | IRC 服务器地址 |
-| IRC port | `6667` | IRC 端口 |
-| TLS | `N` | 是否启用 TLS |
-| Password | （空） | IRC 密码 |
-| Nickname | `$USER` | 你的 IRC 昵称 |
+| IRC server | `zchat.inside.h2os.cloud` | IRC 服务器（或自定义） |
 | Default channels | `#general` | 默认加入的频道 |
-| HTTP proxy | （空） | 代理地址（ip:port），留空直连 |
+| Agent types | `claude` | 多选，支持扩展模板 |
+| HTTP proxy | （空） | Claude 专属，留空直连 |
 
 ## 启动
 
@@ -70,7 +67,7 @@ zchat agent create agent0            # 3. 创建 AI agent
 zchat project use local
 ```
 
-在 tmux 里用 `Ctrl-b n` / `Ctrl-b p` 切换 window。
+在 tmux 里用 `Ctrl-b n` / `Ctrl-b p` 切换 window（每个 agent 和 WeeChat 各占一个 window）。
 
 ## 第一次对话
 
@@ -85,7 +82,7 @@ agent0 会通过 IRC 收到你的消息，然后回复到 channel 中。
 ## 停止
 
 ```bash
-zchat shutdown                       # 停止所有 agent + WeeChat + ergo
+zchat shutdown                       # 停止所有 agent + WeeChat + ergo + tmux session
 ```
 
 ## 更新

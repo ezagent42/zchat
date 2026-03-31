@@ -21,21 +21,29 @@ if [ -n "$CHANNEL_PKG" ] && [ -d "$CHANNEL_PKG/.claude-plugin" ]; then
   ln -sfn "$CHANNEL_PKG/commands" commands
 fi
 
-# --- Claude settings ---
+# --- Claude settings with SessionStart hook ---
 mkdir -p .claude
-cat > .claude/settings.local.json << 'EOF'
-{
-  "permissions": {
-    "allow": [
-      "mcp__zchat-channel__reply",
-      "mcp__zchat-channel__join_channel"
-    ]
-  },
-  "enabledPlugins": {
-    "zchat@ezagent42": true
-  }
-}
-EOF
+READY_PATH="${ZCHAT_PROJECT_DIR}/agents/${AGENT_NAME}.ready"
+
+jq -n \
+  --arg ready_cmd "touch $READY_PATH" \
+  '{
+    hooks: {
+      SessionStart: [{
+        matcher: "startup",
+        hooks: [{ type: "command", command: $ready_cmd }]
+      }]
+    },
+    permissions: {
+      allow: [
+        "mcp__zchat-channel__reply",
+        "mcp__zchat-channel__join_channel"
+      ]
+    },
+    enabledPlugins: {
+      "zchat@ezagent42": true
+    }
+  }' > .claude/settings.local.json
 
 # --- Build .mcp.json ---
 if [ ${#MCP_ARGS[@]} -gt 0 ]; then

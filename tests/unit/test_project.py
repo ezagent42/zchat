@@ -1,3 +1,5 @@
+import os
+
 from zchat.cli.project import (
     create_project_config, list_projects, get_default_project,
     set_default_project, resolve_project, load_project_config,
@@ -110,3 +112,22 @@ def test_project_create_with_env_file(tmp_path, monkeypatch):
                           env_file=env_path)
     cfg = load_project_config("proxy-test")
     assert cfg["agents"]["env_file"] == env_path
+
+
+def test_create_project_generates_tmuxp_yaml(tmp_path, monkeypatch):
+    """project create should generate tmuxp.yaml and bootstrap.sh."""
+    import yaml
+    monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
+    create_project_config("test-tmuxp", server="127.0.0.1", port=6667,
+                          tls=False, password="", nick="", channels="#general")
+    pdir = tmp_path / "projects" / "test-tmuxp"
+    tmuxp_path = pdir / "tmuxp.yaml"
+    bootstrap_path = pdir / "bootstrap.sh"
+    assert tmuxp_path.exists()
+    assert bootstrap_path.exists()
+    with open(tmuxp_path) as f:
+        cfg = yaml.safe_load(f)
+    assert cfg["session_name"].startswith("zchat-")
+    assert cfg["before_script"] == str(bootstrap_path)
+    assert str(pdir) in cfg["start_directory"]
+    assert os.access(str(bootstrap_path), os.X_OK)

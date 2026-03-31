@@ -46,6 +46,38 @@ session = "{tmux_session}"
     with open(os.path.join(pdir, "config.toml"), "w") as f:
         f.write(config_content)
 
+    # Generate tmuxp.yaml
+    import yaml
+    tmuxp_config = {
+        "session_name": tmux_session,
+        "start_directory": pdir,
+        "before_script": os.path.join(pdir, "bootstrap.sh"),
+        "windows": [
+            {"window_name": "main", "panes": ["blank"]},
+        ],
+    }
+    with open(os.path.join(pdir, "tmuxp.yaml"), "w") as f:
+        yaml.dump(tmuxp_config, f, default_flow_style=False)
+
+    # Generate bootstrap.sh
+    bootstrap_content = f'''#!/bin/bash
+set -euo pipefail
+PROJECT_DIR="{pdir}"
+mkdir -p "$PROJECT_DIR/agents"
+# Clean ready markers for agents not currently running
+for f in "$PROJECT_DIR/agents"/*.ready; do
+    [ -f "$f" ] || continue
+    agent=$(basename "$f" .ready)
+    if ! grep -q "\\"$agent\\".*\\"running\\"" "$PROJECT_DIR/state.json" 2>/dev/null; then
+        rm -f "$f"
+    fi
+done
+'''
+    bootstrap_path = os.path.join(pdir, "bootstrap.sh")
+    with open(bootstrap_path, "w") as f:
+        f.write(bootstrap_content)
+    os.chmod(bootstrap_path, 0o755)
+
 
 def list_projects() -> list[str]:
     projects_dir = os.path.join(ZCHAT_DIR, "projects")

@@ -63,7 +63,7 @@ zchat agent send agent0 "..."         # 向 agent 发送文本
 zchat agent list                      # 列出所有 agent
 zchat agent stop helper               # 停止 agent
 zchat agent restart helper            # 重启 agent
-zchat shutdown                        # 停止所有 agent
+zchat shutdown                        # 停止所有 agent + 终止 tmux session
 
 uv run pytest tests/unit/ -v                                              # CLI unit 测试
 cd zchat-protocol && uv run pytest tests/ -v                              # Protocol 测试
@@ -83,10 +83,13 @@ password = ""
 
 [agents]
 default_channels = ["#general"]
+default_type = "claude"  # agent 模板类型
 username = ""  # 空则从 $USER 读取
 env_file = ""  # 代理/API 密钥环境文件路径（可选）
-claude_args = ["--permission-mode", "bypassPermissions", "--dangerously-load-development-channels", "server:zchat-channel"]
 mcp_server_cmd = ["zchat-channel"]  # 开发时可用 ["uv", "run", "--project", "<path>", "zchat-channel"]
+
+[tmux]
+session = "zchat-xxxxxxxx-local"  # tmuxp session 名称（自动生成）
 ```
 
 ### 依赖
@@ -94,7 +97,9 @@ mcp_server_cmd = ["zchat-channel"]  # 开发时可用 ["uv", "run", "--project",
 - `irc` ≥20.0 — IRC 客户端库（channel-server）
 - `mcp[cli]` ≥1.2.0 — MCP server 框架
 - `uv` — Python 依赖管理
-- `tmux` — Session/pane 管理
+- `tmux` — Session/window 管理
+- `tmuxp` ≥1.30.0 — tmux session 管理（声明式 YAML 布局）
+- `pyyaml` ≥6.0 — YAML 配置生成
 - `ergo` — 本地 IRC server（可选，也可用公开 IRC server）
 
 ### 消息协议
@@ -121,10 +126,14 @@ mcp_server_cmd = ["zchat-channel"]  # 开发时可用 ["uv", "run", "--project",
 ### 关键约束
 
 - Channel MCP 需要 `--dangerously-load-development-channels` flag
+- `--dangerously-load-development-channels` 始终需要手动确认（通过 capture-pane 轮询 + send Enter）
 - `{username}-agent0` 是 primary agent — 由 `zchat agent create agent0` 创建
 - Agent 的 IRC nick 必须符合 RFC 2812（无 `:` 等特殊字符）
 - channel-server 运行在 IRC reactor 线程中，通过 asyncio.Queue 桥接到 MCP
-- tmux session 名为 `zchat-{project}`（如 `zchat-local`），避免多项目冲突
+- tmux session 名为 `zchat-{uuid}-{project}`，由 `tmuxp.yaml` 定义
+- 每个 agent / WeeChat 使用独立 tmux window（非 pane）
+- Agent workspace 持久化在 `~/.zchat/projects/<name>/agents/<scoped_name>/`
+- Agent 就绪检测通过 Claude Code `SessionStart` hook → `.agents/<name>.ready` marker
 
 ### 发布
 

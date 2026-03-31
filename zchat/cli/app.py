@@ -533,7 +533,7 @@ def cmd_agent_create(
     info = mgr.create(name, workspace=workspace, channels=ch, agent_type=agent_type)
     scoped = mgr.scoped(name)
     typer.echo(f"Created {scoped} (type: {info['type']})")
-    typer.echo(f"  pane: {info['pane_id']}")
+    typer.echo(f"  window: {info['window_name']}")
     typer.echo(f"  workspace: {info['workspace']}")
 
 @agent_app.command("stop")
@@ -554,7 +554,7 @@ def cmd_agent_list(ctx: typer.Context):
         return
     for name, info in agents.items():
         status = info["status"]
-        pane = info.get("pane_id", "—")
+        window = info.get("window_name", info.get("pane_id", "—"))
         ws = info.get("workspace", "—")
         elapsed = time.time() - info.get("created_at", time.time())
         if status != "offline" and elapsed > 0:
@@ -568,7 +568,7 @@ def cmd_agent_list(ctx: typer.Context):
             uptime = "—"
         agent_type = info.get("type", "unknown")
         ch = ", ".join(info.get("channels", []))
-        typer.echo(f"  {name}\t{agent_type}\t{status}\t{uptime}\t{pane}\t{ch}\t{ws}")
+        typer.echo(f"  {name}\t{agent_type}\t{status}\t{uptime}\t{window}\t{ch}\t{ws}")
 
 @agent_app.command("status")
 def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
@@ -582,7 +582,7 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
     typer.echo(f"  type:      {info.get('type', 'unknown')}")
     typer.echo(f"  status:    {info['status']}")
     typer.echo(f"  uptime:    {mins}m {secs}s")
-    typer.echo(f"  pane:      {info.get('pane_id', '—')}")
+    typer.echo(f"  window:    {info.get('window_name', info.get('pane_id', '—'))}")
     typer.echo(f"  workspace: {info.get('workspace', '—')}")
     typer.echo(f"  channels:  {', '.join(info.get('channels', []))}")
 
@@ -590,14 +590,14 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
 def cmd_agent_send(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Agent name"),
-    text: str = typer.Argument(..., help="Text to send to agent's tmux pane"),
+    text: str = typer.Argument(..., help="Text to send to agent's tmux window"),
 ):
-    """Send text to agent's tmux pane (tmux send-keys)."""
+    """Send text to agent's tmux window (tmux send-keys)."""
 
     mgr = _get_agent_manager(ctx)
     scoped = mgr.scoped(name)
     mgr.send(name, text)
-    typer.echo(f"Sent to {scoped} (pane {mgr._agents[scoped]['pane_id']})")
+    typer.echo(f"Sent to {scoped}")
 
 @agent_app.command("restart")
 def cmd_agent_restart(ctx: typer.Context, name: str = typer.Argument(...)):
@@ -615,7 +615,7 @@ def cmd_agent_restart(ctx: typer.Context, name: str = typer.Argument(...)):
 
 @app.command("shutdown")
 def cmd_shutdown(ctx: typer.Context):
-    """Stop all agents + WeeChat + ergo."""
+    """Stop all agents + WeeChat + ergo + tmux session."""
     try:
         mgr = _get_agent_manager(ctx)
         agents = mgr.list_agents()
@@ -630,6 +630,14 @@ def cmd_shutdown(ctx: typer.Context):
         irc.stop_weechat()
         irc.daemon_stop()
     except (SystemExit, Exception):
+        pass
+    # Kill tmux session
+    try:
+        session_name = _get_tmux_session(ctx)
+        from zchat.cli.tmux import get_session
+        session = get_session(session_name)
+        session.kill()
+    except (KeyError, SystemExit, Exception):
         pass
     typer.echo("Shutdown complete.")
 
