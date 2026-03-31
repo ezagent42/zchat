@@ -36,18 +36,15 @@ def test_agent_status(cli):
 def test_agent_send(cli, irc_probe):
     """Send message via agent0 to #general.
 
-    First MCP tool call after agent startup may be slow (Claude Code init).
-    Retry up to 2 times if the message isn't received.
+    Known flaky (Issue #30): Claude Code's first MCP tool call after startup
+    may not complete within timeout. The send command itself succeeds (text
+    delivered to tmux), but the agent may not process it in time.
+    Retry up to 2 times with 60s timeout each.
     """
     msg = None
-    for attempt in range(3):
-        result = cli("agent", "send", "agent0",
-            'Use the reply MCP tool to send "prerelease-test-msg" to #general',
-            check=False)
-        print(f"[DEBUG] send attempt {attempt+1}: rc={result.returncode} "
-              f"stdout={result.stdout!r} stderr={result.stderr!r}")
-        if result.returncode != 0:
-            continue
+    for _attempt in range(3):
+        cli("agent", "send", "agent0",
+            'Use the reply MCP tool to send "prerelease-test-msg" to #general')
         msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
         if msg is not None:
             break
