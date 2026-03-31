@@ -11,14 +11,20 @@
 ## 运行测试
 
 ```bash
-# Unit 测试
-cd weechat-channel-server && uv run python -m pytest ../tests/unit/ -v
+# CLI unit 测试
+uv run pytest tests/unit/ -v
 
-# E2E 测试
-pytest tests/e2e/ -v -m e2e
+# Channel server 测试
+cd zchat-channel-server && uv run pytest tests/ -v
+
+# Protocol 测试
+cd zchat-protocol && uv run pytest tests/ -v
+
+# E2E 测试（需要 ergo + tmux）
+uv run pytest tests/e2e/ -v -m e2e
 
 # 单个测试
-pytest tests/unit/test_message.py::test_specific -v
+uv run pytest tests/unit/test_agent_manager.py::test_specific -v
 ```
 
 ## 添加测试

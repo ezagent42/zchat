@@ -33,10 +33,12 @@ Agent 名称带用户前缀，格式 `{username}-agent0`：
 - 分隔符使用 `-`（IRC RFC 2812 禁止 `:` 在 nick 中）
 - `{username}-agent0` 是 primary agent
 
-## tmux Pane 管理
+## tmux Window 管理
 
-每个 Agent 在独立的 tmux pane 中运行：
+每个 Agent 在独立的 tmux window 中运行（非 pane），提供完整终端空间：
 
-- 创建时使用 `tmux split-window` 创建 pane 并捕获 pane_id
-- 停止时使用 `tmux send-keys -t {pane_id} C-c` 定向终止
-- tmux session 名为 `zchat-{project}`，避免多项目冲突
+- 创建时使用 `session.new_window()` 创建 window
+- 就绪检测：`_auto_confirm_startup()` 轮询 `capture-pane` 自动确认启动提示，`SessionStart` hook 写 `.ready` marker
+- 停止时发送 pre_stop hook（`/exit`），轮询 window 消失，fallback kill window
+- Agent workspace 持久化在 `~/.zchat/projects/<name>/agents/<scoped_name>/`
+- tmux session 由 `tmuxp.yaml` 声明式定义，`tmuxp load -d` 创建
