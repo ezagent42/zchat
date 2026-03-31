@@ -17,14 +17,50 @@
 
 不引入全局 `--non-interactive` flag。改为确保每个有交互提示的命令都能通过 CLI 参数提供全部必要输入——参数充足时直接执行，不进入交互。
 
-| 命令 | 需补充的 CLI 参数 |
-|------|------------------|
-| `project create` | `--server`, `--port`, `--username`, `--agent-type`, `--channels` 等 |
-| `project remove` | `--yes` / `-y`（跳过确认） |
-| `setup weechat` | 已有 `--force` |
-| `auth login` | `--issuer`, `--client-id` 已有 |
-
 原则：缺少必要参数时才进入交互式提示。
+
+#### `project create` 参数化
+
+当前 `cmd_project_create(name)` 仅接受 positional `name`，其余通过 `typer.prompt()` 交互获取。需添加以下 `typer.Option` 参数：
+
+```python
+@project_app.command("create")
+def cmd_project_create(
+    name: str,
+    server: Optional[str] = typer.Option(None, help="IRC server address"),
+    port: Optional[int] = typer.Option(None, help="IRC port"),
+    tls: Optional[bool] = typer.Option(None, help="Enable TLS"),
+    password: Optional[str] = typer.Option(None, help="IRC password"),
+    channels: Optional[str] = typer.Option(None, help="Default channels"),
+    agent_type: Optional[str] = typer.Option(None, "--agent-type", help="Agent template name (e.g. 'claude')"),
+    proxy: Optional[str] = typer.Option(None, help="HTTP proxy (ip:port)"),
+):
+```
+
+条件跳过逻辑：
+- `--server` 提供时跳过 server 选择菜单；未提供 `--port`/`--tls` 时使用 server 对应的默认值（本地: 6667/notls，zchat.inside: 6697/tls）
+- `--channels` 提供时跳过 channels 提示（默认 `"#general"`）
+- `--agent-type` 提供时直接按名称匹配模板，跳过多选菜单；未找到模板则报错退出
+- `--proxy` 提供时跳过 Claude proxy 提示；空字符串表示不使用代理
+- 所有参数都未提供时，行为与当前完全一致（交互式向导）
+
+测试调用示例：
+```bash
+zchat project create e2e-test \
+    --server 127.0.0.1 --port 16789 \
+    --channels "#general" --agent-type claude
+```
+
+#### `project remove` 确认机制
+
+当前 `cmd_project_remove` 无确认提示，直接删除。保持现状——不添加 `--yes` flag，因为无确认可跳过。
+
+#### 其他命令
+
+| 命令 | 状态 |
+|------|------|
+| `setup weechat` | 已有 `--force`，无需改动 |
+| `auth login` | 已有 `--issuer`, `--client-id`，无需改动 |
 
 ### CLI 入口可配置
 
@@ -79,24 +115,30 @@ tests/
 
 ### `tests/shared/cli_runner.py`
 
+闭包工厂函数（与现有 E2E `zchat_cli` 风格一致）：
+
 ```python
-class CliRunner:
-    def __init__(self, cmd: str, project: str, env: dict):
-        """
-        cmd: "zchat" 或 "/opt/homebrew/bin/zchat" 或 "uv run python -m zchat.cli"
-        project: 项目名
-        env: ZCHAT_HOME, ZCHAT_TMUX_SESSION 等环境变量
-        """
-
-    def run(self, *args, check=True) -> CompletedProcess:
-        """执行: {cmd} --project {project} {args}"""
-
-    def run_unchecked(self, *args) -> CompletedProcess:
-        """同上但不检查 returncode，用于测试错误场景"""
+def make_cli_runner(cmd: list[str], project: str, env: dict) -> Callable:
+    """创建 CLI 运行器闭包。
+    
+    cmd: ["zchat"] 或 ["uv", "run", "python", "-m", "zchat.cli"] 等
+    project: 项目名
+    env: ZCHAT_HOME, ZCHAT_TMUX_SESSION 等环境变量
+    """
+    def run(*args, check=True) -> CompletedProcess:
+        full_cmd = [*cmd, "--project", project, *args]
+        result = subprocess.run(full_cmd, env={**os.environ, **env},
+                                capture_output=True, text=True)
+        if check and result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode, full_cmd,
+                output=result.stdout, stderr=result.stderr)
+        return result
+    return run
 ```
 
-- 现有 E2E 的 `zchat_cli` fixture 改为基于 `CliRunner`，cmd 固定为 `uv run python -m zchat.cli`
-- Pre-release 的 fixture 基于 `CliRunner`，cmd 从 `ZCHAT_CMD` 环境变量读取（默认 `zchat`）
+- 现有 E2E：`make_cli_runner(["uv", "run", ...], project, env)`
+- Pre-release：`make_cli_runner([zchat_cmd], project, env)`
 
 ### `tests/shared/tmux_helpers.py`
 
@@ -125,26 +167,50 @@ def e2e_port():
 
 @pytest.fixture(scope="session")
 def e2e_home(tmp_path_factory):
-    """隔离的 ZCHAT_HOME 临时目录。不预置 config.toml——由 project create 测试创建。"""
+    """隔离的 ZCHAT_HOME 临时目录。"""
 
 @pytest.fixture(scope="session")
 def tmux_session():
     """创建 headless tmux session，测试结束后销毁。"""
 
 @pytest.fixture(scope="session")
-def cli(zchat_cmd, e2e_home, tmux_session):
-    """返回 CliRunner 实例。"""
+def project(cli, e2e_port):
+    """通过 CLI 创建项目——所有需要项目的测试依赖此 fixture。
+    
+    zchat project create prerelease-test \
+        --server 127.0.0.1 --port {e2e_port} \
+        --channels "#general" --agent-type claude
+    
+    Yield 项目名，teardown 时 zchat project remove。
+    """
 
 @pytest.fixture(scope="session")
-def ergo_server(cli, e2e_port):
-    """通过 CLI 启动 ergo: zchat irc daemon start --port {port}"""
+def cli(zchat_cmd, e2e_home, tmux_session):
+    """返回 CliRunner 实例（闭包工厂函数，与现有 E2E 风格一致）。"""
+
+@pytest.fixture(scope="session")
+def ergo_server(cli, project):
+    """通过 CLI 启动 ergo: zchat irc daemon start"""
 
 @pytest.fixture(scope="session")
 def irc_probe(ergo_server):
     """共享的 IRC 探针，连接 #general。"""
 ```
 
-关键区别：`e2e_home` 不预置 config.toml，项目配置由 `test_01_project.py::test_project_create` 通过 CLI 创建。
+**Fixture 依赖链：** `zchat_cmd` → `cli` → `project` → `ergo_server` → `irc_probe`
+
+关键设计决策：
+- **项目创建是 fixture 而非 test case**——解决 chicken-and-egg 问题。`ergo_server`、`irc_probe` 等 session-scoped fixture 需要项目存在才能工作，而 pytest 在测试运行前就解析 fixtures。
+- `test_01_project.py` 中的 `test_project_create` 改为测试 **第二个项目** 的创建/管理，验证 CLI 参数化创建的完整流程。主项目由 `project` fixture 保证始终存在。
+- `CliRunner` 使用闭包工厂函数（与现有 E2E 的 `zchat_cli` 风格一致），不引入类。
+- 测试运行方式必须使用 `uv run pytest`，确保 editable install 的 `zchat` 在 PATH 上。
+
+**目录级 pytestmark：** 在 `conftest.py` 中全局应用标记，无需每个测试单独装饰：
+```python
+# tests/pre_release/conftest.py
+import pytest
+pytestmark = pytest.mark.prerelease
+```
 
 ## 测试用例
 
@@ -157,15 +223,16 @@ def irc_probe(ergo_server):
 
 ### `test_01_project.py` — 项目生命周期
 
+注：主项目由 `project` fixture 创建。此文件测试项目管理命令。
+
 | 用例 | 说明 |
 |------|------|
-| `test_project_create` | 完整参数创建项目，验证 config.toml 生成 |
-| `test_project_list` | 列表包含刚创建的项目 |
+| `test_project_list` | 列表包含主项目 |
 | `test_project_show` | 显示项目配置，字段与创建参数一致 |
-| `test_project_set` | `zchat set irc.port 6668`，验证配置更新 |
-| `test_project_use` | 切换默认项目 |
-| `test_project_create_second` | 创建第二个项目 |
-| `test_project_remove_second` | `--yes` 删除，验证列表中消失 |
+| `test_project_set` | `zchat set irc.port 6668`，验证配置更新，然后恢复原值 |
+| `test_project_create_second` | 用完整 CLI 参数创建第二个项目，验证 config.toml 生成 |
+| `test_project_use` | 切换默认项目到第二个 |
+| `test_project_remove_second` | 删除第二个项目，验证列表中消失 |
 
 ### `test_02_template.py` — 模板管理
 
@@ -261,11 +328,9 @@ ZCHAT_CMD=zchat uv run pytest tests/pre_release/ -v -m prerelease
 
 ### 需要修改
 
-1. `tests/e2e/conftest.py` — 改为导入 `tests.shared`
-2. `tests/e2e/test_e2e.py` — 更新 irc_probe 导入路径
-3. `zchat/cli/app.py` — `project create` 补充 CLI 参数
-4. `zchat/cli/app.py` — `project remove` 添加 `--yes`
-5. `pyproject.toml` — 追加 pytest markers
+1. `tests/e2e/conftest.py` — 改为导入 `tests.shared`（保留 `tests/e2e/irc_probe.py` 作为兼容重导出：`from tests.shared.irc_probe import IrcProbe`）
+2. `zchat/cli/app.py` — `project create` 补充 CLI 参数（`--server`, `--port`, `--tls`, `--password`, `--channels`, `--agent-type`, `--proxy`）
+3. `pyproject.toml` — 追加 pytest markers
 
 ### 不需要修改
 
