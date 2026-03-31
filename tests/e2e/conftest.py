@@ -53,7 +53,10 @@ def tmux_session():
     name = f"e2e-pytest-{os.getpid()}"
     session = srv.new_session(session_name=name, attach=False, x=220, y=60)
     yield name
-    session.kill()
+    try:
+        session.kill()
+    except Exception:
+        pass  # session may already be killed by zchat shutdown
 
 
 @pytest.fixture(scope="session")
@@ -158,5 +161,8 @@ def weechat_window(ergo_server, e2e_context, tmux_session):
     )
     time.sleep(5)  # Wait for WeeChat to connect
     yield window.window_name
-    if window.active_pane:
-        window.active_pane.send_keys("/quit", enter=True)
+    try:
+        if window.active_pane:
+            window.active_pane.send_keys("/quit", enter=True)
+    except Exception:
+        pass  # window may already be killed by zchat shutdown
