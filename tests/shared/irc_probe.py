@@ -103,6 +103,12 @@ class IrcProbe:
             time.sleep(0.5)
         return None
 
+    def privmsg(self, channel: str, text: str):
+        """Send a PRIVMSG to a channel. Dispatched via reactor."""
+        self._reactor.scheduler.execute_after(
+            0, lambda: self._conn.privmsg(channel, text)
+        )
+
     # --- Handlers (called by reactor thread) ---
 
     def _on_whoisuser(self, conn, event):

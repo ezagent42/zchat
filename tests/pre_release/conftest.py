@@ -118,6 +118,40 @@ def ergo_server(cli, project, e2e_port):
 
 
 @pytest.fixture(scope="session")
+def bob_probe(ergo_server):
+    """Second IRC client (bob) for user-to-user tests."""
+    probe = IrcProbe(ergo_server["host"], ergo_server["port"], nick="bob")
+    probe.connect()
+    time.sleep(1)
+    probe.join("#general")
+    time.sleep(1)
+    yield probe
+    probe.disconnect()
+
+
+@pytest.fixture(scope="session")
+def weechat_window(tmux_session):
+    """Return the WeeChat tmux window name.
+
+    WeeChat is started by test_03_irc via cli("irc", "start"), which creates
+    a tmux window named "weechat". This fixture returns the known name.
+    """
+    return "weechat"
+
+
+@pytest.fixture(scope="session")
+def tmux_send(tmux_session):
+    """Send keys to a tmux window by name."""
+    from zchat.cli.tmux import get_session, find_window
+    def send(target: str, text: str):
+        session = get_session(tmux_session)
+        window = find_window(session, target)
+        if window and window.active_pane:
+            window.active_pane.send_keys(text, enter=True)
+    return send
+
+
+@pytest.fixture(scope="session")
 def irc_probe(ergo_server):
     """IRC client that joins #general and records messages."""
     probe = IrcProbe(ergo_server["host"], ergo_server["port"])

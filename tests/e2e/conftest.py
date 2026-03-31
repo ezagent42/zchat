@@ -143,6 +143,18 @@ def irc_probe(ergo_server):
 
 
 @pytest.fixture(scope="session")
+def bob_probe(ergo_server):
+    """Second IRC client (bob) for user-to-user tests."""
+    probe = IrcProbe(ergo_server["host"], ergo_server["port"], nick="bob")
+    probe.connect()
+    time.sleep(1)
+    probe.join("#general")
+    time.sleep(1)
+    yield probe
+    probe.disconnect()
+
+
+@pytest.fixture(scope="session")
 def weechat_window(ergo_server, e2e_context, tmux_session):
     """Start WeeChat in its own tmux window."""
     from zchat.cli.tmux import get_session
