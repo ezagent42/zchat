@@ -557,7 +557,7 @@ def cmd_irc_status(ctx: typer.Context):
     typer.echo("")
     typer.echo("IRC Client (WeeChat):")
     if s["weechat"]["running"]:
-        typer.echo(f"  status: running (pane {s['weechat']['pane_id']})")
+        typer.echo(f"  status: running (window {s['weechat'].get('window', 'unknown')})")
     else:
         typer.echo("  status: stopped")
     typer.echo(f"  nick: {s['weechat']['nick']}")
