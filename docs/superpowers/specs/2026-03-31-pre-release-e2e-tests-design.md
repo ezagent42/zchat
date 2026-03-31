@@ -39,6 +39,7 @@ def cmd_project_create(
 
 条件跳过逻辑：
 - `--server` 提供时跳过 server 选择菜单；未提供 `--port`/`--tls` 时使用 server 对应的默认值（本地: 6667/notls，zchat.inside: 6697/tls）
+- `--password` 未提供时默认空字符串
 - `--channels` 提供时跳过 channels 提示（默认 `"#general"`）
 - `--agent-type` 提供时直接按名称匹配模板，跳过多选菜单；未找到模板则报错退出
 - `--proxy` 提供时跳过 Claude proxy 提示；空字符串表示不使用代理
@@ -201,9 +202,11 @@ def irc_probe(ergo_server):
 
 关键设计决策：
 - **项目创建是 fixture 而非 test case**——解决 chicken-and-egg 问题。`ergo_server`、`irc_probe` 等 session-scoped fixture 需要项目存在才能工作，而 pytest 在测试运行前就解析 fixtures。
+- **项目名是常量**——`PROJECT_NAME = "prerelease-test"` 定义在 `conftest.py` 顶层，`cli` 和 `project` fixture 共享。`cli` fixture 在 `project` 创建之前就需要项目名来构造 `--project` 参数。
 - `test_01_project.py` 中的 `test_project_create` 改为测试 **第二个项目** 的创建/管理，验证 CLI 参数化创建的完整流程。主项目由 `project` fixture 保证始终存在。
 - `CliRunner` 使用闭包工厂函数（与现有 E2E 的 `zchat_cli` 风格一致），不引入类。
 - 测试运行方式必须使用 `uv run pytest`，确保 editable install 的 `zchat` 在 PATH 上。
+- **测试文件排序**——文件名数字前缀（`test_00_` ~ `test_08_`）配合 `pytest-order` 的默认按文件名排序行为保证执行顺序。文件内测试用 `@pytest.mark.order()` 显式指定顺序。
 
 **目录级 pytestmark：** 在 `conftest.py` 中全局应用标记，无需每个测试单独装饰：
 ```python
@@ -320,7 +323,7 @@ ZCHAT_CMD=zchat uv run pytest tests/pre_release/ -v -m prerelease
 ### 需要新建
 
 1. `tests/shared/__init__.py` — 包初始化
-2. `tests/shared/cli_runner.py` — CliRunner 类
+2. `tests/shared/cli_runner.py` — CLI runner 闭包工厂函数
 3. `tests/shared/tmux_helpers.py` — tmux 工具函数
 4. `tests/shared/irc_probe.py` — 从 e2e 搬迁
 5. `tests/pre_release/conftest.py` — fixtures
@@ -328,7 +331,7 @@ ZCHAT_CMD=zchat uv run pytest tests/pre_release/ -v -m prerelease
 
 ### 需要修改
 
-1. `tests/e2e/conftest.py` — 改为导入 `tests.shared`（保留 `tests/e2e/irc_probe.py` 作为兼容重导出：`from tests.shared.irc_probe import IrcProbe`）
+1. `tests/e2e/irc_probe.py` — 改为兼容重导出：`from tests.shared.irc_probe import IrcProbe`（`conftest.py` 的 `from irc_probe import IrcProbe` 无需改动）
 2. `zchat/cli/app.py` — `project create` 补充 CLI 参数（`--server`, `--port`, `--tls`, `--password`, `--channels`, `--agent-type`, `--proxy`）
 3. `pyproject.toml` — 追加 pytest markers
 
