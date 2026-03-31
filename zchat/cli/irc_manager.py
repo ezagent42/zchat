@@ -7,7 +7,7 @@ import time
 
 import libtmux
 
-from zchat.cli.tmux import get_or_create_session, find_pane, pane_alive
+from zchat.cli.tmux import get_or_create_session, find_pane, pane_alive, find_window, window_alive
 
 
 class IrcManager:
@@ -19,7 +19,7 @@ class IrcManager:
         self._tmux_session_name = tmux_session
         self._tmux_session: libtmux.Session | None = None
         self._state: dict = {}
-        self._auth_config = config.get("auth", {})
+        self._project_dir = os.path.dirname(state_file) if state_file else ""
         self._load_state()
 
     @property
@@ -80,7 +80,8 @@ class IrcManager:
             f.write(config_text)
 
         # Inject auth-script config if OIDC is enabled
-        if self._auth_config.get("provider") == "oidc":
+        from zchat.cli.auth import get_credentials
+        if get_credentials():
             self._inject_auth_script(ergo_data_dir, ergo_conf)
 
         # Remove stale lock
@@ -121,9 +122,11 @@ class IrcManager:
         shutil.copy2(script_src, script_dst)
         os.chmod(script_dst, 0o755)
 
-        from zchat.cli.auth import discover_oidc_endpoints
+        from zchat.cli.auth import discover_oidc_endpoints, load_cached_token, _global_auth_dir
+        auth_data = load_cached_token(_global_auth_dir()) or {}
+        issuer = auth_data.get("token_endpoint", "").rsplit("/", 1)[0] if auth_data.get("token_endpoint") else ""
         try:
-            endpoints = discover_oidc_endpoints(self._auth_config["issuer"])
+            endpoints = discover_oidc_endpoints(issuer) if issuer else {}
             config_file = os.path.join(ergo_data_dir, "auth_script_config.json")
             import json as _json
             with open(config_file, "w") as f:
@@ -172,11 +175,22 @@ class IrcManager:
         print("ergo stopped.")
 
     def start_weechat(self, nick_override: str | None = None):
-        """Start WeeChat in tmux, auto-connect to IRC."""
-        existing = self._state.get("irc", {}).get("weechat_pane_id")
-        if existing and self._pane_alive(existing):
-            print(f"WeeChat already running (pane {existing}).")
+        """Start WeeChat in its own tmux window, auto-connect to IRC."""
+        existing = self._state.get("irc", {}).get("weechat_window")
+        if existing and self._window_alive(existing):
+            print(f"WeeChat already running (window {existing}).")
             return
+
+        # Load tmuxp session if YAML exists and session doesn't
+        project_dir = os.path.dirname(self._state_file)
+        tmuxp_path = os.path.join(project_dir, "tmuxp.yaml")
+        if os.path.isfile(tmuxp_path):
+            # Update YAML with WeeChat window before loading
+            self._update_tmuxp_weechat(tmuxp_path)
+            import subprocess as sp
+            sp.run(["tmuxp", "load", "-d", tmuxp_path], capture_output=True)
+            # Refresh session reference after tmuxp creates it
+            self._tmux_session = None
 
         server = self.irc_config.get("server", "127.0.0.1")
         port = self.irc_config.get("port", 6667)
@@ -185,29 +199,24 @@ class IrcManager:
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
         tls_flag = "" if tls else " -notls"
 
-        # SASL config (must come before /connect)
+        # SASL config
         sasl_cmds = ""
-        if self._auth_config.get("provider") == "oidc":
-            from zchat.cli.auth import get_credentials
-            creds = get_credentials(client_id=self._auth_config.get("client_id", ""))
-            if creds:
-                sasl_user, sasl_pass = creds
-                nick = sasl_user
-                sasl_cmds = (
-                    f"; /set irc.server.wc-local.sasl_mechanism PLAIN"
-                    f"; /set irc.server.wc-local.sasl_username {sasl_user}"
-                    f"; /set irc.server.wc-local.sasl_password {sasl_pass}"
-                )
-            else:
-                print("Warning: OIDC configured but no credentials. Run 'zchat auth login'.")
+        from zchat.cli.auth import get_credentials
+        creds = get_credentials()
+        if creds:
+            sasl_user, sasl_pass = creds
+            nick = sasl_user
+            sasl_cmds = (
+                f"; /set irc.server.wc-local.sasl_mechanism PLAIN"
+                f"; /set irc.server.wc-local.sasl_username {sasl_user}"
+                f"; /set irc.server.wc-local.sasl_password {sasl_pass}"
+            )
 
         # Source env file if configured
         env_file = self.config.get("agents", {}).get("env_file", "")
         source_env = f"[ -f '{env_file}' ] && set -a && source '{env_file}' && set +a; " if env_file else ""
 
-        # Use irc.server.wc-local.autojoin instead of /join — /connect is async so /join may run before connected
         autojoin = ",".join(channels)
-        # Load zchat plugin — look in well-known locations
         plugin_path = self._find_weechat_plugin()
         load_plugin = f"; /script load {plugin_path}" if plugin_path else ""
 
@@ -219,21 +228,43 @@ class IrcManager:
             f"; /connect wc-local{load_plugin}'"
         )
 
-        window = self.tmux_session.active_window
-        pane = window.split(attach=False, direction=libtmux.constants.PaneDirection.Below, shell=cmd)
-        pane_id = pane.pane_id
-        pane.cmd("select-pane", "-T", f"weechat ({nick})")
-        self._state.setdefault("irc", {})["weechat_pane_id"] = pane_id
+        # Check if weechat window already exists (from tmuxp load)
+        weechat_window = find_window(self.tmux_session, "weechat")
+        if weechat_window:
+            pane = weechat_window.active_pane
+            if pane:
+                pane.send_keys(cmd, enter=True)
+        else:
+            weechat_window = self.tmux_session.new_window(
+                window_name="weechat", window_shell=cmd, attach=False,
+            )
+
+        self._state.setdefault("irc", {})["weechat_window"] = "weechat"
         self._save_state()
-        print(f"WeeChat started (pane {pane_id}, nick {nick}).")
+        print(f"WeeChat started (window weechat, nick {nick}).")
+
+    def _update_tmuxp_weechat(self, tmuxp_path: str):
+        """Update tmuxp.yaml to include WeeChat window."""
+        import yaml
+        with open(tmuxp_path) as f:
+            cfg = yaml.safe_load(f)
+        cfg["windows"] = [
+            {"window_name": "weechat", "panes": ["blank"], "focus": True},
+        ]
+        with open(tmuxp_path, "w") as f:
+            yaml.dump(cfg, f, default_flow_style=False)
 
     def stop_weechat(self):
         """Stop WeeChat by sending /quit."""
-        pane = self._state.get("irc", {}).get("weechat_pane_id")
-        if pane and self._pane_alive(pane):
-            p = find_pane(self.tmux_session, pane)
-            if p:
-                p.send_keys("/quit", enter=True)
+        wname = self._state.get("irc", {}).get("weechat_window")
+        if not wname:
+            # Legacy: try pane_id
+            wname = self._state.get("irc", {}).get("weechat_pane_id")
+        if wname and self._window_alive(wname):
+            window = find_window(self.tmux_session, wname)
+            if window and window.active_pane:
+                window.active_pane.send_keys("/quit", enter=True)
+            self._state.get("irc", {}).pop("weechat_window", None)
             self._state.get("irc", {}).pop("weechat_pane_id", None)
             self._save_state()
             print("WeeChat stopped.")
@@ -243,8 +274,8 @@ class IrcManager:
     def status(self) -> dict:
         """Return IRC status info."""
         ergo_running = self._is_ergo_running()
-        pane = self._state.get("irc", {}).get("weechat_pane_id")
-        weechat_running = pane and self._pane_alive(pane)
+        wname = self._state.get("irc", {}).get("weechat_window")
+        weechat_running = wname and self._window_alive(wname)
         return {
             "daemon": {
                 "running": ergo_running,
@@ -254,7 +285,7 @@ class IrcManager:
             },
             "weechat": {
                 "running": weechat_running,
-                "pane_id": pane if weechat_running else None,
+                "window": wname if weechat_running else None,
                 "nick": self.config.get("agents", {}).get("username"),
             },
         }
@@ -283,6 +314,9 @@ class IrcManager:
 
     def _pane_alive(self, pane_id: str) -> bool:
         return pane_alive(self.tmux_session, pane_id)
+
+    def _window_alive(self, window_name: str) -> bool:
+        return window_alive(self.tmux_session, window_name)
 
     def _load_state(self):
         if os.path.isfile(self._state_file):
