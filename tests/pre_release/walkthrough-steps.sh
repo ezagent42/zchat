@@ -34,6 +34,27 @@ capture_pane() {
     tmux capture-pane -t "$SESSION:$target" -p 2>/dev/null | tail -15 || echo "pane not found"
 }
 
+# Get scoped agent name (e.g., h2oslabs-agent0)
+scoped_name() {
+    local agent="$1"
+    echo "${USERNAME}-${agent}"
+}
+
+# Wait for a pattern to appear in a pane (poll with timeout)
+wait_pane_content() {
+    local target="$1"
+    local pattern="$2"
+    local timeout="${3:-30}"
+    local deadline=$((SECONDS + timeout))
+    while [ $SECONDS -lt $deadline ]; do
+        if tmux capture-pane -t "$SESSION:$target" -p 2>/dev/null | grep -q "$pattern"; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
 # ============================================================
 section "1. Doctor — environment check"
 # ============================================================
@@ -52,6 +73,10 @@ sleep 0.5
 
 step "zchat project show"
 zchat $ZP project show "$PROJECT"
+# Extract username for scoped agent names
+USERNAME=$(zchat $ZP project show "$PROJECT" 2>/dev/null | grep -i nick | awk '{print $NF}')
+USERNAME="${USERNAME:-$USER}"
+echo "  (detected username: $USERNAME)"
 sleep 0.5
 
 step "zchat project list"
@@ -170,12 +195,27 @@ sleep 0.5
 
 capture_windows
 step "Capture agent0 window"
-capture_pane agent0 "agent0"
+capture_pane "$(scoped_name agent0)" "agent0"
+sleep 1
+
+step "Wait for agent0 to be ready (Claude Code init)"
+if wait_pane_content "$(scoped_name agent0)" "ready\|Claude\|>" 60; then
+    echo "  agent0 appears ready"
+else
+    echo "  agent0 may still be initializing (continuing anyway)"
+fi
+capture_pane "$(scoped_name agent0)" "agent0 after wait"
 sleep 1
 
 step "zchat agent send agent0 (ask to reply in #general)"
 zchat $ZP agent send agent0 'Use the reply MCP tool to send the message walkthrough-test-msg to channel #general'
-sleep 15
+
+step "Waiting for message in WeeChat (up to 30s)..."
+if wait_pane_content weechat "walkthrough-test-msg" 30; then
+    echo "  Message received!"
+else
+    echo "  Message not seen in 30s (agent may still be processing)"
+fi
 
 step "Capture WeeChat pane (check for message)"
 capture_pane weechat "WeeChat after send"
@@ -229,6 +269,10 @@ sleep 1
 step "zchat irc daemon start (restart for shutdown test)"
 zchat $ZP irc daemon start
 sleep 2
+
+step "zchat irc start (restart WeeChat for shutdown test)"
+zchat $ZP irc start
+sleep 3
 
 step "zchat shutdown"
 zchat $ZP shutdown

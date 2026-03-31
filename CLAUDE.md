@@ -69,7 +69,21 @@ uv run pytest tests/unit/ -v                                              # CLI 
 cd zchat-protocol && uv run pytest tests/ -v                              # Protocol 测试
 cd zchat-channel-server && uv run pytest tests/ -v                        # Channel server 测试
 uv run pytest tests/e2e/ -v -m e2e                                        # E2E 测试（需要 ergo + tmux）
+./tests/pre_release/walkthrough.sh                                        # Pre-release 验收录制（asciinema）
+ZCHAT_CMD=zchat ./tests/pre_release/walkthrough.sh                        # Homebrew 版本验收
 ```
+
+### 测试体系
+
+三层测试：
+
+| 层级 | 命令 | 说明 |
+|------|------|------|
+| Unit | `uv run pytest tests/unit/ -v` | 纯逻辑测试，无外部依赖 |
+| E2E | `uv run pytest tests/e2e/ -v -m e2e` | pytest 驱动，通过 `uv run python -m zchat.cli` 调用，自动断言 |
+| Pre-release | `./tests/pre_release/walkthrough.sh` | asciinema 录制完整 CLI 生命周期，人工 review `.cast` 文件 |
+
+**Pre-release walkthrough** 覆盖全部 CLI 命令（doctor, project, template, irc, agent, setup, auth, shutdown），通过 `ZCHAT_CMD` 环境变量切换 editable install 或 Homebrew 二进制。录制产物为 `.cast` 文件，用 `asciinema play` 回放。详见 `tests/pre_release/` 目录。
 
 ### 配置
 
