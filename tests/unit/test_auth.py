@@ -213,3 +213,34 @@ def test_get_credentials_returns_username_and_token(tmp_path):
 def test_get_credentials_returns_none_when_no_token(tmp_path):
     result = get_credentials(str(tmp_path))
     assert result is None
+
+
+def test_device_code_flow_stores_token_endpoint_and_client_id(capsys):
+    """device_code_flow stores token_endpoint and client_id for project-independent refresh."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "well-known" in url:
+            return httpx.Response(200, json={
+                "token_endpoint": "https://kc.test/token",
+                "device_authorization_endpoint": "https://kc.test/device",
+                "userinfo_endpoint": "https://kc.test/userinfo",
+            })
+        if url == "https://kc.test/device":
+            return httpx.Response(200, json={
+                "device_code": "dc", "user_code": "UC",
+                "verification_uri": "https://kc.test/device",
+                "interval": 0, "expires_in": 600,
+            })
+        if url == "https://kc.test/token":
+            return httpx.Response(200, json={
+                "access_token": "at", "refresh_token": "rt", "expires_in": 300,
+            })
+        if url == "https://kc.test/userinfo":
+            return httpx.Response(200, json={"email": "a@test.com"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.Client(transport=transport)
+    result = device_code_flow(issuer="https://kc.test/", client_id="my-id", http_client=client)
+    assert result["client_id"] == "my-id"
+    assert result["token_endpoint"] == "https://kc.test/token"

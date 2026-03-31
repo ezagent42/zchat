@@ -59,6 +59,7 @@ def test_load_project_config(tmp_path, monkeypatch):
     assert cfg["irc"]["server"] == "10.0.0.1"
     assert cfg["irc"]["tls"] is True
     assert cfg["agents"]["username"] == "bob"
+    assert "auth" not in cfg
 
 
 def test_config_has_default_type(tmp_path, monkeypatch):
@@ -80,39 +81,32 @@ def test_set_config_value(tmp_path, monkeypatch):
     assert cfg["agents"]["default_type"] == "codex"
 
 
-def test_create_project_config_with_auth(tmp_path, monkeypatch):
+def test_create_project_config_no_auth_section(tmp_path, monkeypatch):
+    """config.toml should not contain [auth] section."""
     monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
-    create_project_config(
-        "auth-proj", server="10.0.0.1", port=6667,
-        tls=True, password="", nick="alice", channels="#general",
-        auth_provider="oidc",
-        auth_issuer="https://kc.test/realms/zchat",
-        auth_client_id="zchat-cli",
-    )
-    cfg = load_project_config("auth-proj")
-    assert cfg["auth"]["provider"] == "oidc"
-    assert cfg["auth"]["issuer"] == "https://kc.test/realms/zchat"
-    assert cfg["auth"]["client_id"] == "zchat-cli"
+    create_project_config("test", server="127.0.0.1", port=6667, tls=False,
+                          password="", nick="", channels="#general")
+    cfg = load_project_config("test")
+    assert "auth" not in cfg
 
 
-def test_load_project_config_defaults_auth_to_none(tmp_path, monkeypatch):
+def test_project_create_config_with_default_type(tmp_path, monkeypatch):
+    """create_project_config stores the selected default_type."""
     monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
-    create_project_config("old-proj", server="10.0.0.1", port=6667,
-                          tls=False, password="", nick="alice", channels="#general")
-    cfg = load_project_config("old-proj")
-    assert cfg["auth"]["provider"] == "none"
+    create_project_config("typed", server="127.0.0.1", port=6667, tls=False,
+                          password="", nick="", channels="#general",
+                          default_type="claude")
+    cfg = load_project_config("typed")
+    assert cfg["agents"]["default_type"] == "claude"
+    assert "auth" not in cfg
 
 
-def test_create_project_config_oidc_empty_nick(tmp_path, monkeypatch):
-    """When OIDC is enabled, nick can be empty — will be set after auth login."""
+def test_project_create_with_env_file(tmp_path, monkeypatch):
+    """Proxy env_file path is stored in config."""
     monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
-    create_project_config(
-        "oidc-proj", server="10.0.0.1", port=6667,
-        tls=True, password="", nick="", channels="#general",
-        auth_provider="oidc",
-        auth_issuer="https://kc.test/realms/zchat",
-        auth_client_id="zchat-cli",
-    )
-    cfg = load_project_config("oidc-proj")
-    assert cfg["agents"]["username"] != ""
-    assert cfg["auth"]["provider"] == "oidc"
+    env_path = str(tmp_path / "projects" / "proxy-test" / "claude.local.env")
+    create_project_config("proxy-test", server="127.0.0.1", port=6667, tls=False,
+                          password="", nick="", channels="#general",
+                          env_file=env_path)
+    cfg = load_project_config("proxy-test")
+    assert cfg["agents"]["env_file"] == env_path
