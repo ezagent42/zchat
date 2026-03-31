@@ -5,8 +5,8 @@
 #   ./tests/pre_release/walkthrough.sh                   # record with uv run (dev)
 #   ZCHAT_CMD=zchat ./tests/pre_release/walkthrough.sh   # record with installed binary
 #
-# Output: tests/pre_release/walkthrough-YYYYMMDD-HHMMSS.cast
-# Play:   asciinema play <cast-file>
+# Output: tests/pre_release/walkthrough-YYYYMMDD-HHMMSS.cast + .gif
+# Play:   asciinema play <cast-file>  or  open <gif-file>
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -39,6 +39,16 @@ asciinema rec "$CAST_FILE" \
     --command "bash tests/pre_release/walkthrough-steps.sh" \
     --overwrite
 
+GIF_FILE="${CAST_FILE%.cast}.gif"
 echo ""
 echo "=== Recording saved: $CAST_FILE ==="
+
+if command -v agg &>/dev/null; then
+    echo "Generating GIF..."
+    agg "$CAST_FILE" "$GIF_FILE"
+    echo "GIF: $GIF_FILE"
+else
+    echo "Install agg to auto-generate GIF: brew install agg"
+fi
+
 echo "Play: asciinema play $CAST_FILE"

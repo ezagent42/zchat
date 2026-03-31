@@ -83,7 +83,7 @@ ZCHAT_CMD=zchat ./tests/pre_release/walkthrough.sh                        # Home
 | E2E | `uv run pytest tests/e2e/ -v -m e2e` | pytest 驱动，通过 `uv run python -m zchat.cli` 调用，自动断言 |
 | Pre-release | `./tests/pre_release/walkthrough.sh` | asciinema 录制完整 CLI 生命周期，人工 review `.cast` 文件 |
 
-**Pre-release walkthrough** 覆盖全部 CLI 命令（doctor, project, template, irc, agent, setup, auth, shutdown），通过 `ZCHAT_CMD` 环境变量切换 editable install 或 Homebrew 二进制。录制产物为 `.cast` 文件，用 `asciinema play` 回放。详见 `tests/pre_release/` 目录。
+**Pre-release walkthrough** 覆盖全部 CLI 命令（doctor, project, template, irc, agent, setup, auth, shutdown），通过 `ZCHAT_CMD` 环境变量切换 editable install 或 Homebrew 二进制。录制产物为 `.cast` 文件和 `.gif` 动图（通过 `agg` 自动生成），用 `asciinema play *.cast` 回放或直接查看 gif。详见 `tests/pre_release/` 目录。
 
 ### 配置
 
