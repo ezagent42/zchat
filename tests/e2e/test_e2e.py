@@ -85,8 +85,8 @@ def test_alice_bob_conversation(irc_probe, bob_probe, weechat_window, tmux_send)
     assert msg is not None, "bob's message not seen by probe"
     assert msg["nick"] == "bob"
 
-    # Alice sends to #general via WeeChat
-    tmux_send(weechat_window, "Hello from alice")
+    # Alice sends to #general via WeeChat (use /msg to avoid buffer-focus issues)
+    tmux_send(weechat_window, "/msg #general Hello from alice")
     msg = bob_probe.wait_for_message("Hello from alice", timeout=10)
     assert msg is not None, "alice's message not seen by bob"
     assert msg["nick"] == "alice"
