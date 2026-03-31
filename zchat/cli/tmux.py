@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import libtmux
-from libtmux import Pane, Session
+from libtmux import Pane, Session, Window
 
 
 _server: libtmux.Server | None = None
@@ -45,3 +45,16 @@ def find_pane(session: Session, pane_id: str) -> Pane | None:
 def pane_alive(session: Session, pane_id: str) -> bool:
     """Check if a pane still exists in the session."""
     return find_pane(session, pane_id) is not None
+
+
+def find_window(session: Session, window_name: str) -> Window | None:
+    """Find a window by name within a session. Returns None if not found."""
+    for window in session.windows:
+        if window.window_name == window_name:
+            return window
+    return None
+
+
+def window_alive(session: Session, window_name: str) -> bool:
+    """Check if a window still exists in the session."""
+    return find_window(session, window_name) is not None
