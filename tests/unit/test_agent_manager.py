@@ -3,7 +3,7 @@ import os
 from zchat.cli.agent_manager import AgentManager
 
 
-def _make_manager(state_file="/tmp/test-agents.json", env_file=""):
+def _make_manager(state_file="/tmp/test-agents.json", env_file="", project_dir=""):
     return AgentManager(
         irc_server="localhost", irc_port=6667, irc_tls=False,
         irc_password="",
@@ -11,6 +11,7 @@ def _make_manager(state_file="/tmp/test-agents.json", env_file=""):
         env_file=env_file,
         default_type="claude",
         state_file=state_file,
+        project_dir=project_dir,
     )
 
 
@@ -39,6 +40,33 @@ def test_build_env_context():
     assert ctx["irc_channels"] == "general,dev"
     assert ctx["irc_tls"] == "false"
     assert ctx["workspace"] == "/tmp/ws"
+
+
+def test_create_workspace_persistent(tmp_path):
+    """Workspace should be under project_dir/agents/ when project_dir is set."""
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    ws = mgr._create_workspace("alice-helper")
+    assert ws == str(tmp_path / "agents" / "alice-helper")
+    assert os.path.isdir(ws)
+
+
+def test_cleanup_workspace_only_removes_ready_marker(tmp_path):
+    """Stop should delete .ready marker but preserve workspace directory."""
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    ws = tmp_path / "agents" / "alice-helper"
+    ws.mkdir(parents=True)
+    ready = tmp_path / "agents" / "alice-helper.ready"
+    ready.touch()
+    mgr._agents["alice-helper"] = {"workspace": str(ws), "status": "running"}
+    mgr._cleanup_workspace("alice-helper")
+    assert ws.is_dir(), "workspace should be preserved"
+    assert not ready.exists(), "ready marker should be deleted"
 
 
 def test_agent_state_persistence(tmp_path):

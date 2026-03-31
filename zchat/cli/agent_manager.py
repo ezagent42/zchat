@@ -119,8 +119,11 @@ class AgentManager:
         return agent
 
     def _create_workspace(self, name: str) -> str:
-        safe = name.replace(AGENT_SEPARATOR, "_")
-        workspace = os.path.join(tempfile.gettempdir(), f"zchat-{safe}")
+        if self.project_dir:
+            workspace = os.path.join(self.project_dir, "agents", name)
+        else:
+            safe = name.replace(AGENT_SEPARATOR, "_")
+            workspace = os.path.join(tempfile.gettempdir(), f"zchat-{safe}")
         os.makedirs(workspace, exist_ok=True)
         return workspace
 
@@ -211,11 +214,18 @@ class AgentManager:
             pass
 
     def _cleanup_workspace(self, name: str):
-        agent = self._agents.get(name)
-        if agent:
-            ws = agent.get("workspace", "")
-            if ws.startswith(tempfile.gettempdir()):
-                shutil.rmtree(ws, ignore_errors=True)
+        """Delete ready marker on stop. Preserve workspace for restart."""
+        if self.project_dir:
+            ready_file = os.path.join(self.project_dir, "agents", f"{name}.ready")
+            if os.path.isfile(ready_file):
+                os.remove(ready_file)
+        else:
+            # Legacy: clean up /tmp workspaces
+            agent = self._agents.get(name)
+            if agent:
+                ws = agent.get("workspace", "")
+                if ws.startswith(tempfile.gettempdir()):
+                    shutil.rmtree(ws, ignore_errors=True)
 
     def _check_alive(self, name: str) -> str:
         agent = self._agents.get(name)
