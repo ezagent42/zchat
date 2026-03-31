@@ -7,7 +7,7 @@ import pytest
 
 @pytest.mark.e2e
 @pytest.mark.order(1)
-def test_weechat_connects(irc_probe, weechat_pane):
+def test_weechat_connects(irc_probe, weechat_window):
     """Phase 1: zchat irc start → WeeChat connects to IRC."""
     assert irc_probe.wait_for_nick("alice", timeout=30), "alice not on IRC"
 
@@ -29,14 +29,8 @@ def test_agent_joins_irc(zchat_cli, irc_probe, e2e_context):
             with open(mcp_path) as f:
                 print(f"[DEBUG] .mcp.json: {json.dumps(json.load(f), indent=2)}")
     if not irc_probe.wait_for_nick("alice-agent0", timeout=30):
-        # Capture tmux pane content for debugging
-        import subprocess as sp
-        pane_id = result.stdout.split("pane:")[1].split("\n")[0].strip() if "pane:" in result.stdout else ""
-        pane_content = ""
-        if pane_id:
-            r = sp.run(["tmux", "capture-pane", "-t", pane_id, "-p"], capture_output=True, text=True)
-            pane_content = r.stdout[-500:] if r.stdout else ""
-        raise AssertionError(f"agent0 not on IRC.\nCLI: {result.stdout}\nPane: {pane_content}")
+        window_name = result.stdout.split("window:")[1].split("\n")[0].strip() if "window:" in result.stdout else ""
+        raise AssertionError(f"agent0 not on IRC.\nCLI: {result.stdout}\nWindow: {window_name}")
 
 
 @pytest.mark.e2e
@@ -52,9 +46,9 @@ def test_agent_send_to_channel(zchat_cli, irc_probe):
 
 @pytest.mark.e2e
 @pytest.mark.order(4)
-def test_mention_triggers_reply(irc_probe, weechat_pane, tmux_send):
+def test_mention_triggers_reply(irc_probe, weechat_window, tmux_send):
     """Phase 4: @mention in WeeChat → agent auto-responds."""
-    tmux_send(weechat_pane, "@alice-agent0 what is 2+2?")
+    tmux_send(weechat_window, "@alice-agent0 what is 2+2?")
     reply = irc_probe.wait_for_message("alice-agent0", timeout=30)
     assert reply is not None, "agent0 did not respond to @mention"
 

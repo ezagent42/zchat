@@ -66,11 +66,14 @@ def e2e_context(e2e_port, tmux_session):
     channel_server_dir = os.path.join(repo_root, "zchat-channel-server")
     env_file = os.path.join(repo_root, "claude.local.env")
     env_file_val = env_file if os.path.isfile(env_file) else ""
+    os.makedirs(os.path.join(project_dir, "agents"), exist_ok=True)
     with open(os.path.join(project_dir, "config.toml"), "w") as f:
         f.write(f'[irc]\nserver = "127.0.0.1"\nport = {e2e_port}\ntls = false\npassword = ""\n\n')
         f.write('[agents]\ndefault_channels = ["#general"]\nusername = "alice"\n')
+        f.write(f'default_type = "claude"\n')
         f.write(f'env_file = "{env_file_val}"\n')
-        f.write(f'mcp_server_cmd = ["uv", "run", "--project", "{channel_server_dir}", "zchat-channel"]\n')
+        f.write(f'mcp_server_cmd = ["uv", "run", "--project", "{channel_server_dir}", "zchat-channel"]\n\n')
+        f.write(f'[tmux]\nsession = "{tmux_session}"\n')
     with open(os.path.join(home, "default"), "w") as f:
         f.write("e2e-test")
     ctx = {
@@ -109,11 +112,16 @@ def zchat_cli(e2e_context):
 
 @pytest.fixture(scope="session")
 def tmux_send(e2e_context):
-    """Returns a callable for sending keys to a tmux pane."""
-    from zchat.cli.tmux import get_session, find_pane
-    def send(pane_id: str, text: str):
+    """Returns a callable for sending keys to a tmux window (by name) or pane (by ID)."""
+    from zchat.cli.tmux import get_session, find_pane, find_window
+    def send(target: str, text: str):
         session = get_session(e2e_context["tmux_session"])
-        pane = find_pane(session, pane_id)
+        # Try window name first, then pane ID
+        window = find_window(session, target)
+        if window and window.active_pane:
+            window.active_pane.send_keys(text, enter=True)
+            return
+        pane = find_pane(session, target)
         if pane:
             pane.send_keys(text, enter=True)
     return send
@@ -132,9 +140,8 @@ def irc_probe(ergo_server):
 
 
 @pytest.fixture(scope="session")
-def weechat_pane(ergo_server, e2e_context, tmux_session):
-    """Start WeeChat directly in tmux (bypass zchat CLI for reliability)."""
-    import libtmux
+def weechat_window(ergo_server, e2e_context, tmux_session):
+    """Start WeeChat in its own tmux window."""
     from zchat.cli.tmux import get_session
 
     port = ergo_server["port"]
@@ -142,17 +149,14 @@ def weechat_pane(ergo_server, e2e_context, tmux_session):
     os.makedirs(weechat_dir, exist_ok=True)
 
     session = get_session(tmux_session)
-    window = session.active_window
     cmd = (
         f"weechat --dir {weechat_dir} -r '/server add wc-local 127.0.0.1/{port} -notls -nicks=alice; "
         f"/set irc.server.wc-local.autojoin \"#general\"; /connect wc-local'"
     )
-    pane = window.split(
-        attach=False,
-        direction=libtmux.constants.PaneDirection.Right,
-        shell=cmd,
+    window = session.new_window(
+        window_name="weechat", window_shell=cmd, attach=False,
     )
-    pane_id = pane.pane_id
     time.sleep(5)  # Wait for WeeChat to connect
-    yield pane_id
-    pane.send_keys("/quit", enter=True)
+    yield window.window_name
+    if window.active_pane:
+        window.active_pane.send_keys("/quit", enter=True)
