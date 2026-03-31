@@ -39,9 +39,15 @@ def test_agent_send(cli, irc_probe):
     First MCP tool call after agent startup may be slow (Claude Code init).
     Retry up to 2 times if the message isn't received.
     """
+    msg = None
     for attempt in range(3):
-        cli("agent", "send", "agent0",
-            'Use the reply MCP tool to send "prerelease-test-msg" to #general')
+        result = cli("agent", "send", "agent0",
+            'Use the reply MCP tool to send "prerelease-test-msg" to #general',
+            check=False)
+        print(f"[DEBUG] send attempt {attempt+1}: rc={result.returncode} "
+              f"stdout={result.stdout!r} stderr={result.stderr!r}")
+        if result.returncode != 0:
+            continue
         msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
         if msg is not None:
             break
