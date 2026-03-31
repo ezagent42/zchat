@@ -154,8 +154,8 @@ class AgentManager:
             from zchat.cli.auth import get_credentials, _global_auth_dir
             creds = get_credentials()
             if creds:
-                _, sasl_pass = creds
-                context["irc_sasl_user"] = name
+                sasl_user, sasl_pass = creds
+                context["irc_sasl_user"] = sasl_user
                 context["irc_sasl_pass"] = sasl_pass
                 context["auth_token_file"] = os.path.join(_global_auth_dir(), "auth.json")
         return context
