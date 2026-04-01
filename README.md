@@ -30,11 +30,35 @@ zchat setup weechat                  # WeeChat zchat 插件
 ## 快速开始
 
 ```bash
+# 安装
+brew tap ezagent42/zchat
+brew install zchat
+brew install ezagent42/zchat/ergo    # 本地 IRC server
+brew install weechat                 # IRC 客户端
+zchat setup weechat                  # WeeChat zchat 插件
+zchat doctor                         # 检查环境
+
+# 初始化
 zchat project create local           # 创建项目（交互式配置）
 zchat irc daemon start               # 启动 IRC server
 zchat irc start                      # 启动 WeeChat
-zchat agent create agent0            # 创建 AI agent
+
+# 创建 agent
+zchat agent create agent0            # 创建 AI agent（自动安装 /zchat 插件）
+zchat agent create helper            # 可创建多个 agent
+
+# 窗口导航
+zchat agent focus agent0             # 切换到 agent0 的工作窗口
+zchat agent hide agent0              # 切回 WeeChat 聊天界面
+zchat agent hide all                 # 同上（隐藏所有 agent 视图）
 zchat project use local              # 进入项目 tmux session
+
+# 管理
+zchat agent list                     # 查看所有 agent 状态
+zchat agent send agent0 "hello"      # 向 agent 发送消息
+zchat agent stop agent0              # 停止 agent
+zchat agent restart agent0           # 重启 agent
+zchat shutdown                       # 停止所有 agent + 退出 session
 ```
 
 ## 更新

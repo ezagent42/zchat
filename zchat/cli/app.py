@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import time
 from typing import Optional
 
@@ -53,6 +54,18 @@ def _get_tmux_session(ctx: typer.Context) -> str:
         project_name = ctx.obj["project"]
         session = f"zchat-{project_name}"
     return session
+
+
+def _tmux_switch(session_name: str, window_name: str):
+    """Switch to a tmux window. Attach if outside tmux, select-window if inside."""
+    target = f"{session_name}:{window_name}"
+    if os.environ.get("TMUX"):
+        result = subprocess.run(["tmux", "select-window", "-t", target], capture_output=True)
+    else:
+        result = subprocess.run(["tmux", "attach", "-t", target])
+    if result.returncode != 0:
+        typer.echo(f"Error: tmux window '{window_name}' not found")
+        raise typer.Exit(1)
 
 
 def _get_irc_manager(ctx: typer.Context) -> IrcManager:
@@ -672,6 +685,31 @@ def cmd_agent_restart(ctx: typer.Context, name: str = typer.Argument(...)):
     scoped = mgr.scoped(name)
     mgr.restart(name)
     typer.echo(f"Restarted {scoped}")
+
+@agent_app.command("focus")
+def cmd_agent_focus(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Agent name"),
+):
+    """Switch to an agent's tmux window."""
+    mgr = _get_agent_manager(ctx)
+    agent = mgr.get_status(name)
+    scoped = mgr.scoped(name)
+    if agent["status"] == "offline":
+        typer.echo(f"{scoped} is offline")
+        raise typer.Exit(1)
+    _tmux_switch(mgr.session_name, agent["window_name"])
+
+@agent_app.command("hide")
+def cmd_agent_hide(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Agent name or 'all'"),
+):
+    """Switch back to WeeChat window (hide agent view)."""
+    mgr = _get_agent_manager(ctx)
+    if name != "all":
+        mgr.get_status(name)
+    _tmux_switch(mgr.session_name, "weechat")
 
 
 # ============================================================

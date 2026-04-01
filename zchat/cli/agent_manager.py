@@ -43,6 +43,10 @@ class AgentManager:
         self._load_state()
 
     @property
+    def session_name(self) -> str:
+        return self._tmux_session_name
+
+    @property
     def tmux_session(self) -> libtmux.Session:
         if self._tmux_session is None:
             self._tmux_session = get_or_create_session(self._tmux_session_name)

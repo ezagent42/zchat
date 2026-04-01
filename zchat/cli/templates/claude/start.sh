@@ -45,6 +45,12 @@ jq -n \
     }
   }' > .claude/settings.local.json
 
+# --- Ensure zchat plugin is available ---
+if ! claude plugin list 2>/dev/null | grep -q "zchat@ezagent42.*enabled"; then
+  claude plugin marketplace add ezagent42/ezagent42 2>/dev/null || true
+  claude plugin install zchat@ezagent42 --scope project 2>/dev/null || true
+fi
+
 # --- Build .mcp.json ---
 if [ ${#MCP_ARGS[@]} -gt 0 ]; then
   ARGS_JSON=$(printf '%s\n' "${MCP_ARGS[@]}" | jq -R . | jq -s .)
