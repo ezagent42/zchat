@@ -30,6 +30,14 @@ zchat setup weechat                  # WeeChat zchat 插件
 ## 快速开始
 
 ```bash
+# 安装
+brew tap ezagent42/zchat
+brew install zchat
+brew install ezagent42/zchat/ergo    # 本地 IRC server
+brew install weechat                 # IRC 客户端
+zchat setup weechat                  # WeeChat zchat 插件
+zchat doctor                         # 检查环境
+
 # 初始化
 zchat project create local           # 创建项目（交互式配置）
 zchat irc daemon start               # 启动 IRC server
