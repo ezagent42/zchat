@@ -28,8 +28,8 @@ Extracted from `server.py` hardcoded string into a standalone markdown file. Con
    Subagent 的上下文：
    - 消息内容本身（来自谁、说了什么）
    - `soul.md`（角色定义，由 subagent 自行 Read）
-   - 可用工具：reply tool（发送 IRC 回复）
-   - 不包含主 agent 的完整对话历史（这是 subagent 的固有限制）
+   - 主 agent 的对话历史 — 通过 Read session JSONL 文件获取（`~/.claude/projects/<project-hash>/<session-id>.jsonl`），了解主 agent 当前正在做什么
+   - 可用工具：reply tool（发送 IRC 回复）、Read tool（读取 soul.md 和 session JSONL）
 
    **Message priority:**
    - **Owner DM（agent 名字前缀用户）** → 高优先级，立即 dispatch subagent
