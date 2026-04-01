@@ -146,17 +146,15 @@ class AgentManager:
             "irc_password": self.irc_password,
             "workspace": workspace,
             "zchat_project_dir": self.project_dir,
-            "irc_sasl_user": "",
-            "irc_sasl_pass": "",
+            "irc_auth_token": "",
             "auth_token_file": "",
         }
         if self.project_dir:
             from zchat.cli.auth import get_credentials, _global_auth_dir
             creds = get_credentials()
             if creds:
-                sasl_user, sasl_pass = creds
-                context["irc_sasl_user"] = sasl_user
-                context["irc_sasl_pass"] = sasl_pass
+                _, token = creds
+                context["irc_auth_token"] = token
                 context["auth_token_file"] = os.path.join(_global_auth_dir(), "auth.json")
         return context
 
