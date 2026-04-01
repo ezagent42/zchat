@@ -21,6 +21,12 @@ if [ -n "$CHANNEL_PKG" ] && [ -d "$CHANNEL_PKG/.claude-plugin" ]; then
   ln -sfn "$CHANNEL_PKG/commands" commands
 fi
 
+# --- Copy soul.md from template ---
+TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$TEMPLATE_DIR/soul.md" ]; then
+  cp "$TEMPLATE_DIR/soul.md" ./soul.md
+fi
+
 # --- Claude settings with SessionStart hook ---
 mkdir -p .claude
 READY_PATH="${ZCHAT_PROJECT_DIR}/agents/${AGENT_NAME}.ready"
