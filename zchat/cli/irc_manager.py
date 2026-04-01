@@ -195,7 +195,8 @@ class IrcManager:
         server = self.irc_config.get("server", "127.0.0.1")
         port = self.irc_config.get("port", 6667)
         tls = self.irc_config.get("tls", False)
-        nick = nick_override or self.config.get("agents", {}).get("username") or os.environ.get("USER", "user")
+        from zchat.cli.auth import get_username
+        nick = nick_override or get_username()
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
         tls_flag = "" if tls else " -notls"
 
@@ -207,17 +208,16 @@ class IrcManager:
         project_name = os.path.basename(project_dir)
         srv_name = f"{project_name}-ergo"
 
-        # SASL config
+        # SASL config — nick is the SASL login, token is the credential
         sasl_cmds = ""
         from zchat.cli.auth import get_credentials
         creds = get_credentials()
         if creds:
-            sasl_user, sasl_pass = creds
-            nick = sasl_user
+            _, token = creds
             sasl_cmds = (
                 f"; /set irc.server.{srv_name}.sasl_mechanism PLAIN"
-                f"; /set irc.server.{srv_name}.sasl_username {sasl_user}"
-                f"; /set irc.server.{srv_name}.sasl_password {sasl_pass}"
+                f"; /set irc.server.{srv_name}.sasl_username {nick}"
+                f"; /set irc.server.{srv_name}.sasl_password {token}"
             )
 
         # Source env file if configured
@@ -281,6 +281,7 @@ class IrcManager:
 
     def status(self) -> dict:
         """Return IRC status info."""
+        from zchat.cli.auth import get_username
         ergo_running = self._is_ergo_running()
         wname = self._state.get("irc", {}).get("weechat_window")
         weechat_running = wname and self._window_alive(wname)
@@ -294,7 +295,7 @@ class IrcManager:
             "weechat": {
                 "running": weechat_running,
                 "window": wname if weechat_running else None,
-                "nick": self.config.get("agents", {}).get("username"),
+                "nick": get_username(),
             },
         }
 

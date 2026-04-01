@@ -77,15 +77,32 @@ def test_agent_to_agent(zchat_cli, irc_probe):
 
 @pytest.mark.e2e
 @pytest.mark.order(7)
+def test_alice_bob_conversation(irc_probe, bob_probe, weechat_window, tmux_send):
+    """Phase 7: Two users exchange messages in #general."""
+    # Bob sends to #general
+    bob_probe.privmsg("#general", "Hello from bob")
+    msg = irc_probe.wait_for_message("Hello from bob", timeout=10)
+    assert msg is not None, "bob's message not seen by probe"
+    assert msg["nick"] == "bob"
+
+    # Alice sends to #general via WeeChat (use /msg to avoid buffer-focus issues)
+    tmux_send(weechat_window, "/msg #general Hello from alice")
+    msg = bob_probe.wait_for_message("Hello from alice", timeout=10)
+    assert msg is not None, "alice's message not seen by bob"
+    assert msg["nick"] == "alice"
+
+
+@pytest.mark.e2e
+@pytest.mark.order(8)
 def test_agent_stop(zchat_cli, irc_probe):
-    """Phase 7: zchat agent stop → agent leaves IRC."""
+    """Phase 8: zchat agent stop → agent leaves IRC."""
     zchat_cli("agent", "stop", "agent1")
     assert irc_probe.wait_for_nick_gone("alice-agent1", timeout=10), "agent1 still on IRC"
 
 
 @pytest.mark.e2e
-@pytest.mark.order(8)
+@pytest.mark.order(9)
 def test_shutdown(zchat_cli, irc_probe):
-    """Phase 8: zchat shutdown → all agents gone."""
+    """Phase 9: zchat shutdown → all agents gone."""
     zchat_cli("shutdown")
     assert irc_probe.wait_for_nick_gone("alice-agent0", timeout=10), "agent0 still on IRC"

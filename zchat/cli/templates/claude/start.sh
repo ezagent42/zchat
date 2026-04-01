@@ -61,8 +61,7 @@ ENV_JSON=$(jq -n \
   --arg channels "$IRC_CHANNELS" \
   --arg tls "$IRC_TLS" \
   --arg password "${IRC_PASSWORD:-}" \
-  --arg sasl_user "${IRC_SASL_USER:-}" \
-  --arg sasl_pass "${IRC_SASL_PASS:-}" \
+  --arg auth_token "${IRC_AUTH_TOKEN:-}" \
   '{
     AGENT_NAME: $agent,
     IRC_SERVER: $server,
@@ -70,8 +69,7 @@ ENV_JSON=$(jq -n \
     IRC_CHANNELS: $channels,
     IRC_TLS: $tls,
     IRC_PASSWORD: $password,
-    IRC_SASL_USER: $sasl_user,
-    IRC_SASL_PASS: $sasl_pass
+    IRC_AUTH_TOKEN: $auth_token
   }')
 
 # Add proxy env if set

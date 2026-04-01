@@ -146,17 +146,15 @@ class AgentManager:
             "irc_password": self.irc_password,
             "workspace": workspace,
             "zchat_project_dir": self.project_dir,
-            "irc_sasl_user": "",
-            "irc_sasl_pass": "",
+            "irc_auth_token": "",
             "auth_token_file": "",
         }
         if self.project_dir:
             from zchat.cli.auth import get_credentials, _global_auth_dir
             creds = get_credentials()
             if creds:
-                sasl_user, sasl_pass = creds
-                context["irc_sasl_user"] = sasl_user
-                context["irc_sasl_pass"] = sasl_pass
+                _, token = creds
+                context["irc_auth_token"] = token
                 context["auth_token_file"] = os.path.join(_global_auth_dir(), "auth.json")
         return context
 
@@ -305,9 +303,14 @@ class AgentManager:
             raise ValueError(f"Unknown agent: {name}")
         if self._check_alive(name) != "running":
             raise ValueError(f"{name} is not running")
+        if self.project_dir:
+            ready_path = os.path.join(self.project_dir, "agents", f"{name}.ready")
+            if not os.path.isfile(ready_path):
+                raise ValueError(f"{name} is not ready (still starting up)")
         window = find_window(self.tmux_session, agent["window_name"])
-        if window and window.active_pane:
-            window.active_pane.send_keys(text, enter=True)
+        if not window or not window.active_pane:
+            raise ValueError(f"tmux window not found for {name}")
+        window.active_pane.send_keys(text, enter=True)
 
     def _load_state(self):
         if os.path.isfile(self._state_file):

@@ -15,6 +15,35 @@ def _global_auth_dir() -> str:
     return ZCHAT_DIR
 
 
+def get_username(base_dir: str | None = None) -> str:
+    """Return the globally configured username.
+
+    Reads username directly from auth.json, bypassing token expiry
+    validation. Username is an identity, not a credential — it remains
+    valid even when the access token has expired or when using
+    --method local (which has no token at all).
+    """
+    if base_dir is None:
+        base_dir = _global_auth_dir()
+    auth_path = os.path.join(base_dir, AUTH_FILE)
+    if not os.path.isfile(auth_path):
+        raise RuntimeError(
+            "No username configured. Run one of:\n"
+            "  zchat auth login                              # OIDC authentication\n"
+            "  zchat auth login --method local --username <name>  # Local mode"
+        )
+    with open(auth_path) as f:
+        data = json.load(f)
+    username = data.get("username", "")
+    if not username:
+        raise RuntimeError(
+            "No username configured. Run one of:\n"
+            "  zchat auth login                              # OIDC authentication\n"
+            "  zchat auth login --method local --username <name>  # Local mode"
+        )
+    return username
+
+
 def save_token(base_dir: str, token_data: dict):
     """Save token data to auth.json with restricted permissions (0600)."""
     os.makedirs(base_dir, exist_ok=True)

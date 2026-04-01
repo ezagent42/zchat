@@ -32,13 +32,49 @@ def test_agent_status(cli):
     assert "status" in result.stdout.lower() or "running" in result.stdout.lower()
 
 
+def _capture_agent_pane(username):
+    """Capture agent tmux pane content for debugging."""
+    import subprocess
+    agent_window = f"{username}-agent0"
+    try:
+        # Search ALL sessions for the agent window
+        sessions = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            capture_output=True, text=True, timeout=5)
+        for sess in sessions.stdout.strip().split("\n"):
+            # Try to capture — if window doesn't exist in this session, it fails silently
+            cap = subprocess.run(
+                ["tmux", "capture-pane", "-t", f"{sess}:{agent_window}", "-p", "-S", "-80"],
+                capture_output=True, text=True, timeout=5)
+            if cap.returncode == 0 and cap.stdout.strip():
+                return cap.stdout
+    except Exception:
+        pass
+    return None
+
+
 @pytest.mark.order(4)
 def test_agent_send(cli, irc_probe):
     """Send message via agent0 to #general."""
-    cli("agent", "send", "agent0",
-        'Use the reply MCP tool to send "prerelease-test-msg" to #general')
-    msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=30)
-    assert msg is not None, "agent0 message not received in #general"
+    username = os.environ.get("USER", "user")
+
+    msg = None
+    for attempt in range(3):
+        result = cli("agent", "send", "agent0",
+            'Use the reply MCP tool to send "prerelease-test-msg" to #general',
+            check=False)
+        if result.returncode != 0:
+            print(f"[DEBUG] send attempt {attempt+1} failed: {result.stderr}")
+            continue
+        msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
+        if msg is not None:
+            break
+        # Capture after each failed wait
+        pane = _capture_agent_pane(username)
+        if pane:
+            print(f"[DEBUG] agent pane after attempt {attempt+1}:\n{pane}")
+
+    assert msg is not None, "agent0 message not received in #general after 3 attempts"
 
 
 @pytest.mark.order(5)

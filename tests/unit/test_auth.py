@@ -244,3 +244,39 @@ def test_device_code_flow_stores_token_endpoint_and_client_id(capsys):
     result = device_code_flow(issuer="https://kc.test/", client_id="my-id", http_client=client)
     assert result["client_id"] == "my-id"
     assert result["token_endpoint"] == "https://kc.test/token"
+
+
+def test_get_username_from_auth(tmp_path):
+    """get_username() reads username from auth.json."""
+    import json
+    from zchat.cli.auth import get_username
+    auth_file = tmp_path / "auth.json"
+    auth_file.write_text(json.dumps({"username": "alice"}))
+    result = get_username(base_dir=str(tmp_path))
+    assert result == "alice"
+
+
+def test_get_username_raises_when_not_configured(tmp_path):
+    """get_username() raises RuntimeError when auth.json missing."""
+    import pytest
+    from zchat.cli.auth import get_username
+    with pytest.raises(RuntimeError, match="No username configured"):
+        get_username(base_dir=str(tmp_path))
+
+
+def test_get_username_raises_when_no_username_field(tmp_path):
+    """get_username() raises when auth.json exists but has no username."""
+    import json, pytest
+    from zchat.cli.auth import get_username
+    (tmp_path / "auth.json").write_text(json.dumps({"access_token": "x"}))
+    with pytest.raises(RuntimeError, match="No username configured"):
+        get_username(base_dir=str(tmp_path))
+
+
+def test_get_username_works_with_expired_token(tmp_path):
+    """get_username() returns username even when token is expired (local auth)."""
+    import json
+    from zchat.cli.auth import get_username
+    (tmp_path / "auth.json").write_text(json.dumps({"username": "bob"}))
+    result = get_username(base_dir=str(tmp_path))
+    assert result == "bob"

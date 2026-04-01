@@ -85,10 +85,12 @@ def project(cli, e2e_port, tmux_session):
         "--port", str(e2e_port),
         "--channels", "#general",
         "--agent-type", "claude",
-        "--proxy", "",
+        "--proxy", "127.0.0.1:7897",
     )
     # Set the tmux session name in config to match our test session
     cli("set", "tmux.session", tmux_session)
+    # Set up local auth for get_username()
+    cli("auth", "login", "--method", "local", "--username", os.environ.get("USER", "test"))
     yield PROJECT_NAME
     try:
         cli("project", "remove", PROJECT_NAME, check=False)
@@ -118,6 +120,40 @@ def ergo_server(cli, project, e2e_port):
 
 
 @pytest.fixture(scope="session")
+def bob_probe(ergo_server):
+    """Second IRC client (bob) for user-to-user tests."""
+    probe = IrcProbe(ergo_server["host"], ergo_server["port"], nick="bob")
+    probe.connect()
+    time.sleep(1)
+    probe.join("#general")
+    time.sleep(1)
+    yield probe
+    probe.disconnect()
+
+
+@pytest.fixture(scope="session")
+def weechat_window(tmux_session):
+    """Return the WeeChat tmux window name.
+
+    WeeChat is started by test_03_irc via cli("irc", "start"), which creates
+    a tmux window named "weechat". This fixture returns the known name.
+    """
+    return "weechat"
+
+
+@pytest.fixture(scope="session")
+def tmux_send(tmux_session):
+    """Send keys to a tmux window by name."""
+    from zchat.cli.tmux import get_session, find_window
+    def send(target: str, text: str):
+        session = get_session(tmux_session)
+        window = find_window(session, target)
+        if window and window.active_pane:
+            window.active_pane.send_keys(text, enter=True)
+    return send
+
+
+@pytest.fixture(scope="session")
 def irc_probe(ergo_server):
     """IRC client that joins #general and records messages."""
     probe = IrcProbe(ergo_server["host"], ergo_server["port"])
@@ -127,3 +163,43 @@ def irc_probe(ergo_server):
     time.sleep(1)
     yield probe
     probe.disconnect()
+
+
+@pytest.fixture(scope="session")
+def remote_irc_probe():
+    """IRC probe connected to remote ergo (TLS+SASL). None if unavailable."""
+    import json, socket
+    from zchat.cli.auth import get_credentials, get_username
+
+    host = "zchat.inside.h2os.cloud"
+    port = 6697
+
+    # Check reachability
+    try:
+        with socket.create_connection((host, port), timeout=5):
+            pass
+    except OSError:
+        yield None
+        return
+
+    # Check OIDC credentials
+    creds = get_credentials()
+    if not creds:
+        yield None
+        return
+
+    username = get_username()
+    _, token = creds
+    probe_nick = f"{username}-probe"
+    probe = IrcProbe(host, port, nick=probe_nick, tls=True,
+                     sasl_login=probe_nick, sasl_pass=token)
+    try:
+        probe.connect()
+        time.sleep(2)
+        probe.join("#general")
+        time.sleep(1)
+        yield probe
+    except Exception:
+        yield None
+    finally:
+        probe.disconnect()

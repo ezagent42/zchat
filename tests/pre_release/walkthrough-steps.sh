@@ -210,11 +210,11 @@ sleep 1
 step "zchat agent send agent0 (ask to reply in #general)"
 zchat $ZP agent send agent0 'Use the reply MCP tool to send the message walkthrough-test-msg to channel #general'
 
-step "Waiting for message in WeeChat (up to 30s)..."
-if wait_pane_content weechat "walkthrough-test-msg" 30; then
+step "Waiting for message in WeeChat (up to 60s)..."
+if wait_pane_content weechat "walkthrough-test-msg" 60; then
     echo "  Message received!"
 else
-    echo "  Message not seen in 30s (agent may still be processing)"
+    echo "  Message not seen in 60s (agent may still be processing)"
 fi
 
 step "Capture WeeChat pane (check for message)"

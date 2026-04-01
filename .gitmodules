@@ -13,3 +13,6 @@
 [submodule "ergo-inside"]
 	path = ergo-inside
 	url = https://github.com/ezagent42/ergo-inside.git
+[submodule "ezagent42-marketplace"]
+	path = ezagent42-marketplace
+	url = https://github.com/ezagent42/ezagent42.git

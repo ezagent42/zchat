@@ -125,8 +125,6 @@ def load_project_config(name: str) -> dict:
     irc.setdefault("password", "")
     agents = cfg.setdefault("agents", {})
     agents.setdefault("default_channels", ["#general"])
-    if not agents.get("username"):
-        agents["username"] = os.environ.get("USER", "user")
     agents.setdefault("env_file", "")
     agents.setdefault("default_type", "claude")
     return cfg

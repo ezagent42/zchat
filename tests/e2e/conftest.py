@@ -63,6 +63,10 @@ def tmux_session():
 def e2e_context(e2e_port, tmux_session):
     """Central context dict — created BEFORE ergo so ergo can use it."""
     home = tempfile.mkdtemp(prefix="e2e-zchat-")
+    # Write auth.json with username "alice" for get_username()
+    import json as _json
+    with open(os.path.join(home, "auth.json"), "w") as f:
+        _json.dump({"username": "alice"}, f)
     project_dir = os.path.join(home, "projects", "e2e-test")
     os.makedirs(project_dir)
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -134,6 +138,18 @@ def tmux_send(e2e_context):
 def irc_probe(ergo_server):
     """IRC client that joins #general and records messages."""
     probe = IrcProbe(ergo_server["host"], ergo_server["port"])
+    probe.connect()
+    time.sleep(1)
+    probe.join("#general")
+    time.sleep(1)
+    yield probe
+    probe.disconnect()
+
+
+@pytest.fixture(scope="session")
+def bob_probe(ergo_server):
+    """Second IRC client (bob) for user-to-user tests."""
+    probe = IrcProbe(ergo_server["host"], ergo_server["port"], nick="bob")
     probe.connect()
     time.sleep(1)
     probe.join("#general")

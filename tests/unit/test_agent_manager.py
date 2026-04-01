@@ -101,6 +101,69 @@ def test_wait_for_ready_timeout(tmp_path):
     assert result is False
 
 
+def test_send_succeeds_when_ready(tmp_path):
+    """send() delivers text when agent is ready and window exists."""
+    from unittest.mock import patch, MagicMock
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agents" / "alice-helper.ready").touch()
+    mgr._agents["alice-helper"] = {
+        "type": "claude", "workspace": "/tmp/x",
+        "window_name": "alice-helper", "status": "running",
+        "created_at": 0, "channels": ["#general"],
+    }
+    mock_pane = MagicMock()
+    mock_window = MagicMock()
+    mock_window.active_pane = mock_pane
+    with patch.object(mgr, "_check_alive", return_value="running"), \
+         patch("zchat.cli.tmux.find_window", return_value=mock_window):
+        mgr.send("helper", "hello")
+    mock_pane.send_keys.assert_called_once_with("hello", enter=True)
+
+
+def test_send_raises_when_not_ready(tmp_path):
+    """send() raises ValueError when .ready marker does not exist."""
+    import pytest as _pytest
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    (tmp_path / "agents").mkdir()
+    mgr._agents["alice-helper"] = {
+        "type": "claude", "workspace": "/tmp/x",
+        "window_name": "alice-helper", "status": "running",
+        "created_at": 0, "channels": ["#general"],
+    }
+    from unittest.mock import patch
+    with patch.object(mgr, "_check_alive", return_value="running"):
+        with _pytest.raises(ValueError, match="not ready"):
+            mgr.send("helper", "hello")
+
+
+def test_send_raises_on_missing_window(tmp_path):
+    """send() raises ValueError when tmux window is not found."""
+    import pytest as _pytest
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agents" / "alice-helper.ready").touch()
+    mgr._agents["alice-helper"] = {
+        "type": "claude", "workspace": "/tmp/x",
+        "window_name": "alice-helper", "status": "running",
+        "created_at": 0, "channels": ["#general"],
+    }
+    from unittest.mock import patch
+    with patch.object(mgr, "_check_alive", return_value="running"), \
+         patch("zchat.cli.tmux.find_window", return_value=None):
+        with _pytest.raises(ValueError, match="window not found"):
+            mgr.send("helper", "hello")
+
+
 def test_agent_state_persistence(tmp_path):
     state_file = str(tmp_path / "agents.json")
     mgr = _make_manager(state_file=state_file)

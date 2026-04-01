@@ -16,10 +16,14 @@ class IrcProbe:
     thread-safety issues with the irc library (which is not thread-safe).
     """
 
-    def __init__(self, server: str, port: int, nick: str = "e2e-probe"):
+    def __init__(self, server: str, port: int, nick: str = "e2e-probe",
+                 tls: bool = False, sasl_login: str = "", sasl_pass: str = ""):
         self.server = server
         self.port = port
         self.nick = nick
+        self.tls = tls
+        self.sasl_login = sasl_login
+        self.sasl_pass = sasl_pass
         self.messages: list[dict] = []
         self._lock = threading.Lock()
         self._reactor = irc.client.Reactor()
@@ -30,7 +34,20 @@ class IrcProbe:
 
     def connect(self):
         """Connect to IRC server and start reactor in background thread."""
-        self._conn = self._reactor.server().connect(self.server, self.port, self.nick)
+        import irc.connection
+        connect_kwargs: dict = {}
+        if self.tls:
+            import ssl
+            import functools
+            ctx = ssl.create_default_context()
+            wrapper = functools.partial(ctx.wrap_socket, server_hostname=self.server)
+            connect_kwargs["connect_factory"] = irc.connection.Factory(wrapper=wrapper)
+        if self.sasl_login and self.sasl_pass:
+            connect_kwargs["sasl_login"] = self.sasl_login
+            connect_kwargs["password"] = self.sasl_pass
+        self._conn = self._reactor.server().connect(
+            self.server, self.port, self.nick, **connect_kwargs
+        )
         self._conn.add_global_handler("pubmsg", self._on_pubmsg)
         self._conn.add_global_handler("privmsg", self._on_privmsg)
         self._conn.add_global_handler("whoisuser", self._on_whoisuser)
@@ -102,6 +119,12 @@ class IrcProbe:
                 seen = len(self.messages)
             time.sleep(0.5)
         return None
+
+    def privmsg(self, channel: str, text: str):
+        """Send a PRIVMSG to a channel. Dispatched via reactor."""
+        self._reactor.scheduler.execute_after(
+            0, lambda: self._conn.privmsg(channel, text)
+        )
 
     # --- Handlers (called by reactor thread) ---
 
