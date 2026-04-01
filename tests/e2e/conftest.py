@@ -63,6 +63,10 @@ def tmux_session():
 def e2e_context(e2e_port, tmux_session):
     """Central context dict — created BEFORE ergo so ergo can use it."""
     home = tempfile.mkdtemp(prefix="e2e-zchat-")
+    # Write auth.json with username "alice" for get_username()
+    import json as _json
+    with open(os.path.join(home, "auth.json"), "w") as f:
+        _json.dump({"username": "alice"}, f)
     project_dir = os.path.join(home, "projects", "e2e-test")
     os.makedirs(project_dir)
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
