@@ -89,6 +89,8 @@ def project(cli, e2e_port, tmux_session):
     )
     # Set the tmux session name in config to match our test session
     cli("set", "tmux.session", tmux_session)
+    # Set up local auth for get_username()
+    cli("auth", "login", "--method", "local", "--username", os.environ.get("USER", "test"))
     yield PROJECT_NAME
     try:
         cli("project", "remove", PROJECT_NAME, check=False)
