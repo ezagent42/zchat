@@ -38,10 +38,21 @@ Additionally, `irc_manager.py:216` overrides WeeChat nick to OIDC username, crea
 def get_username() -> str:
     """Return the globally configured username.
 
-    Reads from ~/.zchat/auth.json. Raises RuntimeError if not configured.
+    Reads username directly from ~/.zchat/auth.json, bypassing token
+    expiry validation. Username is an identity, not a credential —
+    it remains valid even when the access token has expired or when
+    using --method local (which has no token at all).
     """
-    data = load_cached_token(_global_auth_dir())
-    username = (data or {}).get("username", "")
+    auth_path = os.path.join(_global_auth_dir(), AUTH_FILE)
+    if not os.path.isfile(auth_path):
+        raise RuntimeError(
+            "No username configured. Run one of:\n"
+            "  zchat auth login                              # OIDC authentication\n"
+            "  zchat auth login --method local --username <name>  # Local mode"
+        )
+    with open(auth_path) as f:
+        data = json.load(f)
+    username = data.get("username", "")
     if not username:
         raise RuntimeError(
             "No username configured. Run one of:\n"
@@ -50,6 +61,8 @@ def get_username() -> str:
         )
     return username
 ```
+
+Note: `get_username()` reads auth.json directly — it does NOT use `load_cached_token()` which rejects entries without a valid `expires_at`. This is intentional: username is an identity, not a credential. For `--method local` (no token, no expiry), only `{"username": "..."}` is stored.
 
 #### `zchat auth login` — Add `--method` Parameter
 
@@ -70,7 +83,7 @@ Behavior:
 - `--method oidc` (default): Current OIDC device code flow. Username extracted from OIDC userinfo.
 - `--method local --username <name>`: Write `{"username": sanitize_irc_nick(name)}` to auth.json. No token. For local ergo without OIDC.
 - `--method local` without `--username`: Error, require `--username`.
-- If auth.json already has credentials, prompt to overwrite (or use `--force`).
+- If auth.json already has credentials: current behavior is early-exit with "Already logged in... Run 'zchat auth logout' first." Keep this behavior — `zchat auth logout` + `zchat auth login` is the re-login flow.
 
 #### Remove `$USER` Fallback
 
@@ -87,10 +100,11 @@ Behavior:
 
 **`irc_manager.py`** — `start_weechat()`:
 - Line 198: Change `nick = nick_override or self.config.get("agents", {}).get("username") or os.environ.get("USER", "user")` to `nick = nick_override or get_username()`
-- Lines 213-216: Remove the SASL username override of nick. The nick already comes from `get_username()` which returns the same OIDC username. SASL user should still be set for authentication but should NOT override the nick variable.
+- Lines 213-216: Delete `nick = sasl_user` (the line that overrides nick with SASL username). Keep the surrounding `sasl_cmds` setup — SASL user/pass still need to be configured for WeeChat authentication. The nick is already correct from `get_username()`.
+- Line 298 (`status()` method): Change nick source from `self.config.get("agents", {}).get("username")` to `get_username()` for consistency.
 
 **`agent_manager.py`** — `_build_env_context()`:
-- Lines 155-160: `irc_sasl_user` should be the OIDC token's username (from `get_credentials()`), which is the same as `self.username` (from `get_username()`). The current logic is correct once the username source is unified.
+- Lines 155-160: `get_credentials()` returns `(username, token)` for OIDC or `None` for local auth. For OIDC, `irc_sasl_user` and `irc_sasl_pass` are set. For local auth (no token), `get_credentials()` returns `None` and SASL env vars stay empty — local ergo doesn't require SASL. No code change needed here.
 
 **`project create`** — `cmd_project_create()`:
 - Remove `--nick` parameter. Username is global, not per-project.
@@ -186,7 +200,8 @@ claude plugin install zchat@ezagent42 --scope project
 | `zchat/cli/auth.py` | Add `get_username()` function |
 | `zchat/cli/app.py` | `auth login`: add `--method`/`--username` params; `_get_agent_manager()`: use `get_username()` |
 | `zchat/cli/project.py` | Remove `$USER` fallback in `load_project_config()` |
-| `zchat/cli/irc_manager.py` | `start_weechat()`: use `get_username()`, remove SASL nick override |
+| `zchat/cli/irc_manager.py` | `start_weechat()`: use `get_username()`, delete `nick = sasl_user` line; `status()`: use `get_username()` |
+| `zchat/cli/app.py` | `cmd_project_remove()`: use `get_username()` for AgentManager construction |
 | `zchat/cli/agent_manager.py` | No changes (receives username from caller) |
 | `tests/unit/test_agent_manager.py` | Update `_make_manager()` to not depend on config username |
 | `tests/unit/test_auth.py` | Add tests for `get_username()` |
