@@ -27,7 +27,7 @@ Extracted from `server.py` hardcoded string into a standalone markdown file. Con
 
    Subagent 的上下文来源：
    - **主 agent 的 dispatch prompt** — 主 agent 在 spawn subagent 时传入当前任务摘要和相关上下文
-   - **Session JSONL 尾部** — 通过 `tail` 读取 session JSONL 最后若干行（`~/.claude/projects/<project-hash>/<session-id>.jsonl`），获取最近的对话片段。**不加载整个文件**，避免 token 浪费
+   - **Session JSONL 尾部** — 通过 `tail` 读取 session JSONL 最后若干行（`~/.claude/projects/<project-hash>/<session-id>.jsonl`），获取最近的对话片段。**不加载整个文件**，避免 token 浪费。路径发现：Claude Code 知道自己的 session 文件位置，instructions.md 只需说明"读取当前 session JSONL 的最后 N 行"，无需硬编码路径模板
    - `soul.md`（角色定义，由 subagent 自行 Read）
    - 消息内容本身（来自谁、说了什么）
    - 可用工具：reply tool（发送 IRC 回复）、Read tool（读取 soul.md）、Bash tool（tail session JSONL）
@@ -40,13 +40,13 @@ Extracted from `server.py` hardcoded string into a standalone markdown file. Con
 
    **是否需要深入处理** → 由 `soul.md` 角色定义决定。instructions.md 只定义 "spawn subagent 快速回复" 的默认行为。soul.md 可以覆盖（例如"收到代码审查请求时，暂停当前任务全力处理"）。
 
-   **Idle 状态优化:** 如果主 agent 空闲（无进行中的任务），可以直接回复而不 spawn subagent，避免不必要的 token 开销。
+   **Idle 状态优化:** 如果最近的对话消息是 channel notification 而非用户发起的任务指令，说明主 agent 处于空闲状态，可以直接回复而不 spawn subagent，避免不必要的 token 开销。
 4. **Slash command reference** (brief table)
 5. **SOUL file pointer** — instructs Claude to `Read ./soul.md` at session start for role/style guidance, and re-read when encountering unfamiliar situations
 
 ### Placeholder interpolation
 
-`instructions.md` uses `string.Template` syntax (`$agent_name`) for variable substitution. This avoids conflicts with curly braces in markdown code blocks.
+`instructions.md` uses `string.Template` syntax (`$agent_name`) for variable substitution. This avoids conflicts with curly braces in markdown code blocks. `server.py` 使用 `safe_substitute()` 而非 `substitute()`，确保 `instructions.md` 中的其他 `$` 符号（如 bash 示例）不会导致错误。
 
 Variables interpolated by `server.py` at startup:
 - `$agent_name` — the agent's IRC nick (from `AGENT_NAME` env var)
@@ -70,7 +70,7 @@ A per-template role definition file, similar to SOUL.md conventions:
 - Defines agent personality, communication style, domain expertise
 - **可覆盖 instructions.md 的默认消息处理行为** — 例如定义何时需要深入处理而非 quick response
 - Different templates ship different souls (e.g., `templates/claude/soul.md`, `templates/coder/soul.md`)
-- `start.sh` copies the template's `soul.md` into the agent workspace root at creation time
+- `start.sh` copies the template's `soul.md` into the agent workspace root at creation time（`start.sh` 自身位于 template 目录，通过 `$(dirname "$0")` 获取 template 路径）
 - CHANNEL_INSTRUCTIONS instructs Claude to read `./soul.md` at session start
 - Claude uses its native Read tool to access the file — no new MCP tools needed
 
