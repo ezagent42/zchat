@@ -18,6 +18,14 @@ from zchat.cli.project import (
 from zchat.cli.agent_manager import AgentManager
 from zchat.cli.irc_manager import IrcManager
 from zchat.cli.auth import device_code_flow, save_token, load_cached_token, refresh_token_if_needed
+from zchat.cli.update import (
+    load_update_state, save_update_state, should_check_today,
+    check_for_updates, run_upgrade, UPDATE_STATE_FILE,
+)
+from zchat.cli.config_cmd import (
+    load_global_config, save_global_config,
+    get_config_value, set_config_value,
+)
 
 app = typer.Typer(name="zchat", help="Claude Code agent lifecycle management")
 project_app = typer.Typer(help="Project configuration management")
@@ -27,6 +35,7 @@ agent_app = typer.Typer(help="Claude Code agent lifecycle")
 setup_app = typer.Typer(help="Install and configure components")
 template_app = typer.Typer(help="Agent template management")
 auth_app = typer.Typer(help="Authentication management")
+config_app = typer.Typer(help="Global configuration management")
 
 app.add_typer(project_app, name="project")
 app.add_typer(irc_app, name="irc")
@@ -35,6 +44,7 @@ app.add_typer(agent_app, name="agent")
 app.add_typer(setup_app, name="setup")
 app.add_typer(template_app, name="template")
 app.add_typer(auth_app, name="auth")
+app.add_typer(config_app, name="config")
 
 
 def _get_config(ctx: typer.Context) -> dict:
@@ -104,6 +114,21 @@ def _version_callback(value: bool):
         raise typer.Exit()
 
 
+def _spawn_update_check(state: dict, auto_upgrade: bool = True) -> None:
+    """Spawn a detached background process to check for updates."""
+    import sys
+    cmd = [sys.executable, "-m", "zchat.cli.update", "--background-check"]
+    if auto_upgrade:
+        cmd.append("--auto-upgrade")
+    subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -123,6 +148,18 @@ def main(
             if ctx.invoked_subcommand not in ("project", "doctor", "setup"):
                 typer.echo(f"Error: Project '{resolved}' not found. Run 'zchat project create {resolved}'.")
                 raise typer.Exit(1)
+
+    # Background update check (once per day)
+    try:
+        global_cfg = load_global_config()
+        state = load_update_state()
+        if should_check_today(state):
+            auto_upgrade = global_cfg["update"]["auto_upgrade"]
+            _spawn_update_check(state, auto_upgrade=auto_upgrade)
+        elif state.get("update_available") and not global_cfg["update"]["auto_upgrade"]:
+            typer.echo("💡 New version available. Run `zchat upgrade` to update.", err=True)
+    except Exception:
+        pass  # Never block CLI startup
 
 
 # ============================================================
@@ -780,43 +817,98 @@ def cmd_setup_weechat(
 
 
 # ============================================================
-# self-update
+# update / upgrade
 # ============================================================
 
-_GIT_REPOS = [
-    "zchat-protocol @ git+https://github.com/ezagent42/zchat-protocol.git@main",
-    "zchat-channel-server @ git+https://github.com/ezagent42/claude-zchat-channel.git@main",
-    "zchat @ git+https://github.com/ezagent42/zchat.git@main",
-]
+@app.command("update")
+def cmd_update():
+    """Check for new versions (does not install)."""
+    state = load_update_state()
+    typer.echo(f"Channel: {state['channel']}")
+    typer.echo("Checking...")
+    state = check_for_updates(state)
+    save_update_state(state)
+
+    if state["update_available"]:
+        typer.echo(f"zchat:          {state['zchat']['installed_ref'] or '?'} → {state['zchat']['remote_ref']}")
+        typer.echo(f"channel-server: {state['channel_server']['installed_ref'] or '?'} → {state['channel_server']['remote_ref']}")
+        typer.echo("\nRun `zchat upgrade` to install.")
+    else:
+        typer.echo("Already up to date.")
 
 
-@app.command("self-update")
-def cmd_self_update():
-    """Update zchat to the latest version from GitHub."""
-    import subprocess
-    import sys
+@app.command("upgrade")
+def cmd_upgrade(
+    channel: Optional[str] = typer.Option(None, help="Override update channel (main/dev/release)"),
+):
+    """Download and install the latest version."""
+    global_cfg = load_global_config()
+    ch = channel or global_cfg["update"]["channel"]
 
-    python = sys.executable
-    typer.echo("Updating zchat from GitHub (main)...")
-    result = subprocess.run(
-        [python, "-m", "pip", "install", "--force-reinstall", "--no-deps",
-         "--ignore-installed"] + _GIT_REPOS,
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        typer.echo(f"Error:\n{result.stderr}")
+    state = load_update_state()
+    state["channel"] = ch
+    state = check_for_updates(state)
+
+    if not state["update_available"]:
+        typer.echo("Already up to date.")
+        save_update_state(state)
+        return
+
+    typer.echo(f"Upgrading from channel '{ch}'...")
+    ok = run_upgrade(ch)
+    if ok:
+        state["zchat"]["installed_ref"] = state["zchat"]["remote_ref"]
+        state["channel_server"]["installed_ref"] = state["channel_server"]["remote_ref"]
+        state["update_available"] = False
+        save_update_state(state)
+        typer.echo("Done. Restart any running zchat commands to use the new version.")
+    else:
+        typer.echo("Error: Upgrade failed. Run `zchat upgrade` to retry.")
         raise typer.Exit(1)
 
-    # Show installed commit
-    result2 = subprocess.run(
-        [python, "-m", "pip", "show", "zchat"],
-        capture_output=True, text=True,
-    )
-    for line in result2.stdout.splitlines():
-        if line.startswith("Version:"):
-            typer.echo(f"Updated to {line}")
-            break
-    typer.echo("Done. Restart any running zchat commands to use the new version.")
+
+# ============================================================
+# config
+# ============================================================
+
+@config_app.command("get")
+def cmd_config_get(key: str):
+    """Get a global config value."""
+    cfg = load_global_config()
+    val = get_config_value(cfg, key)
+    if val is None:
+        typer.echo(f"Key '{key}' not found.")
+        raise typer.Exit(1)
+    typer.echo(str(val))
+
+
+@config_app.command("set")
+def cmd_config_set(key: str, value: str):
+    """Set a global config value."""
+    if key == "update.channel" and value not in ("main", "dev", "release"):
+        typer.echo(f"Error: channel must be one of: main, dev, release")
+        raise typer.Exit(1)
+    cfg = load_global_config()
+    set_config_value(cfg, key, value)
+    save_global_config(cfg)
+    typer.echo(f"{key} = {get_config_value(cfg, key)}")
+    if key == "update.channel":
+        state = load_update_state()
+        state["channel"] = value
+        state["zchat"] = {"installed_ref": "", "remote_ref": ""}
+        state["channel_server"] = {"installed_ref": "", "remote_ref": ""}
+        state["update_available"] = False
+        save_update_state(state)
+
+
+@config_app.command("list")
+def cmd_config_list():
+    """Show all global config values."""
+    cfg = load_global_config()
+    for section, values in cfg.items():
+        if isinstance(values, dict):
+            for k, v in values.items():
+                typer.echo(f"{section}.{k} = {v}")
 
 
 if __name__ == "__main__":

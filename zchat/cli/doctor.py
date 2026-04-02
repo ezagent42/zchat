@@ -38,10 +38,13 @@ def _weechat_plugin_installed() -> str | None:
 
 
 _VERSION_CMDS = {
+    "uv": ["--version"],       # "uv 0.6.x"
+    "python3": ["--version"],  # "Python 3.11.x"
     "tmux": ["-V"],            # "tmux 3.6a"
+    "tmuxp": ["--version"],    # "tmuxp, version 1.x.x"
     "claude": ["--version"],   # "2.1.86 (Claude Code)"
     "zchat-channel": None,     # MCP server, no --version
-    "ergo": ["--version"],      # "ergo-2.18.0"
+    "ergo": ["--version"],     # "ergo-2.18.0"
     "weechat": ["--version"],  # "4.8.2"
 }
 
@@ -70,9 +73,12 @@ def _check_command(name: str) -> tuple[bool, str]:
 def run_doctor():
     """Check all dependencies and report status."""
     checks = [
+        ("uv", True, "curl -LsSf https://astral.sh/uv/install.sh | sh"),
+        ("python3", True, "uv python install 3.11"),
         ("tmux", True, "brew install tmux"),
+        ("tmuxp", True, "uv tool install tmuxp"),
         ("claude", True, "https://docs.anthropic.com/en/docs/claude-code"),
-        ("zchat-channel", True, "brew install ezagent42/zchat/zchat"),
+        ("zchat-channel", True, "uv tool install zchat-channel-server"),
         ("ergo", False, "brew install ezagent42/zchat/ergo"),
         ("weechat", False, "brew install weechat"),
     ]
@@ -120,6 +126,17 @@ def run_doctor():
             typer.echo(f"  Active:   {current}")
     else:
         typer.echo("  No projects configured. Run: zchat project create <name>")
+
+    # Update status
+    try:
+        from zchat.cli.update import load_update_state
+        state = load_update_state()
+        if state.get("update_available"):
+            typer.echo(f"  💡 Update available — run: zchat upgrade")
+        elif state.get("last_check"):
+            typer.echo(f"  ✓ Up to date (checked: {state['last_check'][:10]})")
+    except Exception:
+        pass
 
     typer.echo("")
     req_status = "✓" if required_ok == required_total else "✗"

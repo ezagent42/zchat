@@ -7,19 +7,23 @@ MCP_CMD="${MCP_PARTS[0]}"
 MCP_ARGS=("${MCP_PARTS[@]:1}")
 
 # --- Locate channel server plugin ---
-CHANNEL_PKG=$(python3 -c "
+# CHANNEL_PKG_DIR is set by zchat agent create (resolves via uv tool dir)
+# Fallback to importlib.metadata for non-uv installs (editable dev mode)
+if [ -z "${CHANNEL_PKG_DIR:-}" ]; then
+  CHANNEL_PKG_DIR=$(python3 -c "
 from importlib.metadata import files
 for f in files('zchat-channel-server'):
     if f.name == 'server.py':
         print(f.locate().parent)
         break
 " 2>/dev/null || echo "")
+fi
 
 # Copy plugin into workspace (copies instead of symlinks for reliable plugin detection)
-if [ -n "$CHANNEL_PKG" ] && [ -d "$CHANNEL_PKG/.claude-plugin" ]; then
+if [ -n "$CHANNEL_PKG_DIR" ] && [ -d "$CHANNEL_PKG_DIR/.claude-plugin" ]; then
   rm -rf .claude-plugin commands
-  cp -r "$CHANNEL_PKG/.claude-plugin" .claude-plugin
-  cp -r "$CHANNEL_PKG/commands" commands
+  cp -r "$CHANNEL_PKG_DIR/.claude-plugin" .claude-plugin
+  cp -r "$CHANNEL_PKG_DIR/commands" commands
 fi
 
 # --- Copy soul.md from template ---
