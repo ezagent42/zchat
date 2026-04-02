@@ -101,9 +101,14 @@ info "Installing zchat (channel: $CHANNEL)..."
 
 case "$CHANNEL" in
   main|dev)
-    uv tool install --force \
+    # zchat-protocol is not on PyPI — must be installed from git.
+    # Both zchat and zchat-channel-server depend on it, and their
+    # [tool.uv.sources] uses local paths for dev. --no-sources skips
+    # those path overrides; --with injects the git source instead.
+    PROTO="zchat-protocol @ git+https://github.com/ezagent42/zchat-protocol.git@${CHANNEL}"
+    uv tool install --force --no-sources --with "$PROTO" \
       "zchat @ git+https://github.com/ezagent42/zchat.git@${CHANNEL}"
-    uv tool install --force \
+    uv tool install --force --no-sources --with "$PROTO" \
       "zchat-channel-server @ git+https://github.com/ezagent42/claude-zchat-channel.git@${CHANNEL}"
     ;;
   release)

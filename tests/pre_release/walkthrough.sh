@@ -22,6 +22,9 @@ export REPO_ROOT="$(pwd)"
 export WALKTHROUGH_PROJECT="wt-test"
 
 cleanup() {
+    # Stop ergo started by this walkthrough (match by ZCHAT_HOME temp dir)
+    # Only kill ergo processes whose config lives under our temp ZCHAT_HOME
+    pgrep -f "ergo run --conf $ZCHAT_HOME" | xargs kill 2>/dev/null || true
     tmux kill-session -t "$SESSION" 2>/dev/null || true
     rm -rf "$ZCHAT_HOME"
 }
