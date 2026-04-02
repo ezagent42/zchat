@@ -1,9 +1,11 @@
 """Agent lifecycle management: create workspace, spawn tmux, track state."""
 
+import glob as _glob
 import json
 import os
 import shlex
 import shutil
+import subprocess as _sp
 import tempfile
 import threading
 import time
@@ -17,6 +19,19 @@ from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
 
 
 DEFAULT_STATE_FILE = os.path.expanduser("~/.local/state/zchat/agents.json")
+
+
+def _find_channel_pkg_dir() -> str | None:
+    """Locate zchat-channel-server package dir in its uv tool venv."""
+    result = _sp.run(["uv", "tool", "dir"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    tool_dir = result.stdout.strip()
+    patterns = _glob.glob(
+        os.path.join(tool_dir, "zchat-channel-server", "lib", "python*",
+                     "site-packages", "zchat_channel_server")
+    )
+    return patterns[0] if patterns else None
 
 
 class AgentManager:
@@ -163,6 +178,11 @@ class AgentManager:
                 _, token = creds
                 context["irc_auth_token"] = token
                 context["auth_token_file"] = os.path.join(_global_auth_dir(), "auth.json")
+        channel_pkg = _find_channel_pkg_dir()
+        if channel_pkg:
+            context["channel_pkg_dir"] = channel_pkg
+        else:
+            context["channel_pkg_dir"] = ""
         return context
 
     def _spawn_tmux(self, name: str, workspace: str, agent_type: str,

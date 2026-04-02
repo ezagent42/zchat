@@ -9,3 +9,5 @@ ircd.db
 ircd.lock
 languages/
 .claude/worktrees/
+claude.local.env
+.mcp.env

@@ -176,3 +176,31 @@ def test_agent_state_persistence(tmp_path):
     mgr2 = _make_manager(state_file=state_file)
     assert "alice-helper" in mgr2._agents
     assert mgr2._agents["alice-helper"]["window_name"] == "alice-helper"
+
+
+def test_find_channel_pkg_dir_via_uv(tmp_path):
+    """_find_channel_pkg_dir locates package via uv tool dir."""
+    from unittest.mock import patch, MagicMock
+    import zchat.cli.agent_manager as am
+
+    pkg_dir = tmp_path / "zchat-channel-server" / "lib" / "python3.11" / "site-packages" / "zchat_channel_server"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "server.py").touch()
+    (pkg_dir / ".claude-plugin").mkdir()
+
+    with patch.object(am._sp, "run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout=str(tmp_path) + "\n")
+        result = am._find_channel_pkg_dir()
+        assert result is not None
+        assert "zchat_channel_server" in result
+
+
+def test_find_channel_pkg_dir_no_uv():
+    """Falls back to None when uv is not available."""
+    from unittest.mock import patch, MagicMock
+    import zchat.cli.agent_manager as am
+
+    with patch.object(am._sp, "run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
+        result = am._find_channel_pkg_dir()
+        assert result is None
