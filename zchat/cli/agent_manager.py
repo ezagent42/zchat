@@ -106,15 +106,14 @@ class AgentManager:
 
     def restart(self, name: str):
         """Stop then re-create with same config."""
-        name = self.scoped(name)
-        agent = self._agents.get(name)
+        scoped = self.scoped(name)
+        agent = self._agents.get(scoped)
         if not agent:
-            raise ValueError(f"Unknown agent: {name}")
+            raise ValueError(f"Unknown agent: {scoped}")
         channels = list(agent.get("channels", self.default_channels))
         agent_type = agent.get("type", self.default_type)
         self.stop(name)
-        base_name = name.split(AGENT_SEPARATOR, 1)[-1] if AGENT_SEPARATOR in name else name
-        self.create(base_name, channels=channels, agent_type=agent_type)
+        self.create(name, channels=channels, agent_type=agent_type)
 
     def list_agents(self) -> dict[str, dict]:
         """Return all agents with refreshed status."""
