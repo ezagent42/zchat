@@ -102,6 +102,8 @@ zchat update                         # 检查是否有新版本
 zchat upgrade                        # 下载并安装最新版本
 ```
 
+默认跟踪 `main` 频道（最新开发版）。可通过 `zchat config set update.channel release` 切换到正式版本频道。
+
 ## 下一步
 
 了解更多命令和使用场景 → [使用指南](usage.md)

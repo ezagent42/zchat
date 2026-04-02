@@ -72,6 +72,14 @@ zchat update                         # 检查是否有新版本
 zchat upgrade                        # 下载并安装最新版本
 ```
 
+切换更新频道：
+
+```bash
+zchat config set update.channel release  # release — 只接收正式版本
+zchat config set update.channel main     # main — 跟踪最新开发版（默认）
+zchat upgrade --channel release          # 单次指定频道，不改变配置
+```
+
 ## 文档
 
 ### 用户文档
