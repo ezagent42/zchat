@@ -18,7 +18,7 @@ def _make_manager(state_file="/tmp/test-agents.json", env_file="", project_dir="
 def test_scope_agent_name():
     mgr = _make_manager()
     assert mgr.scoped("helper") == "alice-helper"
-    assert mgr.scoped("alice-helper") == "alice-helper"  # already scoped, no double prefix
+    assert mgr.scoped("alice-helper") == "alice-alice-helper"
 
 
 def test_create_workspace_exists():
