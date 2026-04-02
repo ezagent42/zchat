@@ -15,10 +15,17 @@ for f in files('zchat-channel-server'):
         break
 " 2>/dev/null || echo "")
 
-# Symlink plugin into workspace if found
+# Copy plugin into workspace (copies instead of symlinks for reliable plugin detection)
 if [ -n "$CHANNEL_PKG" ] && [ -d "$CHANNEL_PKG/.claude-plugin" ]; then
-  ln -sfn "$CHANNEL_PKG/.claude-plugin" .claude-plugin
-  ln -sfn "$CHANNEL_PKG/commands" commands
+  rm -rf .claude-plugin commands
+  cp -r "$CHANNEL_PKG/.claude-plugin" .claude-plugin
+  cp -r "$CHANNEL_PKG/commands" commands
+fi
+
+# --- Copy soul.md from template ---
+TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$TEMPLATE_DIR/soul.md" ]; then
+  cp "$TEMPLATE_DIR/soul.md" ./soul.md
 fi
 
 # --- Claude settings with SessionStart hook ---
@@ -39,17 +46,8 @@ jq -n \
         "mcp__zchat-channel__reply",
         "mcp__zchat-channel__join_channel"
       ]
-    },
-    enabledPlugins: {
-      "zchat@ezagent42": true
     }
   }' > .claude/settings.local.json
-
-# --- Ensure zchat plugin is available ---
-if ! claude plugin list 2>/dev/null | grep -q "zchat@ezagent42.*enabled"; then
-  claude plugin marketplace add ezagent42/ezagent42 2>/dev/null || true
-  claude plugin install zchat@ezagent42 --scope project 2>/dev/null || true
-fi
 
 # --- Build .mcp.json ---
 if [ ${#MCP_ARGS[@]} -gt 0 ]; then
