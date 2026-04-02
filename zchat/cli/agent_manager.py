@@ -11,6 +11,7 @@ import time
 import libtmux
 
 from zchat.cli.tmux import get_or_create_session, pane_alive
+from zchat.cli.irc_manager import check_irc_connectivity
 from zchat.cli.template_loader import load_template, render_env, get_start_script, _parse_env_file
 from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
 
@@ -59,6 +60,9 @@ class AgentManager:
                channels: list[str] | None = None,
                agent_type: str | None = None) -> dict:
         """Create and launch a new agent. Returns agent info dict."""
+        # Pre-check IRC server connectivity
+        check_irc_connectivity(self.irc_server, self.irc_port, tls=self.irc_tls)
+
         name = self.scoped(name)
         if name in self._agents and self._agents[name].get("status") == "running":
             raise ValueError(f"{name} already exists and is running")

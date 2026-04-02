@@ -565,7 +565,12 @@ def cmd_irc_start(
     """Start WeeChat in tmux, auto-connect to IRC."""
 
     mgr = _get_irc_manager(ctx)
-    mgr.start_weechat(nick_override=nick)
+    try:
+        mgr.start_weechat(nick_override=nick)
+    except ConnectionError as e:
+        typer.echo(f"Error: {e}", err=True)
+        typer.echo("Check that the IRC server is running.", err=True)
+        raise typer.Exit(1)
 
 @irc_app.command("stop")
 def cmd_irc_stop(ctx: typer.Context):
@@ -608,7 +613,12 @@ def cmd_agent_create(
     """Create and launch a new agent."""
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
-    info = mgr.create(name, workspace=workspace, channels=ch, agent_type=agent_type)
+    try:
+        info = mgr.create(name, workspace=workspace, channels=ch, agent_type=agent_type)
+    except ConnectionError as e:
+        typer.echo(f"Error: {e}", err=True)
+        typer.echo("Check that the IRC server is running.", err=True)
+        raise typer.Exit(1)
     scoped = mgr.scoped(name)
     typer.echo(f"Created {scoped} (type: {info['type']})")
     typer.echo(f"  window: {info['window_name']}")
