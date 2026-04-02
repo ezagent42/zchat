@@ -2,12 +2,26 @@
 """IRC daemon (ergo) and WeeChat pane management."""
 import json
 import os
+import socket
+import ssl
 import subprocess
 import time
 
 import libtmux
 
 from zchat.cli.tmux import get_or_create_session, find_pane, pane_alive, find_window, window_alive
+
+
+def check_irc_connectivity(server: str, port: int, tls: bool = False, timeout: float = 5) -> None:
+    """Raise ConnectionError if IRC server is unreachable."""
+    try:
+        sock = socket.create_connection((server, port), timeout=timeout)
+        if tls:
+            ctx = ssl.create_default_context()
+            sock = ctx.wrap_socket(sock, server_hostname=server)
+        sock.close()
+    except OSError as e:
+        raise ConnectionError(f"Cannot reach IRC server {server}:{port} — {e}")
 
 
 class IrcManager:
@@ -181,6 +195,12 @@ class IrcManager:
             print(f"WeeChat already running (window {existing}).")
             return
 
+        # Pre-check IRC server connectivity
+        server = self.irc_config.get("server", "127.0.0.1")
+        port = self.irc_config.get("port", 6667)
+        tls = self.irc_config.get("tls", False)
+        check_irc_connectivity(server, port, tls=tls)
+
         # Load tmuxp session if YAML exists and session doesn't
         project_dir = os.path.dirname(self._state_file)
         tmuxp_path = os.path.join(project_dir, "tmuxp.yaml")
@@ -192,9 +212,6 @@ class IrcManager:
             # Refresh session reference after tmuxp creates it
             self._tmux_session = None
 
-        server = self.irc_config.get("server", "127.0.0.1")
-        port = self.irc_config.get("port", 6667)
-        tls = self.irc_config.get("tls", False)
         from zchat.cli.auth import get_username
         nick = nick_override or get_username()
         channels = self.config.get("agents", {}).get("default_channels", ["#general"])
