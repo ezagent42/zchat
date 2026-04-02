@@ -151,6 +151,9 @@ Expected: 4 PASS
 ```python
 # append to tests/unit/test_update.py
 
+import subprocess
+
+
 def test_check_remote_git_success():
     from zchat.cli.update import _check_remote_git
     with patch("subprocess.run") as mock_run:
@@ -247,7 +250,12 @@ def check_for_updates(state: dict) -> dict:
         if channel_ver:
             state["channel_server"]["remote_ref"] = channel_ver
 
-    # Determine if update is available
+    # Determine if update is available.
+    # If installed_ref is empty (fresh install), set it to remote_ref — no update needed.
+    for pkg in ("zchat", "channel_server"):
+        if not state[pkg]["installed_ref"] and state[pkg]["remote_ref"]:
+            state[pkg]["installed_ref"] = state[pkg]["remote_ref"]
+
     state["update_available"] = (
         (state["zchat"]["remote_ref"] != "" and
          state["zchat"]["remote_ref"] != state["zchat"]["installed_ref"])
@@ -313,16 +321,50 @@ def _build_install_args(channel: str) -> list[str]:
 
 
 def run_upgrade(channel: str) -> bool:
-    """Run uv tool install --force for both packages. Returns True on success."""
+    """Run uv tool install --force for both packages. Returns True on success.
+
+    Treats the two-package upgrade as atomic: if the second fails, rolls
+    back the first by re-installing from the previous channel/ref.
+    """
     specs = _build_install_args(channel)
+    installed: list[str] = []
     for spec in specs:
         result = subprocess.run(
             ["uv", "tool", "install", "--force", spec],
             capture_output=True, text=True,
         )
         if result.returncode != 0:
+            # Rollback previously installed packages
+            state = load_update_state()
+            old_channel = state.get("channel", channel)
+            old_specs = _build_install_args(old_channel)
+            for old_spec in old_specs[:len(installed)]:
+                subprocess.run(
+                    ["uv", "tool", "install", "--force", old_spec],
+                    capture_output=True, text=True,
+                )
             return False
+        installed.append(spec)
     return True
+
+
+def _background_check_main() -> None:
+    """Entry point for background update check (called via subprocess)."""
+    import sys
+    auto_upgrade = "--auto-upgrade" in sys.argv
+    state = load_update_state()
+    state = check_for_updates(state)
+    if state.get("update_available") and auto_upgrade:
+        ok = run_upgrade(state["channel"])
+        if ok:
+            state["zchat"]["installed_ref"] = state["zchat"]["remote_ref"]
+            state["channel_server"]["installed_ref"] = state["channel_server"]["remote_ref"]
+            state["update_available"] = False
+    save_update_state(state)
+
+
+if __name__ == "__main__":
+    _background_check_main()
 ```
 
 - [ ] **Step 11: Run all update tests**
@@ -536,24 +578,22 @@ Add the fork helper function (before the `main` callback):
 
 ```python
 def _spawn_update_check(state: dict, auto_upgrade: bool = True) -> None:
-    """Fork a background process to check for updates (and optionally upgrade)."""
-    pid = os.fork()
-    if pid == 0:
-        # Child process
-        try:
-            os.setsid()
-            updated = check_for_updates(state)
-            if updated.get("update_available") and auto_upgrade:
-                ok = run_upgrade(updated["channel"])
-                if ok:
-                    updated["zchat"]["installed_ref"] = updated["zchat"]["remote_ref"]
-                    updated["channel_server"]["installed_ref"] = updated["channel_server"]["remote_ref"]
-                    updated["update_available"] = False
-            save_update_state(updated)
-        except Exception:
-            pass
-        finally:
-            os._exit(0)
+    """Spawn a detached background process to check for updates (and optionally upgrade).
+
+    Uses subprocess.Popen instead of os.fork() to avoid deadlocks with
+    threaded modules (libtmux, httpx) and to prevent stdout/stderr leakage.
+    """
+    import sys
+    cmd = [sys.executable, "-m", "zchat.cli.update", "--background-check"]
+    if auto_upgrade:
+        cmd.append("--auto-upgrade")
+    subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
 ```
 
 - [ ] **Step 3: Replace self-update with update/upgrade commands**
@@ -635,6 +675,10 @@ def cmd_config_get(key: str):
 @config_app.command("set")
 def cmd_config_set(key: str, value: str):
     """Set a global config value."""
+    # Validate known keys
+    if key == "update.channel" and value not in ("main", "dev", "release"):
+        typer.echo(f"Error: channel must be one of: main, dev, release")
+        raise typer.Exit(1)
     cfg = load_global_config()
     set_config_value(cfg, key, value)
     save_global_config(cfg)
@@ -790,6 +834,16 @@ for f in files('zchat-channel-server'):
 fi
 ```
 
+Also update the copy section (originally lines 18-23) to use the new variable name `$CHANNEL_PKG_DIR` instead of the old `$CHANNEL_PKG`:
+
+```bash
+if [ -n "$CHANNEL_PKG_DIR" ] && [ -d "$CHANNEL_PKG_DIR/.claude-plugin" ]; then
+  rm -rf .claude-plugin commands
+  cp -r "$CHANNEL_PKG_DIR/.claude-plugin" .claude-plugin
+  cp -r "$CHANNEL_PKG_DIR/commands" commands
+fi
+```
+
 Note: We keep the `python3` fallback for developers running in editable mode without uv tool install. The env var takes priority.
 
 - [ ] **Step 8: Run full unit tests**
@@ -818,6 +872,7 @@ In `doctor.py`, update `_VERSION_CMDS`:
 ```python
 _VERSION_CMDS = {
     "uv": ["--version"],       # "uv 0.6.x"
+    "python3": ["--version"],  # "Python 3.11.x"
     "tmux": ["-V"],            # "tmux 3.6a"
     "tmuxp": ["--version"],    # "tmuxp, version 1.x.x"
     "claude": ["--version"],   # "2.1.86 (Claude Code)"
@@ -834,6 +889,7 @@ def run_doctor():
     """Check all dependencies and report status."""
     checks = [
         ("uv", True, "curl -LsSf https://astral.sh/uv/install.sh | sh"),
+        ("python3", True, "uv python install 3.11"),
         ("tmux", True, "brew install tmux"),
         ("tmuxp", True, "uv tool install tmuxp"),
         ("claude", True, "https://docs.anthropic.com/en/docs/claude-code"),
@@ -1025,7 +1081,12 @@ auto_upgrade = true
 TOML
 fi
 
-# ---- 9. Verify ----
+# ---- 9. Initialize update state ----
+# Run zchat update to set initial installed refs (prevents false "update available")
+info "Initializing update state..."
+zchat update >/dev/null 2>&1 || true
+
+# ---- 10. Verify ----
 info "Verifying installation..."
 echo ""
 zchat doctor || true
