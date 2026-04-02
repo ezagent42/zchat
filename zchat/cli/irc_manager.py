@@ -174,15 +174,15 @@ class IrcManager:
             f.write(config_text)
 
     def daemon_stop(self):
-        """Stop local ergo IRC server (by PID or port)."""
-        port = self.irc_config.get("port", 6667)
+        """Stop local ergo IRC server (by stored PID only).
+
+        Only kills the ergo process that was started by this project (stored in
+        state.json).  Never kills by port alone — that could hit an unrelated
+        ergo instance such as the ergo-inside launchd service.
+        """
         pid = self._state.get("irc", {}).get("daemon_pid")
         if pid:
             subprocess.run(["kill", str(pid)], capture_output=True)
-        # Also kill by port in case PID is stale
-        result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-        if result.stdout.strip():
-            subprocess.run(["kill"] + result.stdout.strip().split(), capture_output=True)
         if "irc" in self._state:
             self._state["irc"].pop("daemon_pid", None)
             self._save_state()
@@ -249,6 +249,9 @@ class IrcManager:
             f"{source_env}weechat -d {weechat_home} -r '"
             f"/server add {srv_name} {server}/{port}{tls_flag} -nicks={nick}"
             f"; /set irc.server.{srv_name}.autojoin \"{autojoin}\""
+            f"; /set irc.server.{srv_name}.autoconnect on"
+            f"; /set irc.server.{srv_name}.autoreconnect on"
+            f"; /set irc.server.{srv_name}.autoreconnect_delay 10"
             f"{sasl_cmds}"
             f"; /connect {srv_name}{load_plugin}'"
         )
