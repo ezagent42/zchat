@@ -46,6 +46,9 @@ jq -n \
         "mcp__zchat-channel__reply",
         "mcp__zchat-channel__join_channel"
       ]
+    },
+    enabledPlugins: {
+      "zchat@ezagent42": true
     }
   }' > .claude/settings.local.json
 
