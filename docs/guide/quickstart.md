@@ -98,7 +98,8 @@ zchat shutdown                       # 停止所有 agent + WeeChat + ergo + tmu
 ## 更新
 
 ```bash
-zchat self-update                    # 从 GitHub 更新到最新版本
+zchat update                         # 检查是否有新版本
+zchat upgrade                        # 下载并安装最新版本
 ```
 
 ## 下一步

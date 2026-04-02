@@ -68,10 +68,9 @@ zchat shutdown                       # 停止所有 agent + 退出 session
 ## 更新
 
 ```bash
-zchat self-update                    # 更新到最新版本（自动检测安装方式）
+zchat update                         # 检查是否有新版本
+zchat upgrade                        # 下载并安装最新版本
 ```
-
-`self-update` 会根据安装方式自动选择更新策略（Homebrew / uv tool / 源码）。
 
 ## 文档
 
