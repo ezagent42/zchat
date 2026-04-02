@@ -6,15 +6,69 @@ on:
 
 permissions:
   id-token: write
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment: pypi
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # hatch-vcs needs full history + tags
       - uses: astral-sh/setup-uv@v4
       - run: uv build
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(ls dist/*.tar.gz | sed 's/.*zchat-//;s/.tar.gz//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  update-homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for PyPI to index the new version
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          echo "Waiting for zchat $VERSION on PyPI..."
+          for i in $(seq 1 30); do
+            if curl -sf "https://pypi.org/pypi/zchat/$VERSION/json" > /dev/null 2>&1; then
+              echo "Found on PyPI after ${i}0 seconds"
+              break
+            fi
+            sleep 10
+          done
+      - name: Get PyPI sdist URL and sha256
+        id: pypi
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          INFO=$(curl -sf "https://pypi.org/pypi/zchat/$VERSION/json")
+          URL=$(echo "$INFO" | jq -r '[.urls[] | select(.url | endswith(".tar.gz"))][0].url')
+          SHA=$(echo "$INFO" | jq -r '[.urls[] | select(.url | endswith(".tar.gz"))][0].digests.sha256')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Updating to: $URL (sha256: $SHA)"
+      - name: Checkout homebrew-zchat
+        uses: actions/checkout@v4
+        with:
+          repository: ezagent42/homebrew-zchat
+          token: ${{ secrets.HOMEBREW_PAT }}
+          path: homebrew-zchat
+      - name: Update formula
+        run: |
+          cd homebrew-zchat
+          sed -i 's|url "https://files.pythonhosted.org/.*\.tar\.gz"|url "${{ steps.pypi.outputs.url }}"|' Formula/zchat.rb
+          sed -i 's|sha256 "[a-f0-9]*"|sha256 "${{ steps.pypi.outputs.sha256 }}"|' Formula/zchat.rb
+          git diff Formula/zchat.rb
+      - name: Commit and push
+        run: |
+          cd homebrew-zchat
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/zchat.rb
+          git commit -m "bump zchat to ${{ needs.publish.outputs.version }}"
+          git push
