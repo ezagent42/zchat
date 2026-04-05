@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-import tempfile
 
 
 def _run(args: list[str], session: str | None = None, **kwargs) -> subprocess.CompletedProcess:
@@ -26,9 +24,16 @@ def _run_global(args: list[str], session: str | None = None, **kwargs) -> subpro
 
 
 def ensure_session(name: str, layout_path: str | None = None) -> str:
-    """Create or verify session exists. Returns session name."""
+    """Create or verify session exists. Returns session name.
+
+    Handles EXITED sessions by deleting and recreating them.
+    """
     if session_exists(name):
-        return name
+        # Check if session is EXITED — if so, delete and recreate
+        if _session_exited(name):
+            _run_global(["delete-session", name])
+        else:
+            return name
     if layout_path:
         _run_global(["--new-session-with-layout", layout_path, "--session", name])
     else:
@@ -36,12 +41,31 @@ def ensure_session(name: str, layout_path: str | None = None) -> str:
     return name
 
 
+def _session_exited(name: str) -> bool:
+    """Check if a session is in EXITED state."""
+    import re as _re
+    r = subprocess.run(["zellij", "list-sessions"], capture_output=True, text=True)
+    ansi_escape = _re.compile(r"\x1b\[[0-9;]*m")
+    for line in r.stdout.splitlines():
+        clean = ansi_escape.sub("", line).strip()
+        if clean.startswith(name) and "EXITED" in clean:
+            return True
+    return False
+
+
 def session_exists(name: str) -> bool:
     """Check if a Zellij session exists."""
+    import re as _re
     r = subprocess.run(["zellij", "list-sessions"], capture_output=True, text=True)
     if r.returncode != 0:
         return False
-    return any(line.strip().startswith(name) for line in r.stdout.splitlines())
+    # Strip ANSI escape codes from output before matching
+    ansi_escape = _re.compile(r"\x1b\[[0-9;]*m")
+    for line in r.stdout.splitlines():
+        clean = ansi_escape.sub("", line).strip()
+        if clean.startswith(name):
+            return True
+    return False
 
 
 def new_tab(session: str, name: str, command: str | None = None, cwd: str | None = None) -> str:
@@ -56,9 +80,19 @@ def new_tab(session: str, name: str, command: str | None = None, cwd: str | None
 
 
 def close_tab(session: str, tab_name: str) -> None:
-    """Close tab by navigating to it then closing."""
-    _run(["go-to-tab-name", tab_name], session=session)
-    _run(["close-tab"], session=session)
+    """Close tab by finding its tab_id then closing."""
+    panes = list_panes(session)
+    tab_id = None
+    for p in panes:
+        if p.get("tab_name") == tab_name:
+            tab_id = p.get("tab_id")
+            break
+    if tab_id is not None:
+        _run(["close-tab", "--tab-id", str(tab_id)], session=session)
+    else:
+        # Fallback: navigate then close
+        _run(["go-to-tab-name", tab_name], session=session)
+        _run(["close-tab"], session=session)
 
 
 def list_tabs(session: str) -> list[dict]:
@@ -95,21 +129,12 @@ def send_keys(session: str, pane_id: str, keys: str) -> None:
 
 
 def dump_screen(session: str, pane_id: str, full: bool = False) -> str:
-    """Dump pane screen to /dev/shm (or tempfile on macOS), return content."""
-    # macOS doesn't have /dev/shm
-    dump_dir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
-    dump_file = os.path.join(dump_dir, f"zj-{session}-{pane_id.replace('/', '_')}.txt")
-    args = ["dump-screen", "--pane-id", pane_id, dump_file]
+    """Dump pane screen content. Returns text."""
+    args = ["dump-screen", "--pane-id", pane_id]
     if full:
-        args.insert(1, "--full")  # --full before --pane-id
-    _run(args, session=session)
-    try:
-        with open(dump_file) as f:
-            content = f.read()
-        os.unlink(dump_file)
-        return content
-    except FileNotFoundError:
-        return ""
+        args.append("--full")
+    r = _run(args, session=session)
+    return r.stdout if r.returncode == 0 else ""
 
 
 def subscribe_pane(session: str, pane_id: str) -> subprocess.Popen:

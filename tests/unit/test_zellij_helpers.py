@@ -204,42 +204,29 @@ def test_get_pane_id_returns_none_when_missing(mock_panes):
 
 @patch("zchat.cli.zellij._run")
 def test_dump_screen_without_full(mock_run):
-    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
-    m = mock_open(read_data="screen content")
-    with patch("builtins.open", m), patch("os.unlink"), \
-         patch("os.path.isdir", return_value=False):
-        content = zellij.dump_screen("sess", "terminal_1")
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="screen content")
+    content = zellij.dump_screen("sess", "terminal_1")
     assert content == "screen content"
-    # Verify args don't contain --full
     action_args = mock_run.call_args[0][0]
     assert "--full" not in action_args
     assert action_args[0] == "dump-screen"
-    assert action_args[1] == "--pane-id"
-    assert action_args[2] == "terminal_1"
+    assert "--pane-id" in action_args
 
 
 @patch("zchat.cli.zellij._run")
 def test_dump_screen_with_full_flag(mock_run):
-    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
-    m = mock_open(read_data="full content")
-    with patch("builtins.open", m), patch("os.unlink"), \
-         patch("os.path.isdir", return_value=False):
-        content = zellij.dump_screen("sess", "terminal_1", full=True)
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="full content")
+    content = zellij.dump_screen("sess", "terminal_1", full=True)
     assert content == "full content"
-    # Verify --full is placed at index 1 (before --pane-id)
     action_args = mock_run.call_args[0][0]
+    assert "--full" in action_args
     assert action_args[0] == "dump-screen"
-    assert action_args[1] == "--full"
-    assert action_args[2] == "--pane-id"
-    assert action_args[3] == "terminal_1"
 
 
 @patch("zchat.cli.zellij._run")
 def test_dump_screen_file_not_found(mock_run):
     mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=1, stdout="")
-    with patch("builtins.open", side_effect=FileNotFoundError), \
-         patch("os.path.isdir", return_value=False):
-        content = zellij.dump_screen("sess", "terminal_1")
+    content = zellij.dump_screen("sess", "terminal_1")
     assert content == ""
 
 
@@ -248,7 +235,18 @@ def test_dump_screen_file_not_found(mock_run):
 # ---------------------------------------------------------------------------
 
 @patch("zchat.cli.zellij._run")
-def test_close_tab_navigates_then_closes(mock_run):
+@patch("zchat.cli.zellij.list_panes")
+def test_close_tab_uses_tab_id(mock_panes, mock_run):
+    mock_panes.return_value = [{"tab_name": "editor", "tab_id": 2, "id": 1, "is_plugin": False}]
+    zellij.close_tab("sess", "editor")
+    mock_run.assert_called_once_with(["close-tab", "--tab-id", "2"], session="sess")
+
+
+@patch("zchat.cli.zellij._run")
+@patch("zchat.cli.zellij.list_panes")
+def test_close_tab_fallback_navigate(mock_panes, mock_run):
+    """Falls back to go-to-tab-name + close-tab when tab_id not found."""
+    mock_panes.return_value = []
     zellij.close_tab("sess", "editor")
     assert mock_run.call_count == 2
     calls = mock_run.call_args_list
