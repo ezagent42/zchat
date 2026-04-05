@@ -49,13 +49,16 @@ def get_config_value(config: dict, dotted_key: str):
     return node
 
 
-def set_config_value(config: dict, dotted_key: str, value: str) -> None:
-    """Set a value in config by dotted key. Auto-converts 'true'/'false' to bool."""
+def set_config_value(config: dict, dotted_key: str, value: str | int | bool | list) -> None:
+    """Set a value in config by dotted key. Auto-converts 'true'/'false' to bool when value is str."""
     parts = dotted_key.split(".")
     node = config
     for part in parts[:-1]:
         node = node.setdefault(part, {})
-    if value.lower() in ("true", "false"):
-        node[parts[-1]] = value.lower() == "true"
+    if isinstance(value, str):
+        if value.lower() in ("true", "false"):
+            node[parts[-1]] = value.lower() == "true"
+        else:
+            node[parts[-1]] = value
     else:
         node[parts[-1]] = value

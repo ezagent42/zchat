@@ -75,3 +75,58 @@ def test_get_missing_key_returns_none(config_toml):
 
     assert cfg.get_config_value(config, "nonexistent.key") is None
     assert cfg.get_config_value(config, "update.nonexistent") is None
+
+
+def test_set_nested_server_config(config_toml):
+    """set_config_value supports deeply nested keys like servers.local.host."""
+    import zchat.cli.config_cmd as cfg
+
+    config = cfg.load_global_config(config_toml)
+    cfg.set_config_value(config, "servers.local.host", "127.0.0.1")
+    cfg.set_config_value(config, "servers.local.port", 6667)
+
+    assert cfg.get_config_value(config, "servers.local.host") == "127.0.0.1"
+    assert cfg.get_config_value(config, "servers.local.port") == 6667
+
+
+def test_set_runner_config(config_toml):
+    """set_config_value supports runner config with string command."""
+    import zchat.cli.config_cmd as cfg
+
+    config = cfg.load_global_config(config_toml)
+    cfg.set_config_value(config, "runners.claude-channel.command", "claude")
+    cfg.set_config_value(config, "runners.claude-channel.args", ["--model", "opus"])
+
+    assert cfg.get_config_value(config, "runners.claude-channel.command") == "claude"
+    assert cfg.get_config_value(config, "runners.claude-channel.args") == ["--model", "opus"]
+
+
+def test_set_int_value(config_toml):
+    """set_config_value stores int values directly (no string coercion)."""
+    import zchat.cli.config_cmd as cfg
+
+    config = cfg.load_global_config(config_toml)
+    cfg.set_config_value(config, "servers.local.port", 6697)
+
+    assert cfg.get_config_value(config, "servers.local.port") == 6697
+    assert isinstance(cfg.get_config_value(config, "servers.local.port"), int)
+
+
+def test_set_bool_value_direct(config_toml):
+    """set_config_value stores bool values directly (no string coercion)."""
+    import zchat.cli.config_cmd as cfg
+
+    config = cfg.load_global_config(config_toml)
+    cfg.set_config_value(config, "servers.local.tls", True)
+
+    assert cfg.get_config_value(config, "servers.local.tls") is True
+
+
+def test_set_list_value(config_toml):
+    """set_config_value stores list values directly."""
+    import zchat.cli.config_cmd as cfg
+
+    config = cfg.load_global_config(config_toml)
+    cfg.set_config_value(config, "default_channels", ["#general", "#dev"])
+
+    assert cfg.get_config_value(config, "default_channels") == ["#general", "#dev"]
