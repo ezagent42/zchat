@@ -1,28 +1,13 @@
 use zellij_tile::prelude::*;
-use serde::Deserialize;
 use std::collections::{BTreeMap, VecDeque};
 
+mod commands;
 mod fuzzy;
+
+use commands::{CommandInfo, ArgInfo};
 
 /// System tab name suffixes that are not agents.
 const SYSTEM_SUFFIXES: &[&str] = &["/chat", "/ctl"];
-
-// ---------------------------------------------------------------------------
-// Data types from `zchat list-commands` JSON
-// ---------------------------------------------------------------------------
-
-#[derive(Deserialize, Clone, Debug)]
-struct CommandInfo {
-    name: String,
-    args: Vec<ArgInfo>,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-struct ArgInfo {
-    name: String,
-    required: bool,
-    source: Option<String>,
-}
 
 // ---------------------------------------------------------------------------
 // Palette state machine
@@ -93,29 +78,19 @@ register_plugin!(ZchatPalette);
 
 impl ZchatPalette {
     fn load_commands_from_config(&mut self, json_str: &str) {
-        if let Ok(cmds) = serde_json::from_str::<Vec<CommandInfo>>(json_str) {
-            self.command_names = cmds.iter().map(|c| c.name.clone()).collect();
+        if let Some(cmds) = commands::parse_commands(json_str) {
+            self.command_names = commands::command_names(&cmds);
             self.commands = cmds;
         }
     }
 
-    fn zchat_cmd(&self) -> Vec<String> {
-        // zchat_bin may contain spaces (e.g. "/path/python -m zchat.cli")
-        self.zchat_bin
-            .split_whitespace()
-            .map(String::from)
-            .collect()
-    }
-
     fn execute_command(&mut self) {
-        let parts: Vec<&str> = self.current_command.split_whitespace().collect();
-        let mut cmd: Vec<String> = self.zchat_cmd();
-        if !self.project_name.is_empty() {
-            cmd.push("--project".to_string());
-            cmd.push(self.project_name.clone());
-        }
-        cmd.extend(parts.iter().map(|s| s.to_string()));
-        cmd.extend(self.collected_args.iter().cloned());
+        let cmd = commands::build_cli_args(
+            &self.zchat_bin,
+            &self.project_name,
+            &self.current_command,
+            &self.collected_args,
+        );
 
         let cmd_refs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
         let mut ctx = BTreeMap::new();
