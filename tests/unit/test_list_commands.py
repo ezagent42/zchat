@@ -57,22 +57,20 @@ def test_list_commands_excludes_hidden():
     assert "list-commands" not in names
 
 
-def test_list_commands_includes_choices(tmp_path, monkeypatch):
-    """Args with static sources should include pre-resolved choices."""
-    import tomli_w
+def test_list_commands_includes_choices():
+    """Args with static sources should include choices from defaults.toml."""
     from zchat.cli.app import _get_commands_json
-    monkeypatch.setattr("zchat.cli.config_cmd.ZCHAT_DIR", str(tmp_path))
-    # Create global config with servers
-    cfg = {"servers": {"cloud": {"host": "x"}, "local": {"host": "y"}},
-           "update": {"channel": "main", "auto_upgrade": False}}
-    (tmp_path / "config.toml").write_text(tomli_w.dumps(cfg))
+    from zchat.cli.defaults import server_presets
     commands = json.loads(_get_commands_json())
     proj_create = next(c for c in commands if c["name"] == "project create")
     server_arg = next(a for a in proj_create["args"] if a["name"] == "server")
     assert "choices" in server_arg
+    # Values should match preset names from defaults.toml
+    presets = server_presets()
     values = {c["value"] for c in server_arg["choices"]}
-    assert "cloud" in values
-    assert "local" in values
-    # Each choice has a label for display
-    labels = [c["label"] for c in server_arg["choices"]]
-    assert any("h2os" in l for l in labels)  # cloud preset label
+    for preset_name in presets:
+        assert preset_name in values
+    # Each choice carries the label from defaults.toml
+    for choice in server_arg["choices"]:
+        if choice["value"] in presets:
+            assert choice["label"] == presets[choice["value"]]["label"]

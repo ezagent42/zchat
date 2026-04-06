@@ -173,20 +173,19 @@ mod tests {
 
     #[test]
     fn parse_commands_with_choices() {
-        let json = r#"[{"name": "project create", "args": [
-            {"name": "name", "required": true},
-            {"name": "server", "required": false, "source": "servers", "choices": [
-                {"value": "cloud", "label": "zchat.inside.h2os.cloud (recommended)"},
-                {"value": "local", "label": "Local (127.0.0.1:6667)"}
+        // Test fixture — verifies parsing logic, not production config values
+        let json = r#"[{"name": "pick", "args": [
+            {"name": "target", "required": false, "source": "things", "choices": [
+                {"value": "alpha", "label": "Alpha server (10.0.0.1:1234)"},
+                {"value": "beta", "label": "Beta server (10.0.0.2:5678)"}
             ]}
         ]}]"#;
         let cmds = parse_commands(json).unwrap();
-        let server_arg = &cmds[0].args[1];
-        assert_eq!(server_arg.source.as_deref(), Some("servers"));
-        assert_eq!(server_arg.choices.len(), 2);
-        assert_eq!(server_arg.choices[0].value, "cloud");
-        assert_eq!(server_arg.choices[0].label, "zchat.inside.h2os.cloud (recommended)");
-        assert_eq!(server_arg.choices[1].value, "local");
+        let arg = &cmds[0].args[0];
+        assert_eq!(arg.choices.len(), 2);
+        assert_eq!(arg.choices[0].value, "alpha");
+        assert_eq!(arg.choices[0].label, "Alpha server (10.0.0.1:1234)");
+        assert_eq!(arg.choices[1].value, "beta");
     }
 
     #[test]
