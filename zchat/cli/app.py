@@ -960,7 +960,7 @@ def cmd_irc_start(
     ctx: typer.Context,
     nick: Optional[str] = typer.Option(None, help="Override nickname from config"),
 ):
-    """Start WeeChat in tmux, auto-connect to IRC."""
+    """Start WeeChat in Zellij, auto-connect to IRC."""
 
     mgr = _get_irc_manager(ctx)
     try:
@@ -1048,7 +1048,7 @@ def cmd_agent_list(
         return
     for name, info in agents.items():
         status = info["status"]
-        window = info.get("window_name", info.get("pane_id", "—"))
+        window = info.get("tab_name", "—")
         ws = info.get("workspace", "—")
         elapsed = time.time() - info.get("created_at", time.time())
         if status != "offline" and elapsed > 0:
@@ -1076,7 +1076,7 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
     typer.echo(f"  type:      {info.get('type', 'unknown')}")
     typer.echo(f"  status:    {info['status']}")
     typer.echo(f"  uptime:    {mins}m {secs}s")
-    typer.echo(f"  window:    {info.get('window_name', info.get('pane_id', '—'))}")
+    typer.echo(f"  tab:       {info.get('tab_name', '—')}")
     typer.echo(f"  workspace: {info.get('workspace', '—')}")
     typer.echo(f"  channels:  {', '.join(info.get('channels', []))}")
 
@@ -1084,7 +1084,7 @@ def cmd_agent_status(ctx: typer.Context, name: str = typer.Argument(...)):
 def cmd_agent_send(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Agent name"),
-    text: str = typer.Argument(..., help="Text to send to agent's tmux window"),
+    text: str = typer.Argument(..., help="Text to send to agent's Zellij tab"),
 ):
     """Send text to agent's pane."""
 
