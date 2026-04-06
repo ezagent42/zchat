@@ -107,7 +107,7 @@ impl ZchatPalette {
             .collect::<Vec<_>>()
             .join(" ");
         let script = format!(
-            "{}; echo; echo '\\x1b[2m(press Enter to close)\\x1b[0m'; read; zellij action close-pane",
+            r#"{}; printf '\n\033[2m(press Enter to close)\033[0m\n'; read; zellij action close-pane"#,
             shell_cmd
         );
         let command = CommandToRun {
