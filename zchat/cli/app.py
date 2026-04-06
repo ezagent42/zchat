@@ -240,6 +240,27 @@ def _ensure_plugins():
                 shutil.copy2(src, dest)
 
 
+def _write_config_kdl(project_dir_path) -> str:
+    """Generate config.kdl with correct plugin path and write to project dir."""
+    plugins_dir = os.path.join(ZCHAT_DIR, "plugins")
+    config_kdl = os.path.join(project_dir_path, "config.kdl")
+    content = f"""\
+keybinds {{
+    shared_except "locked" {{
+        bind "Ctrl k" {{
+            LaunchOrFocusPlugin "file:{plugins_dir}/zchat-palette.wasm" {{
+                floating true
+                move_to_focused_tab true
+            }}
+        }}
+    }}
+}}
+"""
+    with open(config_kdl, "w") as f:
+        f.write(content)
+    return config_kdl
+
+
 def _enter_session(ctx: typer.Context):
     """Start or attach to the project's Zellij session."""
     from zchat.cli import zellij
@@ -289,13 +310,10 @@ def _enter_session(ctx: typer.Context):
     layout_path = write_layout(pdir, cfg, state,
                                weechat_cmd=weechat_cmd,
                                project_name=project_name)
-    config_kdl = os.path.join(os.path.dirname(__file__), "data", "config.kdl")
-    cmd = ["zellij", "--new-session-with-layout", str(layout_path),
+    config_kdl = _write_config_kdl(pdir)
+    cmd = ["zellij", "--config", str(config_kdl),
+           "--new-session-with-layout", str(layout_path),
            "--session", session_name]
-    if os.path.isfile(config_kdl):
-        cmd = ["zellij", "--config", config_kdl,
-               "--new-session-with-layout", str(layout_path),
-               "--session", session_name]
     os.execvp("zellij", cmd)
 
 

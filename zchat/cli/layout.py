@@ -10,6 +10,12 @@ def _escape_kdl(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _plugins_dir() -> str:
+    """Return the absolute path to the zchat plugins directory."""
+    from zchat.cli.project import ZCHAT_DIR
+    return os.path.join(ZCHAT_DIR, "plugins")
+
+
 def generate_layout(
     config: dict,
     state: dict,
@@ -30,8 +36,9 @@ def generate_layout(
     lines.append('            plugin location="zellij:tab-bar"')
     lines.append("        }")
     lines.append("        children")
+    plugins = _plugins_dir()
     lines.append('        pane size=1 borderless=true {')
-    lines.append('            plugin location="file:~/.zchat/plugins/zchat-status.wasm"')
+    lines.append(f'            plugin location="file:{plugins}/zchat-status.wasm"')
     lines.append("        }")
     lines.append('        pane size=2 borderless=true {')
     lines.append('            plugin location="zellij:status-bar"')
