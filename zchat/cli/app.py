@@ -789,10 +789,18 @@ def cmd_agent_stop(ctx: typer.Context, name: str = typer.Argument(...)):
     typer.echo(f"Stopped {scoped}")
 
 @agent_app.command("list")
-def cmd_agent_list(ctx: typer.Context):
+def cmd_agent_list(
+    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
     """List all agents with status."""
     mgr = _get_agent_manager(ctx)
     agents = mgr.list_agents()
+    if json_output:
+        import json as _json
+        out = [{"name": n, **info} for n, info in agents.items()]
+        typer.echo(_json.dumps(out))
+        return
     if not agents:
         typer.echo("No agents")
         return
@@ -1027,6 +1035,60 @@ def cmd_config_list():
         if isinstance(values, dict):
             for k, v in values.items():
                 typer.echo(f"{section}.{k} = {v}")
+
+
+# ============================================================
+# plugin discovery
+# ============================================================
+
+# Registry: which command args get selection lists in the palette plugin
+_ARG_SOURCES = {
+    "agent stop": {"name": "running_agents"},
+    "agent focus": {"name": "running_agents"},
+    "agent hide": {"name": "running_agents"},
+    "agent restart": {"name": "running_agents"},
+    "agent send": {"name": "running_agents"},
+    "agent status": {"name": "running_agents"},
+    "project use": {"name": "projects"},
+    "project remove": {"name": "projects"},
+    "project show": {"name": "projects"},
+}
+
+
+@app.command("list-commands", hidden=True)
+def cmd_list_commands():
+    """Output all CLI commands as JSON (for plugin discovery)."""
+    import json as _json
+    import click
+
+    click_group = typer.main.get_group(app)
+    commands = []
+
+    def walk(group, prefix=""):
+        for name in sorted(group.list_commands(None) or []):
+            cmd = group.get_command(None, name)
+            if cmd is None:
+                continue
+            full = f"{prefix} {name}".strip()
+            if isinstance(cmd, click.Group):
+                if not getattr(cmd, "hidden", False):
+                    walk(cmd, full)
+            elif getattr(cmd, "hidden", False):
+                continue
+            else:
+                sources = _ARG_SOURCES.get(full, {})
+                args = []
+                for p in cmd.params:
+                    if p.name in ("ctx",) or p.name.startswith("_"):
+                        continue
+                    arg = {"name": p.name, "required": p.required}
+                    if p.name in sources:
+                        arg["source"] = sources[p.name]
+                    args.append(arg)
+                commands.append({"name": full, "args": args})
+
+    walk(click_group)
+    typer.echo(_json.dumps(commands))
 
 
 if __name__ == "__main__":
