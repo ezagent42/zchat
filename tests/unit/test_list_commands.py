@@ -55,3 +55,19 @@ def test_list_commands_excludes_hidden():
     commands = json.loads(result.output)
     names = [c["name"] for c in commands]
     assert "list-commands" not in names
+
+
+def test_list_commands_includes_choices(tmp_path, monkeypatch):
+    """Args with static sources should include pre-resolved choices."""
+    import tomli_w
+    from zchat.cli.app import _get_commands_json
+    monkeypatch.setattr("zchat.cli.config_cmd.ZCHAT_DIR", str(tmp_path))
+    # Create global config with servers
+    cfg = {"servers": {"cloud": {"host": "x"}, "local": {"host": "y"}},
+           "update": {"channel": "main", "auto_upgrade": False}}
+    (tmp_path / "config.toml").write_text(tomli_w.dumps(cfg))
+    commands = json.loads(_get_commands_json())
+    proj_create = next(c for c in commands if c["name"] == "project create")
+    server_arg = next(a for a in proj_create["args"] if a["name"] == "server")
+    assert "choices" in server_arg
+    assert set(server_arg["choices"]) == {"cloud", "local"}

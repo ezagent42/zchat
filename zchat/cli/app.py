@@ -1249,38 +1249,11 @@ _ARG_SOURCES = {
 
 @app.command("list-commands", hidden=True)
 def cmd_list_commands():
-    """Output all CLI commands as JSON (for plugin discovery)."""
-    import json as _json
-    import click
+    """Output all CLI commands as JSON (for plugin/integration discovery).
 
-    click_group = typer.main.get_group(app)
-    commands = []
-
-    def walk(group, prefix=""):
-        for name in sorted(group.list_commands(None) or []):
-            cmd = group.get_command(None, name)
-            if cmd is None:
-                continue
-            full = f"{prefix} {name}".strip()
-            if isinstance(cmd, click.Group):
-                if not getattr(cmd, "hidden", False):
-                    walk(cmd, full)
-            elif getattr(cmd, "hidden", False):
-                continue
-            else:
-                sources = _ARG_SOURCES.get(full, {})
-                args = []
-                for p in cmd.params:
-                    if p.name in ("ctx",) or p.name.startswith("_"):
-                        continue
-                    arg = {"name": p.name, "required": p.required}
-                    if p.name in sources:
-                        arg["source"] = sources[p.name]
-                    args.append(arg)
-                commands.append({"name": full, "args": args})
-
-    walk(click_group)
-    typer.echo(_json.dumps(commands))
+    Includes arg sources and pre-resolved choices where available.
+    """
+    typer.echo(_get_commands_json())
 
 
 if __name__ == "__main__":
