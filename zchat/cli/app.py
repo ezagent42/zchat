@@ -218,9 +218,9 @@ def main(
     # No subcommand → start/attach Zellij session
     if ctx.invoked_subcommand is None:
         if not resolved:
-            typer.echo("No project selected. Run 'zchat project create <name>' first.")
-            raise typer.Exit(1)
-        _enter_session(ctx)
+            _enter_lobby()
+        else:
+            _enter_session(ctx)
 
 
 def _ensure_plugins():
@@ -259,6 +259,42 @@ keybinds {{
     with open(config_kdl, "w") as f:
         f.write(content)
     return config_kdl
+
+
+def _enter_lobby():
+    """Launch Zellij without a project — a single ctl tab for setup."""
+    from zchat.cli import zellij
+    from pathlib import Path
+
+    _ensure_plugins()
+
+    session_name = "zchat"
+
+    # Already inside Zellij → nothing to switch to
+    if os.environ.get("ZELLIJ"):
+        typer.echo("No project selected. Run 'zchat project create <name>'.")
+        return
+
+    # Session exists → attach
+    if zellij.session_exists(session_name):
+        os.execvp("zellij", ["zellij", "attach", session_name])
+        return
+
+    # Minimal layout: just a ctl tab
+    lobby_dir = os.path.join(ZCHAT_DIR, "lobby")
+    os.makedirs(lobby_dir, exist_ok=True)
+    layout_kdl = os.path.join(lobby_dir, "layout.kdl")
+    with open(layout_kdl, "w") as f:
+        f.write("layout {\n")
+        f.write('    tab name="ctl" focus=true {\n')
+        f.write("        pane\n")
+        f.write("    }\n")
+        f.write("}\n")
+
+    config_kdl = _write_config_kdl(lobby_dir)
+    os.execvp("zellij", ["zellij", "--config", str(config_kdl),
+                          "--new-session-with-layout", layout_kdl,
+                          "--session", session_name])
 
 
 def _enter_session(ctx: typer.Context):
