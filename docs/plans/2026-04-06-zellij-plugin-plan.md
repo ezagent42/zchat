@@ -14,6 +14,16 @@
 
 **Important:** The WASM target on this system is `wasm32-wasip1` (not `wasm32-wasi`). Use this throughout.
 
+**Review Fixes (from code review):**
+
+1. `RunCommandResult` exit_code is `Option<i32>`, not `i32` — match with `Some(0)` in palette
+2. Multi-arg commands (e.g. `agent send <name> <text>`) need sequential collection — palette tracks `collected_args: Vec<String>` and `remaining_args` queue
+3. Plugin must pass `--project {name}` to CLI — extract project name from SessionUpdate (`zchat-{name}` → `{name}`)
+4. Verify `SessionInfo.is_current_session` compiles in Task 3 scaffold before depending on it
+5. Status bar running/total: simplify to `running = total` (all non-system tabs are agents), no `is_fullscreen_active` heuristic
+6. `list-commands` should also skip hidden groups, not just hidden leaf commands
+7. Plugin auto-install should overwrite outdated `.wasm` (compare mtime, not just existence)
+
 ---
 
 ## Task 1: CLI — `list-commands` + `--json` flag
@@ -101,7 +111,8 @@ def cmd_list_commands():
                 continue
             full = f"{prefix} {name}".strip()
             if isinstance(cmd, click.Group):
-                walk(cmd, full)
+                if not getattr(cmd, "hidden", False):
+                    walk(cmd, full)
             elif getattr(cmd, "hidden", False):
                 continue  # skip hidden commands like list-commands itself
             else:
@@ -363,21 +374,18 @@ impl ZchatStatus {
         let mut total = 0usize;
         for tab in tabs {
             let name = &tab.name;
-            // Skip system tabs (*/chat, */ctl, or tabs starting with system prefixes)
+            // Skip system tabs (*/chat, */ctl) and default "Tab #N" tabs
             if SYSTEM_SUFFIXES.iter().any(|s| name.ends_with(s)) {
                 continue;
             }
-            // Skip default "Tab #N" tabs
             if name.starts_with("Tab #") {
                 continue;
             }
             total += 1;
-            if tab.active || !tab.is_fullscreen_active {
-                // Tab exists = agent running (Zellij removes exited tabs)
-                running += 1;
-            }
         }
-        self.running_agents = running;
+        // All non-system tabs are agents; precise running count would
+        // require `zchat agent list --json` — keep it simple for now.
+        self.running_agents = total;
         self.total_agents = total;
     }
 
@@ -575,6 +583,7 @@ git commit -m "feat: add fuzzy matching module for command palette"
 
 **Files:**
 - Modify: `zchat-hub-plugin/zchat-palette/src/lib.rs`
+- Create: `zchat-hub-plugin/zchat-palette/src/ui.rs`
 
 **Step 1: Implement complete palette plugin**
 
@@ -592,8 +601,40 @@ Key implementation points:
 - On `Key` events: handle character input, Up/Down navigation, Enter selection, Esc to close
 - On `RunCommandResult` with context `"execute"`: show result, auto-close
 - Render: different UI per state (filter list, selection list, text input, spinner, result)
+- **`exit_code` is `Option<i32>`** — match with `Some(0)` for success, not bare `0`
 
 See design doc `docs/plans/2026-04-06-zellij-plugin-design.md` for the full `PaletteState` enum and UI layout.
+
+**Multi-arg collection (review fix #2):**
+Commands with multiple args (e.g. `agent send <name> <text>`) need sequential collection:
+```rust
+struct PaletteState {
+    // ...
+    collected_args: Vec<(String, String)>,  // (arg_name, value) pairs already collected
+    remaining_args: VecDeque<ArgInfo>,       // args still to collect
+}
+```
+Flow: after command selection → pop first from `remaining_args` → if it has a `source`, enter `ArgSelect`; else enter `ArgInput` → on completion, push to `collected_args` → pop next → when `remaining_args` empty, execute with all collected args.
+
+**--project flag (review fix #3):**
+All CLI invocations must include `--project {name}` extracted from the current session name:
+```rust
+fn build_command(&self, cmd_name: &str) -> Vec<String> {
+    let mut args = vec!["zchat".to_string()];
+    if !self.project_name.is_empty() {
+        args.push("--project".to_string());
+        args.push(self.project_name.clone());
+    }
+    // Split cmd_name by space and append parts
+    args.extend(cmd_name.split_whitespace().map(String::from));
+    // Append collected arg values
+    for (_, value) in &self.collected_args {
+        args.push(value.clone());
+    }
+    args
+}
+```
+Project name extracted from `SessionUpdate`: `zchat-{name}` → `{name}`.
 
 For agent/project candidates:
 - `running_agents` source: filter TabUpdate tabs (exclude system tabs `*/chat`, `*/ctl`)
@@ -722,7 +763,8 @@ def _ensure_plugins():
         if wasm.endswith(".wasm"):
             dest = os.path.join(plugins_dir, wasm)
             src = os.path.join(bundled_dir, wasm)
-            if not os.path.isfile(dest):
+            src_mtime = os.path.getmtime(src)
+            if not os.path.isfile(dest) or os.path.getmtime(dest) < src_mtime:
                 import shutil
                 shutil.copy2(src, dest)
 ```
