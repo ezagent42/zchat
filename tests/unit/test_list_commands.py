@@ -41,6 +41,14 @@ def test_list_commands_no_source_for_free_input():
     assert "source" not in name_arg
 
 
+def test_agent_list_json_flag_exists():
+    """agent list --json should be a recognized option."""
+    result = runner.invoke(app, ["agent", "list", "--json", "--help"])
+    # --help exits 0 and shows the option
+    assert result.exit_code == 0
+    assert "--json" in result.output
+
+
 def test_list_commands_excludes_hidden():
     """list-commands itself is hidden and should not appear."""
     result = runner.invoke(app, ["list-commands"])

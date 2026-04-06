@@ -70,8 +70,8 @@ impl ZellijPlugin for ZchatStatus {
             &self.project_name
         };
         let status = format!(
-            " {} \u{2502} agents: {}",
-            name, self.total_agents,
+            " {} \u{2502} agents: {}/{}",
+            name, self.total_agents, self.total_agents,
         );
         let text = Text::new(&status).color_range(0, 1..=name.len());
         print_text_with_coordinates(text, 0, 0, Some(cols), None);
