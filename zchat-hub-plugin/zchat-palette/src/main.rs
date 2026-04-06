@@ -22,7 +22,6 @@ enum PaletteState {
     /// Selecting from a list of candidates (agents, projects, servers)
     ArgSelect {
         arg_name: String,
-        required: bool,
         candidates: Vec<String>, // display labels
         values: Vec<String>,     // actual values passed to CLI
         selected: usize,
@@ -30,7 +29,6 @@ enum PaletteState {
     /// Free text input for args without a source
     ArgInput {
         arg_name: String,
-        required: bool,
         input: String,
     },
 }
@@ -61,7 +59,7 @@ struct ZchatPalette {
 
     // Current command being built
     current_command: String,
-    collected_args: Vec<(String, String, bool)>, // (name, value, required)
+    collected_args: Vec<String>,
     remaining_args: VecDeque<ArgInfo>,
 
     // Context from Zellij events
@@ -114,7 +112,6 @@ impl ZchatPalette {
                 let vals: Vec<String> = arg.choices.iter().map(|c| c.value.clone()).collect();
                 self.state = PaletteState::ArgSelect {
                     arg_name: arg.name,
-                    required: arg.required,
                     candidates: labels,
                     values: vals,
                     selected: 0,
@@ -127,7 +124,6 @@ impl ZchatPalette {
                     let tabs = self.agent_tabs.clone();
                     self.state = PaletteState::ArgSelect {
                         arg_name: arg.name,
-                        required: arg.required,
                         candidates: tabs.clone(),
                         values: tabs,
                         selected: 0,
@@ -137,7 +133,6 @@ impl ZchatPalette {
                     let sessions = self.session_names.clone();
                     self.state = PaletteState::ArgSelect {
                         arg_name: arg.name,
-                        required: arg.required,
                         candidates: sessions.clone(),
                         values: sessions,
                         selected: 0,
@@ -147,7 +142,6 @@ impl ZchatPalette {
                 _ => {
                     self.state = PaletteState::ArgInput {
                         arg_name: arg.name,
-                        required: arg.required,
                         input: String::new(),
                     };
                 }
@@ -252,25 +246,19 @@ impl ZchatPalette {
                 }
             }
             PaletteState::ArgSelect {
-                arg_name,
-                required,
+                arg_name: _,
                 values,
                 candidates,
                 selected,
             } => {
                 match key.bare_key {
                     BareKey::Esc => {
-                        if !*required {
-                            // Skip this optional arg
-                            self.advance_args();
-                        } else {
-                            self.state = PaletteState::default();
-                        }
+                        self.state = PaletteState::default();
                         return true;
                     }
                     BareKey::Enter => {
                         if let Some(val) = values.get(*selected) {
-                            self.collected_args.push((arg_name.clone(), val.clone(), *required));
+                            self.collected_args.push(val.clone());
                             self.advance_args();
                         }
                         return true;
@@ -288,28 +276,18 @@ impl ZchatPalette {
                     _ => {}
                 }
             }
-            PaletteState::ArgInput { arg_name, required, input } => {
+            PaletteState::ArgInput { arg_name: _, input } => {
                 match key.bare_key {
                     BareKey::Esc => {
-                        if !*required {
-                            self.advance_args();
-                        } else {
-                            self.state = PaletteState::default();
-                        }
+                        self.state = PaletteState::default();
                         return true;
                     }
                     BareKey::Enter => {
-                        if input.is_empty() && !*required {
-                            // Skip optional arg
-                            self.advance_args();
-                        } else if !input.is_empty() {
-                            let n = arg_name.clone();
-                            let v = input.clone();
-                            let r = *required;
-                            self.collected_args.push((n, v, r));
+                        if !input.is_empty() {
+                            self.collected_args.push(input.clone());
                             self.advance_args();
                         }
-                        // Empty + required: do nothing (must provide value)
+                        // Empty: do nothing (must provide value)
                         return true;
                     }
                     BareKey::Backspace => {
@@ -365,9 +343,8 @@ impl ZchatPalette {
         }
     }
 
-    fn render_arg_input(&self, _cols: usize, arg_name: &str, required: bool, input: &str) {
-        let hint = if required { "" } else { " (optional, Enter to skip)" };
-        println!(" {} | {}{}:", self.current_command, arg_name, hint);
+    fn render_arg_input(&self, _cols: usize, arg_name: &str, input: &str) {
+        println!(" {} | {}:", self.current_command, arg_name);
         println!(" > {}_", input);
     }
 }
@@ -430,11 +407,10 @@ impl ZellijPlugin for ZchatPalette {
                 let s = *selected;
                 self.render_arg_select(rows, cols, &n, &c, s);
             }
-            PaletteState::ArgInput { arg_name, required, input } => {
+            PaletteState::ArgInput { arg_name, input } => {
                 let n = arg_name.clone();
-                let r = *required;
                 let i = input.clone();
-                self.render_arg_input(cols, &n, r, &i);
+                self.render_arg_input(cols, &n, &i);
             }
         }
     }
