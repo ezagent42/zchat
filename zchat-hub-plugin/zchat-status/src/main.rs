@@ -63,17 +63,15 @@ impl ZellijPlugin for ZchatStatus {
         }
     }
 
-    fn render(&mut self, _rows: usize, cols: usize) {
+    fn render(&mut self, _rows: usize, _cols: usize) {
         let name = if self.project_name.is_empty() {
             "zchat"
         } else {
             &self.project_name
         };
-        let status = format!(
-            " {} \u{2502} agents: {}/{}",
+        print!(
+            " \x1b[1m{}\x1b[0m \u{2502} agents: {}/{}",
             name, self.total_agents, self.total_agents,
         );
-        let text = Text::new(&status).color_range(0, 1..=name.len());
-        print_text_with_coordinates(text, 0, 0, Some(cols), None);
     }
 }

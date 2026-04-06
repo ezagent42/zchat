@@ -296,64 +296,47 @@ impl ZchatPalette {
         false
     }
 
-    fn render_filter(&self, rows: usize, cols: usize, query: &str, selected: usize) {
-        // Prompt line
-        let prompt = format!(" > {}_", query);
-        let text = Text::new(&prompt);
-        print_text_with_coordinates(text, 0, 0, Some(cols), None);
+    fn render_filter(&self, rows: usize, _cols: usize, query: &str, selected: usize) {
+        println!(" > {}_", query);
 
-        // Filtered results
         let matches = fuzzy::fuzzy_filter(query, &self.command_names);
-        let max_items = rows.saturating_sub(2); // reserve prompt + bottom line
+        let max_items = rows.saturating_sub(2);
         for (i, &(idx, _)) in matches.iter().take(max_items).enumerate() {
             let name = &self.command_names[idx];
-            let prefix = if i == selected { " \u{25b6} " } else { "   " };
-            let line = format!("{}{}", prefix, name);
-            let text = if i == selected {
-                Text::new(&line).color_range(0, 0..line.len())
+            if i == selected {
+                println!(" \x1b[7m> {}\x1b[0m", name);
             } else {
-                Text::new(&line)
-            };
-            print_text_with_coordinates(text, 0, i + 1, Some(cols), None);
+                println!("   {}", name);
+            }
+        }
+        if matches.is_empty() && self.command_names.is_empty() {
+            println!("   (loading commands...)");
         }
     }
 
     fn render_arg_select(
         &self,
         rows: usize,
-        cols: usize,
+        _cols: usize,
         arg_name: &str,
         candidates: &[String],
         selected: usize,
     ) {
-        let header = format!(
-            " {} \u{2502} select {}:",
-            self.current_command, arg_name
-        );
-        print_text_with_coordinates(Text::new(&header), 0, 0, Some(cols), None);
+        println!(" {} | select {}:", self.current_command, arg_name);
 
         let max_items = rows.saturating_sub(2);
         for (i, candidate) in candidates.iter().take(max_items).enumerate() {
-            let prefix = if i == selected { " \u{25b6} " } else { "   " };
-            let line = format!("{}{}", prefix, candidate);
-            let text = if i == selected {
-                Text::new(&line).color_range(0, 0..line.len())
+            if i == selected {
+                println!(" \x1b[7m> {}\x1b[0m", candidate);
             } else {
-                Text::new(&line)
-            };
-            print_text_with_coordinates(text, 0, i + 1, Some(cols), None);
+                println!("   {}", candidate);
+            }
         }
     }
 
-    fn render_arg_input(&self, cols: usize, arg_name: &str, input: &str) {
-        let header = format!(
-            " {} \u{2502} enter {}:",
-            self.current_command, arg_name
-        );
-        print_text_with_coordinates(Text::new(&header), 0, 0, Some(cols), None);
-
-        let prompt = format!(" > {}_", input);
-        print_text_with_coordinates(Text::new(&prompt), 0, 1, Some(cols), None);
+    fn render_arg_input(&self, _cols: usize, arg_name: &str, input: &str) {
+        println!(" {} | enter {}:", self.current_command, arg_name);
+        println!(" > {}_", input);
     }
 }
 
@@ -448,13 +431,11 @@ impl ZellijPlugin for ZchatPalette {
                 self.render_arg_input(cols, &n, &i);
             }
             PaletteState::Executing => {
-                let text = format!(" Running: {} ...", self.current_command);
-                print_text_with_coordinates(Text::new(&text), 0, 0, Some(cols), None);
+                println!(" Running: {} ...", self.current_command);
             }
             PaletteState::Result { success, message } => {
                 let icon = if *success { "\u{2714}" } else { "\u{2718}" };
-                let text = format!(" {} {} (press any key)", icon, message);
-                print_text_with_coordinates(Text::new(&text), 0, 0, Some(cols), None);
+                println!(" {} {} (press any key)", icon, message);
             }
         }
     }
