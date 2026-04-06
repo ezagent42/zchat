@@ -1,8 +1,17 @@
 #!/bin/bash
 # Dev wrapper — runs zchat from this worktree instead of system install.
 # Uses a local .zchat/ dir so dev state doesn't pollute ~/.zchat.
+# Automatically builds plugins if source is newer than installed wasm.
 # Usage: ./bin/zchat-dev doctor
 #        ./bin/zchat-dev project create local
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export ZCHAT_HOME="${ZCHAT_HOME:-$REPO_ROOT/.zchat}"
+
+# Auto-build plugins if source changed
+WASM="$ZCHAT_HOME/plugins/zchat-palette.wasm"
+SRC="$REPO_ROOT/zchat-hub-plugin/zchat-palette/src/main.rs"
+if [ -f "$SRC" ] && { [ ! -f "$WASM" ] || [ "$SRC" -nt "$WASM" ]; }; then
+    "$REPO_ROOT/bin/build-plugins" >&2
+fi
+
 exec uv run --project "$REPO_ROOT" zchat "$@"
