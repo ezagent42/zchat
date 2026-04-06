@@ -85,38 +85,22 @@ def resolve_project(explicit: str | None = None) -> str | None:
 
 
 def load_project_config(name: str) -> dict:
-    """Load and validate project config.toml.
+    """Load and validate project config.toml (new format only).
 
-    Handles both old format (with [irc]/[agents]/[tmux] sections) and new
-    flat format (server, default_runner, zellij.session).
+    Old-format configs (with [irc]/[tmux] sections) are rejected with a
+    clear error message asking the user to recreate the project.
     """
     config_path = os.path.join(project_dir(name), "config.toml")
     with open(config_path, "rb") as f:
         cfg = tomllib.load(f)
 
-    # Old format detection: has [irc] section
-    if "irc" in cfg:
-        irc = cfg["irc"]
-        irc.setdefault("server", "127.0.0.1")
-        irc.setdefault("port", 6667)
-        irc.setdefault("tls", False)
-        irc.setdefault("password", "")
-        agents = cfg.setdefault("agents", {})
-        agents.setdefault("default_channels", ["#general"])
-        agents.setdefault("env_file", "")
-        agents.setdefault("default_type", "claude")
-        # Also populate new-format keys for forward compat
-        cfg.setdefault("server", "local")
-        cfg.setdefault("default_runner", agents.get("default_type", "claude"))
-        cfg.setdefault("default_channels", agents.get("default_channels", ["#general"]))
-        cfg.setdefault("username", agents.get("username", ""))
-        cfg.setdefault("env_file", agents.get("env_file", ""))
-        cfg.setdefault("mcp_server_cmd", agents.get("mcp_server_cmd", ["zchat-channel"]))
-        if "tmux" in cfg:
-            cfg.setdefault("zellij", {"session": cfg["tmux"].get("session", "")})
-        return cfg
+    if "irc" in cfg or "tmux" in cfg:
+        raise SystemExit(
+            f"Error: Project '{name}' uses old config format.\n"
+            f"Please delete and recreate:\n"
+            f"  zchat project remove {name} && zchat project create {name}"
+        )
 
-    # New format: apply defaults
     cfg.setdefault("server", "local")
     cfg.setdefault("default_runner", "claude-channel")
     cfg.setdefault("default_channels", ["#general"])

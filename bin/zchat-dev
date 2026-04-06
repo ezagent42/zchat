@@ -1,0 +1,5 @@
+#!/bin/bash
+# Dev wrapper — runs zchat from this worktree instead of system install.
+# Usage: ./bin/zchat-dev doctor
+#        ./bin/zchat-dev project create local
+exec uv run --project "$(cd "$(dirname "$0")/.." && pwd)" zchat "$@"

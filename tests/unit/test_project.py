@@ -122,36 +122,21 @@ def test_load_project_config_new_format(tmp_path, monkeypatch):
     assert "irc" not in cfg
 
 
-def test_load_project_config_old_format_compat(tmp_path, monkeypatch):
-    """Old [irc]/[agents] format should still load and also populate new keys."""
+def test_load_project_config_old_format_rejected(tmp_path, monkeypatch):
+    """Old [irc]/[tmux] format should be rejected with a clear error."""
+    import pytest
     monkeypatch.setattr("zchat.cli.project.ZCHAT_DIR", str(tmp_path))
     pdir = tmp_path / "projects" / "old-fmt"
     pdir.mkdir(parents=True)
     (pdir / "config.toml").write_text('''[irc]
 server = "10.0.0.1"
 port = 6697
-tls = true
-password = "secret"
-
-[agents]
-default_type = "claude"
-default_channels = ["#dev"]
-username = "alice"
-env_file = ""
 
 [tmux]
 session = "zchat-abc12345-old-fmt"
 ''')
-    cfg = load_project_config("old-fmt")
-    # Old keys preserved
-    assert cfg["irc"]["server"] == "10.0.0.1"
-    assert cfg["irc"]["tls"] is True
-    assert cfg["agents"]["default_type"] == "claude"
-    # New keys populated
-    assert cfg["server"] == "local"
-    assert cfg["default_runner"] == "claude"
-    assert cfg["default_channels"] == ["#dev"]
-    assert cfg["zellij"]["session"] == "zchat-abc12345-old-fmt"
+    with pytest.raises(SystemExit, match="old config format"):
+        load_project_config("old-fmt")
 
 
 def test_set_config_value(tmp_path, monkeypatch):

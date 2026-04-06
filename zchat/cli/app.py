@@ -88,8 +88,11 @@ def _get_irc_config(cfg: dict) -> dict:
     For old-format configs (with [irc] section), returns directly.
     """
     if "irc" in cfg:
-        # Old format — return directly
-        return cfg["irc"]
+        raise SystemExit(
+            f"Error: Project uses old config format ([irc] section).\n"
+            f"Please delete the project and recreate it:\n"
+            f"  zchat project remove <name> && zchat project create <name>"
+        )
     # New format — resolve server reference
     server_ref = cfg.get("server", "local")
     return resolve_server(server_ref)
