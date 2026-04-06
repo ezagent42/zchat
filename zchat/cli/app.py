@@ -252,8 +252,25 @@ def _zchat_bin() -> str:
     return f"{sys.executable} -m zchat.cli"
 
 
+def _resolve_static_choices(source_name: str) -> list[str] | None:
+    """Resolve static choices for a source name from global config."""
+    try:
+        global_cfg = load_global_config()
+    except Exception:
+        return None
+    if source_name == "servers":
+        return list(global_cfg.get("servers", {}).keys())
+    return None
+
+
 def _get_commands_json() -> str:
-    """Return list-commands output as a JSON string."""
+    """Return list-commands output as a JSON string.
+
+    For args with a ``source``, includes pre-resolved ``choices`` when
+    the source is static (e.g. servers from global config).  Runtime
+    sources (running_agents, projects) are resolved by the plugin from
+    Zellij events.
+    """
     import json as _json
     import click
 
@@ -279,7 +296,12 @@ def _get_commands_json() -> str:
                         continue
                     arg = {"name": p.name, "required": p.required}
                     if p.name in sources:
-                        arg["source"] = sources[p.name]
+                        source = sources[p.name]
+                        arg["source"] = source
+                        # Pre-resolve static choices
+                        choices = _resolve_static_choices(source)
+                        if choices:
+                            arg["choices"] = choices
                     args.append(arg)
                 commands.append({"name": full, "args": args})
 
@@ -1208,7 +1230,9 @@ def cmd_config_list():
 # plugin discovery
 # ============================================================
 
-# Registry: which command args get selection lists in the palette plugin
+# Registry: which command args get selection lists in the palette plugin.
+# "source" = runtime data (resolved by plugin from Zellij events)
+# "choices_from" = static data (resolved by CLI at config generation time)
 _ARG_SOURCES = {
     "agent stop": {"name": "running_agents"},
     "agent focus": {"name": "running_agents"},
@@ -1219,6 +1243,7 @@ _ARG_SOURCES = {
     "project use": {"name": "projects"},
     "project remove": {"name": "projects"},
     "project show": {"name": "projects"},
+    "project create": {"server": "servers"},
 }
 
 

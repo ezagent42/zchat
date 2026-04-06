@@ -10,7 +10,11 @@ pub struct CommandInfo {
 pub struct ArgInfo {
     pub name: String,
     pub required: bool,
+    #[serde(default)]
     pub source: Option<String>,
+    /// Pre-resolved choices from CLI (for static sources like servers).
+    #[serde(default)]
+    pub choices: Vec<String>,
 }
 
 /// Parse commands JSON from the inline config string.
@@ -158,6 +162,25 @@ mod tests {
             &[("name".into(), "a0".into(), true)],
         );
         assert_eq!(args, vec!["zchat", "agent", "create", "a0"]);
+    }
+
+    #[test]
+    fn parse_commands_with_choices() {
+        let json = r#"[{"name": "project create", "args": [
+            {"name": "name", "required": true},
+            {"name": "server", "required": false, "source": "servers", "choices": ["cloud", "local"]}
+        ]}]"#;
+        let cmds = parse_commands(json).unwrap();
+        let server_arg = &cmds[0].args[1];
+        assert_eq!(server_arg.source.as_deref(), Some("servers"));
+        assert_eq!(server_arg.choices, vec!["cloud", "local"]);
+    }
+
+    #[test]
+    fn parse_commands_missing_choices_defaults_empty() {
+        let json = r#"[{"name": "shutdown", "args": [{"name": "x", "required": true}]}]"#;
+        let cmds = parse_commands(json).unwrap();
+        assert!(cmds[0].args[0].choices.is_empty());
     }
 
     #[test]

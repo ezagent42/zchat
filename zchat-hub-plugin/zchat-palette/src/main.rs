@@ -104,6 +104,17 @@ impl ZchatPalette {
 
     fn advance_args(&mut self) {
         if let Some(arg) = self.remaining_args.pop_front() {
+            // 1. Pre-resolved choices from CLI (static: servers, templates, etc.)
+            if !arg.choices.is_empty() {
+                self.state = PaletteState::ArgSelect {
+                    arg_name: arg.name,
+                    required: arg.required,
+                    candidates: arg.choices,
+                    selected: 0,
+                };
+                return;
+            }
+            // 2. Runtime sources from Zellij events
             match arg.source.as_deref() {
                 Some("running_agents") => {
                     self.state = PaletteState::ArgSelect {
@@ -121,6 +132,7 @@ impl ZchatPalette {
                         selected: 0,
                     };
                 }
+                // 3. Free text input
                 _ => {
                     self.state = PaletteState::ArgInput {
                         arg_name: arg.name,
