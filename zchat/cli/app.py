@@ -247,17 +247,25 @@ def _ensure_plugins():
 
 
 def _zchat_bin() -> str:
-    """Return the absolute path to the current zchat executable."""
+    """Return the path to invoke zchat in a subprocess.
+
+    Prefers the system-installed 'zchat' binary. Falls back to
+    sys.executable -m zchat.cli for dev environments.
+    """
     import sys
-    # If running via `uv run`, sys.argv[0] might be 'zchat' — resolve it
     import shutil
+    # 1. If sys.argv[0] resolves to an executable, use it
     argv0 = sys.argv[0]
     if os.path.isabs(argv0) and os.path.isfile(argv0):
         return argv0
     resolved = shutil.which(argv0)
     if resolved:
         return resolved
-    # Fallback: use sys.executable -m zchat.cli
+    # 2. Check if 'zchat' is on PATH (e.g. Homebrew install)
+    zchat_path = shutil.which("zchat")
+    if zchat_path:
+        return zchat_path
+    # 3. Fallback: use sys.executable -m zchat.cli
     return f"{sys.executable} -m zchat.cli"
 
 
@@ -360,6 +368,7 @@ keybinds {{
                 floating true
                 move_to_focused_tab true
                 zchat_bin "{zchat_bin}"
+                zchat_home "{ZCHAT_DIR}"
                 commands_json "{commands_escaped}"
             }}
         }}

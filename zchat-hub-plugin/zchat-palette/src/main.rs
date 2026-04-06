@@ -61,6 +61,7 @@ struct ZchatPalette {
 
     // Configuration from KDL
     zchat_bin: String,
+    zchat_home: String,
 
     // Discovered commands
     commands: Vec<CommandInfo>,
@@ -106,9 +107,14 @@ impl ZchatPalette {
             .map(|a| shell_escape(a))
             .collect::<Vec<_>>()
             .join(" ");
+        let env_prefix = if self.zchat_home.is_empty() {
+            String::new()
+        } else {
+            format!("export ZCHAT_HOME={}; ", shell_escape(&self.zchat_home))
+        };
         let script = format!(
-            r#"{}; printf '\n\033[2m(press Enter to close)\033[0m\n'; read; zellij action close-pane"#,
-            shell_cmd
+            r#"{}{}; printf '\n\033[2m(press Enter to close)\033[0m\n'; read; zellij action close-pane"#,
+            env_prefix, shell_cmd
         );
         let command = CommandToRun {
             path: std::path::PathBuf::from("bash"),
@@ -382,6 +388,10 @@ impl ZellijPlugin for ZchatPalette {
             .get("zchat_bin")
             .cloned()
             .unwrap_or_else(|| "zchat".to_string());
+        self.zchat_home = configuration
+            .get("zchat_home")
+            .cloned()
+            .unwrap_or_default();
 
         // Load commands from inline JSON (passed via KDL config)
         if let Some(json_str) = configuration.get("commands_json") {
