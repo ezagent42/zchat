@@ -286,6 +286,14 @@ def _resolve_static_choices(source_name: str) -> list[dict] | None:
         except Exception:
             pass
         return choices if choices else None
+    if source_name == "projects":
+        try:
+            projects = list_projects()
+            if projects:
+                return [{"value": p, "label": p} for p in sorted(projects)]
+        except Exception:
+            pass
+        return None
     return None
 
 
