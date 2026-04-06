@@ -1019,8 +1019,8 @@ def cmd_agent_create(
         raise typer.Exit(1)
     scoped = mgr.scoped(name)
     typer.echo(f"Created {scoped} (type: {info['type']})")
-    typer.echo(f"  window: {info['window_name']}")
-    typer.echo(f"  workspace: {info['workspace']}")
+    typer.echo(f"  tab: {info.get('tab_name', info.get('window_name', '—'))}")
+    typer.echo(f"  workspace: {info.get('workspace', '—')}")
 
 @agent_app.command("stop")
 def cmd_agent_stop(ctx: typer.Context, name: str = typer.Argument(...)):
