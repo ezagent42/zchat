@@ -364,19 +364,21 @@ impl ZellijPlugin for ZchatPalette {
                 self.update_sessions(&sessions);
                 false
             }
-            Event::RunCommandResult(exit_code, _stdout, stderr, context) => {
+            Event::RunCommandResult(exit_code, stdout, stderr, context) => {
                 match context.get("action").map(|s| s.as_str()) {
                     Some("execute") => {
                         let success = exit_code == Some(0);
-                        let msg = if success {
+                        // Show actual CLI output
+                        let out = String::from_utf8_lossy(&stdout);
+                        let err = String::from_utf8_lossy(&stderr);
+                        let msg = if !out.trim().is_empty() {
+                            out.trim().to_string()
+                        } else if !err.trim().is_empty() {
+                            err.trim().to_string()
+                        } else if success {
                             "Done".to_string()
                         } else {
-                            let err = String::from_utf8_lossy(&stderr);
-                            if err.is_empty() {
-                                "Command failed".to_string()
-                            } else {
-                                err.lines().next().unwrap_or("Error").to_string()
-                            }
+                            "Command failed".to_string()
                         };
                         self.state = PaletteState::Result {
                             success,
@@ -418,7 +420,11 @@ impl ZellijPlugin for ZchatPalette {
             }
             PaletteState::Result { success, message } => {
                 let icon = if *success { "\u{2714}" } else { "\u{2718}" };
-                println!(" {} {} (press any key)", icon, message);
+                for line in message.lines() {
+                    println!(" {} {}", icon, line);
+                }
+                println!();
+                println!(" (press any key)");
             }
         }
     }
