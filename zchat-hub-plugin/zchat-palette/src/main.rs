@@ -33,13 +33,6 @@ enum PaletteState {
         required: bool,
         input: String,
     },
-    /// Waiting for RunCommandResult
-    Executing,
-    /// Showing success/error briefly
-    Result {
-        success: bool,
-        message: String,
-    },
 }
 
 impl Default for PaletteState {
@@ -95,12 +88,22 @@ impl ZchatPalette {
             &self.collected_args,
         );
 
-        let cmd_refs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
-        let mut ctx = BTreeMap::new();
-        ctx.insert("action".to_string(), "execute".to_string());
-        run_command(&cmd_refs, ctx);
+        if cmd.is_empty() {
+            return;
+        }
 
-        self.state = PaletteState::Executing;
+        // Open a floating terminal pane running the CLI command.
+        // User interacts with the real CLI (prompts, validation, output).
+        let path = std::path::PathBuf::from(&cmd[0]);
+        let args: Vec<String> = cmd[1..].to_vec();
+        let command = CommandToRun {
+            path,
+            args,
+            cwd: None,
+        };
+        open_command_pane_floating(command, None, BTreeMap::new());
+        hide_self();
+        self.state = PaletteState::default();
     }
 
     fn advance_args(&mut self) {
@@ -160,19 +163,15 @@ impl ZchatPalette {
             let cmd = &self.commands[idx];
             self.current_command = cmd.name.clone();
             self.collected_args.clear();
-            // Collect ALL args: required first, then optional
-            let mut args: Vec<ArgInfo> = Vec::new();
-            for a in &cmd.args {
-                if a.required {
-                    args.push(a.clone());
-                }
-            }
-            for a in &cmd.args {
-                if !a.required {
-                    args.push(a.clone());
-                }
-            }
-            self.remaining_args = args.into_iter().collect();
+            // Only collect required positional args in palette.
+            // Optional args are handled by CLI's interactive prompts
+            // in the terminal pane opened by execute_command().
+            self.remaining_args = cmd
+                .args
+                .iter()
+                .filter(|a| a.required)
+                .cloned()
+                .collect();
             self.advance_args();
         }
     }
@@ -323,13 +322,6 @@ impl ZchatPalette {
                     _ => {}
                 }
             }
-            PaletteState::Result { .. } => {
-                // Any key dismisses the result
-                self.state = PaletteState::default();
-                hide_self();
-                return true;
-            }
-            PaletteState::Executing => {}
         }
         false
     }
@@ -390,7 +382,6 @@ impl ZellijPlugin for ZchatPalette {
             EventType::Key,
             EventType::TabUpdate,
             EventType::SessionUpdate,
-            EventType::RunCommandResult,
         ]);
 
         // Read configuration from KDL
@@ -415,31 +406,6 @@ impl ZellijPlugin for ZchatPalette {
             Event::SessionUpdate(sessions, _) => {
                 self.update_sessions(&sessions);
                 false
-            }
-            Event::RunCommandResult(exit_code, stdout, stderr, context) => {
-                match context.get("action").map(|s| s.as_str()) {
-                    Some("execute") => {
-                        let success = exit_code == Some(0);
-                        // Show actual CLI output
-                        let out = String::from_utf8_lossy(&stdout);
-                        let err = String::from_utf8_lossy(&stderr);
-                        let msg = if !out.trim().is_empty() {
-                            out.trim().to_string()
-                        } else if !err.trim().is_empty() {
-                            err.trim().to_string()
-                        } else if success {
-                            "Done".to_string()
-                        } else {
-                            "Command failed".to_string()
-                        };
-                        self.state = PaletteState::Result {
-                            success,
-                            message: msg,
-                        };
-                        true
-                    }
-                    _ => false,
-                }
             }
             _ => false,
         }
@@ -468,17 +434,6 @@ impl ZellijPlugin for ZchatPalette {
                 let r = *required;
                 let i = input.clone();
                 self.render_arg_input(cols, &n, r, &i);
-            }
-            PaletteState::Executing => {
-                println!(" Running: {} ...", self.current_command);
-            }
-            PaletteState::Result { success, message } => {
-                let icon = if *success { "\u{2714}" } else { "\u{2718}" };
-                for line in message.lines() {
-                    println!(" {} {}", icon, line);
-                }
-                println!();
-                println!(" (press any key)");
             }
         }
     }
