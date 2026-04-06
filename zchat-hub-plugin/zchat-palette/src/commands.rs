@@ -13,12 +13,16 @@ pub struct ArgInfo {
     #[serde(default)]
     pub source: Option<String>,
     /// Pre-resolved choices from CLI (for static sources like servers).
-    /// Each choice has a value (passed to CLI) and a label (shown to user).
+    /// Not used by palette (which launches interactive terminal panes),
+    /// but retained for JSON deserialization compatibility with list-commands output.
+    /// Other consumers (shell completion, WeeChat plugin) may use this field.
     #[serde(default)]
+    #[allow(dead_code)]
     pub choices: Vec<Choice>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
+#[allow(dead_code)] // Retained for JSON compat; not used by palette
 pub struct Choice {
     pub value: String,
     pub label: String,
@@ -136,6 +140,18 @@ mod tests {
             &["myagent".into(), "helper".into()],
         );
         assert_eq!(args, vec!["zchat", "--project", "local", "agent", "create", "myagent", "helper"]);
+    }
+
+    #[test]
+    fn runtime_source_arg() {
+        let args = build_cli_args("zchat", "local", "agent stop", &["alice-agent0".into()]);
+        assert_eq!(args, vec!["zchat", "--project", "local", "agent", "stop", "alice-agent0"]);
+    }
+
+    #[test]
+    fn no_project_in_main_session() {
+        let args = build_cli_args("zchat", "", "project create", &["myproj".into()]);
+        assert_eq!(args, vec!["zchat", "project", "create", "myproj"]);
     }
 
     #[test]

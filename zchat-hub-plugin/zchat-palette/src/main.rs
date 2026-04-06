@@ -106,19 +106,6 @@ impl ZchatPalette {
 
     fn advance_args(&mut self) {
         if let Some(arg) = self.remaining_args.pop_front() {
-            // 1. Pre-resolved choices from CLI (static: servers, templates, etc.)
-            if !arg.choices.is_empty() {
-                let labels: Vec<String> = arg.choices.iter().map(|c| c.label.clone()).collect();
-                let vals: Vec<String> = arg.choices.iter().map(|c| c.value.clone()).collect();
-                self.state = PaletteState::ArgSelect {
-                    arg_name: arg.name,
-                    candidates: labels,
-                    values: vals,
-                    selected: 0,
-                };
-                return;
-            }
-            // 2. Runtime sources from Zellij events
             match arg.source.as_deref() {
                 Some("running_agents") => {
                     let tabs = self.agent_tabs.clone();
@@ -138,7 +125,6 @@ impl ZchatPalette {
                         selected: 0,
                     };
                 }
-                // 3. Free text input
                 _ => {
                     self.state = PaletteState::ArgInput {
                         arg_name: arg.name,
