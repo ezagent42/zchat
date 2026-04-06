@@ -106,7 +106,10 @@ impl ZchatPalette {
             .map(|a| shell_escape(a))
             .collect::<Vec<_>>()
             .join(" ");
-        let script = format!("{}; zellij action close-pane", shell_cmd);
+        let script = format!(
+            "{}; echo; echo '\\x1b[2m(press Enter to close)\\x1b[0m'; read; zellij action close-pane",
+            shell_cmd
+        );
         let command = CommandToRun {
             path: std::path::PathBuf::from("bash"),
             args: vec!["-c".to_string(), script],
