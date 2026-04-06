@@ -9,6 +9,15 @@ use commands::{CommandInfo, ArgInfo};
 /// System tab name suffixes that are not agents.
 const SYSTEM_SUFFIXES: &[&str] = &["/chat", "/ctl"];
 
+/// Escape a string for use in a shell command.
+fn shell_escape(s: &str) -> String {
+    if s.chars().all(|c| c.is_alphanumeric() || "-_./=:@".contains(c)) {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Palette state machine
 // ---------------------------------------------------------------------------
@@ -91,12 +100,16 @@ impl ZchatPalette {
         }
 
         // Open a floating terminal pane running the CLI command.
-        // User interacts with the real CLI (prompts, validation, output).
-        let path = std::path::PathBuf::from(&cmd[0]);
-        let args: Vec<String> = cmd[1..].to_vec();
+        // Wrap in bash so the pane auto-closes when the command finishes.
+        let shell_cmd = cmd
+            .iter()
+            .map(|a| shell_escape(a))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let script = format!("{}; zellij action close-pane", shell_cmd);
         let command = CommandToRun {
-            path,
-            args,
+            path: std::path::PathBuf::from("bash"),
+            args: vec!["-c".to_string(), script],
             cwd: None,
         };
         open_command_pane_floating(command, None, BTreeMap::new());
