@@ -66,8 +66,9 @@ def test_ensure_session_with_layout(mock_exists, mock_global):
 
 
 @patch("zchat.cli.zellij._run_global")
+@patch("zchat.cli.zellij._session_exited", return_value=False)
 @patch("zchat.cli.zellij.session_exists", return_value=True)
-def test_ensure_session_already_exists(mock_exists, mock_global):
+def test_ensure_session_already_exists(mock_exists, mock_exited, mock_global):
     result = zellij.ensure_session("ci-runner")
     assert result == "ci-runner"
     mock_global.assert_not_called()

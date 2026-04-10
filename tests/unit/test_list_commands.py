@@ -46,7 +46,11 @@ def test_agent_list_json_flag_exists():
     result = runner.invoke(app, ["agent", "list", "--json", "--help"])
     # --help exits 0 and shows the option
     assert result.exit_code == 0
-    assert "--json" in result.output
+    # Strip ANSI escape codes before checking — rich/typer may insert color
+    # sequences that split "--json" into "-" + ANSI + "-json".
+    import re
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--json" in plain
 
 
 def test_list_commands_excludes_hidden():
