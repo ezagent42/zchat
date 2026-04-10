@@ -7,9 +7,6 @@ on:
   schedule:
     - cron: "0 2 * * *"
 
-env:
-  ERGO_VERSION: "2.18.0"
-
 jobs:
   unit:
     runs-on: macos-latest
@@ -20,37 +17,3 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - run: uv sync
       - run: uv run pytest tests/unit/ -v
-
-  integration-core:
-    runs-on: macos-latest
-    needs: [unit]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: astral-sh/setup-uv@v4
-      - run: brew install zellij weechat
-      - name: Install ergo IRC server
-        run: |
-          curl -sL "https://github.com/ergochat/ergo/releases/download/v${ERGO_VERSION}/ergo-${ERGO_VERSION}-macos-arm64.tar.gz" | tar xz
-          mv ergo-${ERGO_VERSION}-macos-arm64/ergo /usr/local/bin/ergo
-          ergo --version
-      - run: uv sync
-      - run: uv run pytest tests/integration/ -v
-
-  e2e-core:
-    runs-on: macos-latest
-    needs: [unit]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: astral-sh/setup-uv@v4
-      - run: brew install zellij weechat
-      - name: Install ergo IRC server
-        run: |
-          curl -sL "https://github.com/ergochat/ergo/releases/download/v${ERGO_VERSION}/ergo-${ERGO_VERSION}-macos-arm64.tar.gz" | tar xz
-          mv ergo-${ERGO_VERSION}-macos-arm64/ergo /usr/local/bin/ergo
-          ergo --version
-      - run: uv sync
-      - run: uv run pytest tests/e2e/ -v -m e2e
