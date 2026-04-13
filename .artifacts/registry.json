@@ -1,1 +1,167 @@
-{"version":1,"artifacts":[]}
+{
+  "version": 1,
+  "artifacts": [
+    {
+      "id": "coverage-matrix-001",
+      "name": "初始覆盖矩阵",
+      "type": "coverage-matrix",
+      "status": "draft",
+      "producer": "skill-0",
+      "consumers": [],
+      "path": ".artifacts/coverage/coverage-matrix.md",
+      "created_at": "2026-04-09T16:43:52Z",
+      "updated_at": "2026-04-09T16:43:52Z",
+      "related_ids": []
+    },
+    {
+      "id": "coverage-matrix-002",
+      "name": "覆盖矩阵v2（E2E全部正常执行）",
+      "type": "coverage-matrix",
+      "status": "draft",
+      "producer": "skill-0",
+      "consumers": [],
+      "path": ".artifacts/coverage/coverage-matrix.md",
+      "created_at": "2026-04-10T01:10:59Z",
+      "updated_at": "2026-04-10T01:10:59Z",
+      "related_ids": [
+        "test-plan-001",
+        "test-plan-002",
+        "test-plan-003"
+      ]
+    },
+    {
+      "id": "eval-doc-001",
+      "name": "Agent间IRC DM直接私聊评估",
+      "type": "eval-doc",
+      "status": "confirmed",
+      "producer": "skill-5",
+      "consumers": [],
+      "path": ".artifacts/eval-docs/eval-agent-dm-001.md",
+      "created_at": "2026-04-10T07:01:26Z",
+      "updated_at": "2026-04-10T07:57:59Z",
+      "related_ids": [
+        "test-plan-004"
+      ]
+    },
+    {
+      "id": "eval-doc-002",
+      "name": "scoped_name幂等性验证",
+      "type": "eval-doc",
+      "status": "draft",
+      "producer": "skill-5",
+      "consumers": [],
+      "path": ".artifacts/eval-docs/eval-scoped-name-002.md",
+      "created_at": "2026-04-10T07:03:54Z",
+      "updated_at": "2026-04-10T07:03:54Z",
+      "related_ids": []
+    },
+    {
+      "id": "test-plan-001",
+      "name": "Agent重启流程测试计划",
+      "type": "test-plan",
+      "status": "draft",
+      "producer": "skill-2",
+      "consumers": [],
+      "path": ".artifacts/test-plans/plan-agent-restart-001.md",
+      "created_at": "2026-04-10T07:06:46Z",
+      "updated_at": "2026-04-10T07:06:46Z",
+      "related_ids": [
+        "coverage-matrix-002"
+      ]
+    },
+    {
+      "id": "code-diff-001",
+      "name": "refresh test diff",
+      "type": "code-diff",
+      "status": "draft",
+      "producer": "manual-test",
+      "consumers": [],
+      "path": ".artifacts/code-diffs/test-refresh-diff.md",
+      "created_at": "2026-04-10T07:47:38Z",
+      "updated_at": "2026-04-10T07:47:38Z",
+      "related_ids": []
+    },
+    {
+      "id": "eval-doc-003",
+      "name": "doctor Docker check",
+      "type": "eval-doc",
+      "status": "archived",
+      "producer": "skill-5",
+      "consumers": [],
+      "path": ".artifacts/eval-docs/eval-not-bug-test.md",
+      "created_at": "2026-04-10T07:51:03Z",
+      "updated_at": "2026-04-10T07:51:57Z",
+      "related_ids": []
+    },
+    {
+      "id": "code-diff-002",
+      "name": "restart refactor diff",
+      "type": "code-diff",
+      "status": "draft",
+      "producer": "phase-2",
+      "consumers": [],
+      "path": ".artifacts/code-diffs/diff-restart-refactor.md",
+      "created_at": "2026-04-10T08:01:26Z",
+      "updated_at": "2026-04-10T08:01:26Z",
+      "related_ids": []
+    },
+    {
+      "id": "test-plan-002",
+      "name": "Restart 重构验证",
+      "type": "test-plan",
+      "status": "draft",
+      "producer": "skill-2",
+      "consumers": [],
+      "path": ".artifacts/test-plans/plan-restart-refactor-002.md",
+      "created_at": "2026-04-10T08:06:04Z",
+      "updated_at": "2026-04-10T08:06:04Z",
+      "related_ids": [
+        "code-diff-restart-001",
+        "coverage-matrix-002"
+      ]
+    },
+    {
+      "id": "test-plan-003",
+      "name": "创建项目E2E测试计划",
+      "type": "test-plan",
+      "status": "draft",
+      "producer": "skill-2",
+      "consumers": [],
+      "path": ".artifacts/test-plans/plan-project-create-003.md",
+      "created_at": "2026-04-10T08:09:15Z",
+      "updated_at": "2026-04-10T08:09:15Z",
+      "related_ids": [
+        "coverage-matrix-002"
+      ]
+    },
+    {
+      "id": "test-plan-004",
+      "name": "Agent间DM私聊功能测试计划",
+      "type": "test-plan",
+      "status": "executed",
+      "producer": "skill-2",
+      "consumers": [],
+      "path": ".artifacts/test-plans/plan-agent-dm-004.md",
+      "created_at": "2026-04-10T08:12:01Z",
+      "updated_at": "2026-04-10T08:24:47Z",
+      "related_ids": [
+        "eval-doc-001",
+        "test-diff-001"
+      ]
+    },
+    {
+      "id": "test-diff-001",
+      "name": "Agent DM E2E tests from test-plan-004",
+      "type": "test-diff",
+      "status": "draft",
+      "producer": "skill-3",
+      "consumers": [],
+      "path": ".artifacts/test-diffs/test-diff-001.md",
+      "created_at": "2026-04-10T08:24:42Z",
+      "updated_at": "2026-04-10T08:24:42Z",
+      "related_ids": [
+        "test-plan-004"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "module_name": "project",
+  "module_path": "zchat/cli/project.py",
+  "description": "Project management: create, list, use, remove, resolve project configurations (project.py:2)",
+  "key_interfaces": [
+    {"name": "project_dir", "file": "project.py", "line": 14, "description": "Return project directory path as string (legacy compat wrapper)"},
+    {"name": "create_project_config", "file": "project.py", "line": 24, "description": "Create project directory and write config.toml with server, runner, channels, session"},
+    {"name": "list_projects", "file": "project.py", "line": 62, "description": "Return sorted list of project names from projects directory"},
+    {"name": "get_default_project", "file": "project.py", "line": 69, "description": "Return default project name from ~/.zchat/default file"},
+    {"name": "set_default_project", "file": "project.py", "line": 76, "description": "Write project name to ~/.zchat/default file"},
+    {"name": "resolve_project", "file": "project.py", "line": 81, "description": "Resolve project: explicit arg > .zchat marker file walk > default"},
+    {"name": "load_project_config", "file": "project.py", "line": 94, "description": "Load and validate config.toml (rejects old [irc]/[tmux] format), fills defaults"},
+    {"name": "remove_project", "file": "project.py", "line": 123, "description": "Remove project directory via shutil.rmtree"},
+    {"name": "state_file_path", "file": "project.py", "line": 130, "description": "Return path to project state.json"},
+    {"name": "set_config_value", "file": "project.py", "line": 135, "description": "Set a dotted key in project config.toml with type coercion (bool, int, string)"},
+    {"name": "_generate_session_name", "file": "project.py", "line": 19, "description": "Generate Zellij session name: zchat-{project_name}"}
+  ],
+  "dependencies": ["paths", "defaults"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_project.py tests/unit/test_project_create_params.py -v",
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "create project",
+      "entry": "project.py:24",
+      "steps": [
+        "create project directory via paths.project_dir",
+        "resolve default channels/runner/mcp_server_cmd from defaults module",
+        "generate session name as zchat-{name}",
+        "build config dict with server, runner, channels, etc",
+        "write config.toml via tomli_w"
+      ]
+    },
+    {
+      "name": "resolve project",
+      "entry": "project.py:81",
+      "steps": [
+        "if explicit name provided, return it",
+        "walk up from CWD looking for .zchat marker file",
+        "fall back to get_default_project"
+      ]
+    }
+  ]
+}

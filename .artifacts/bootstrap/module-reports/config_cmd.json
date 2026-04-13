@@ -1,0 +1,31 @@
+{
+  "module_name": "config_cmd",
+  "module_path": "zchat/cli/config_cmd.py",
+  "description": "Global configuration management (~/.zchat/config.toml) (config_cmd.py:1)",
+  "key_interfaces": [
+    {"name": "load_global_config", "file": "config_cmd.py", "line": 19, "description": "Load global config from TOML, filling defaults for missing keys (update.channel, update.auto_upgrade)"},
+    {"name": "save_global_config", "file": "config_cmd.py", "line": 33, "description": "Write global config to TOML file, creating parent dirs"},
+    {"name": "resolve_server", "file": "config_cmd.py", "line": 41, "description": "Resolve server reference to {host, port, tls, password} dict from global config or presets"},
+    {"name": "ensure_server_in_global", "file": "config_cmd.py", "line": 68, "description": "Add a server entry to global config if it doesn't exist, save and return config"},
+    {"name": "get_config_value", "file": "config_cmd.py", "line": 82, "description": "Get value from config by dotted key (e.g. 'update.channel')"},
+    {"name": "set_config_value", "file": "config_cmd.py", "line": 94, "description": "Set value in config by dotted key with auto bool conversion"}
+  ],
+  "dependencies": ["paths", "defaults"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_config_cmd.py -v",
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "resolve IRC server for project",
+      "entry": "config_cmd.py:41",
+      "steps": [
+        "check if server_ref is a named entry in global [servers]",
+        "check if it matches a hostname in server_presets (from defaults.toml)",
+        "fall back to raw hostname with default port 6667, no TLS"
+      ]
+    }
+  ]
+}

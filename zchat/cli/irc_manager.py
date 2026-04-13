@@ -78,9 +78,10 @@ class IrcManager:
         lines = config_text.split('\n')
         lines = [l for l in lines if '[::1]:6667' not in l]
         config_text = '\n'.join(lines)
-        # Remove TLS listener (requires certs)
+        # Remove TLS listener and cert/key config (requires certs we don't have)
         import re
-        config_text = re.sub(r'":6697":\s*\n.*?min-tls-version:.*?\n', '', config_text, flags=re.DOTALL)
+        config_text = re.sub(r'.*":6697".*\n', '', config_text)
+        config_text = re.sub(r'\s+tls:\s*\n\s+cert:.*\n\s+key:.*\n', '\n', config_text)
         with open(ergo_conf, 'w') as f:
             f.write(config_text)
 
