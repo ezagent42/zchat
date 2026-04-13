@@ -10,7 +10,7 @@ from pathlib import Path
 
 import typer
 
-from zchat.cli.project import list_projects, resolve_project
+from zchat.cli.project import list_projects, load_project_config, resolve_project
 
 WEECHAT_PLUGIN_URL = "https://raw.githubusercontent.com/ezagent42/weechat-zchat-plugin/main/zchat.py"
 
@@ -73,6 +73,8 @@ def _check_command(name: str) -> tuple[bool, str]:
 
 def run_doctor():
     """Check all dependencies and report status."""
+    current = resolve_project()
+
     checks = [
         ("uv", True, "curl -LsSf https://astral.sh/uv/install.sh | sh"),
         ("python3", True, "uv python install 3.11"),
@@ -131,8 +133,14 @@ def run_doctor():
         optional_missing += 1
     optional_total += 1
 
-    # Check IRC port 6667 free (default local ergo port)
+    # Check IRC port free — read from active project config, fall back to 6667
     irc_port = 6667
+    if current:
+        try:
+            cfg = load_project_config(current)
+            irc_port = cfg.get("irc", {}).get("port", 6667)
+        except Exception:
+            pass
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         port_in_use = s.connect_ex(("127.0.0.1", irc_port)) == 0
     if port_in_use:
@@ -160,7 +168,6 @@ def run_doctor():
 
     # Project info
     projects = list_projects()
-    current = resolve_project()
     if projects:
         typer.echo(f"  Projects: {', '.join(projects)}")
         if current:
