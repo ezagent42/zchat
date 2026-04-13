@@ -55,7 +55,7 @@ fi
 |-------|---------|-------|------|------|
 | TC-01 | 2026-04-13 | zyli | PASS | WSL2 (kernel 6.6.87.2-microsoft-standard-WSL2)，http_proxy 重写成功，无 127.0.0.1 |
 | TC-02 | 2026-04-13 | zyli | PASS | 重写后地址为 198.18.0.2:7890（Windows host IP） |
-| TC-03 | 2026-04-13 | zyli | PASS | mock 原生 Linux /proc/version，proxy 值未被修改 |
+| TC-03 | 2026-04-13 | zyli | SKIP | 需要原生 Linux/macOS 机器；当前环境仅有 Windows + WSL2，无法真实验证 |
 | TC-04 | 2026-04-13 | zyli | PASS | 无 proxy 变量时静默跳过，无报错 |
 
 ## 自动化路径（后续）
