@@ -218,6 +218,34 @@
       "related_ids": [
         "eval-doc-005"
       ]
+    },
+    {
+      "id": "eval-doc-006",
+      "name": "WeeChat server cache 强制更新（fix #42）",
+      "type": "eval-doc",
+      "status": "confirmed",
+      "producer": "skill-5",
+      "consumers": [],
+      "path": ".artifacts/eval-docs/eval-weechat-cache-006.md",
+      "created_at": "2026-04-13T00:00:00Z",
+      "updated_at": "2026-04-13T00:00:00Z",
+      "related_ids": [
+        "test-plan-007"
+      ]
+    },
+    {
+      "id": "test-plan-007",
+      "name": "WeeChat server cache 强制更新测试计划（#42）",
+      "type": "test-plan",
+      "status": "executed",
+      "producer": "skill-2",
+      "consumers": [],
+      "path": ".artifacts/test-plans/plan-weechat-cache-007.md",
+      "created_at": "2026-04-13T00:00:00Z",
+      "updated_at": "2026-04-13T00:00:00Z",
+      "related_ids": [
+        "eval-doc-006"
+      ]
     }
   ]
 }
