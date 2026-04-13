@@ -30,6 +30,3 @@ docs/discuss/skill-dev/e2e-report/
 
 # IDE config
 .cursor/
-
-# Project-specific Claude Code skills (auto-generated, machine-local)
-.claude/skills/
