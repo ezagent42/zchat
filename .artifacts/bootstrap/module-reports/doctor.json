@@ -1,0 +1,45 @@
+{
+  "module_name": "doctor",
+  "module_path": "zchat/cli/doctor.py",
+  "description": "Environment diagnostics and component setup (doctor.py:2)",
+  "key_interfaces": [
+    {"name": "run_doctor", "file": "doctor.py", "line": 73, "description": "Check all dependencies (uv, python3, zellij, claude, zchat-channel, ergo, weechat, plugin) and report status with version info"},
+    {"name": "setup_weechat", "file": "doctor.py", "line": 148, "description": "Download and install WeeChat zchat plugin from GitHub to autoload directory"},
+    {"name": "_check_command", "file": "doctor.py", "line": 52, "description": "Check if command exists on PATH and return (found, version_string)"},
+    {"name": "_weechat_autoload_dir", "file": "doctor.py", "line": 23, "description": "Find WeeChat python autoload directory from known locations"},
+    {"name": "_weechat_plugin_installed", "file": "doctor.py", "line": 31, "description": "Return path to installed zchat.py WeeChat plugin or None"}
+  ],
+  "dependencies": ["project", "update"],
+  "test_results": {
+    "command": null,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "note": "No unit tests"
+  },
+  "user_flows": [
+    {
+      "name": "run diagnostics",
+      "entry": "doctor.py:73",
+      "steps": [
+        "iterate dependency list (uv, python3, zellij, claude, zchat-channel, ergo, weechat)",
+        "check each via shutil.which + version command",
+        "check weechat plugin installed",
+        "show project list and active project",
+        "show update status from update module",
+        "summarize required/optional counts, exit 1 if required missing"
+      ]
+    },
+    {
+      "name": "setup weechat plugin",
+      "entry": "doctor.py:148",
+      "steps": [
+        "verify weechat is installed",
+        "find or create autoload directory",
+        "prompt for overwrite if plugin exists (unless --force)",
+        "download zchat.py from GitHub raw URL",
+        "save to autoload directory"
+      ]
+    }
+  ]
+}

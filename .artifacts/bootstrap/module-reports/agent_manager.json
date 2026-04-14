@@ -1,0 +1,61 @@
+{
+  "module_name": "agent_manager",
+  "module_path": "zchat/cli/agent_manager.py",
+  "description": "Agent lifecycle management: create workspace, spawn zellij tab, track state (agent_manager.py:1)",
+  "key_interfaces": [
+    {"name": "AgentManager.__init__", "file": "agent_manager.py", "line": 36, "description": "Initialize with IRC config, username, channels, zellij session, state file, project dir"},
+    {"name": "AgentManager.create", "file": "agent_manager.py", "line": 65, "description": "Create and launch a new agent: pre-check IRC, scope name, create workspace, spawn tab, wait for ready marker"},
+    {"name": "AgentManager.stop", "file": "agent_manager.py", "line": 100, "description": "Stop an agent: force-stop tab, set offline, cleanup workspace"},
+    {"name": "AgentManager.restart", "file": "agent_manager.py", "line": 113, "description": "Stop then re-create agent with same config (channels, type)"},
+    {"name": "AgentManager.list_agents", "file": "agent_manager.py", "line": 124, "description": "Return all agents dict with refreshed alive status"},
+    {"name": "AgentManager.get_status", "file": "agent_manager.py", "line": 132, "description": "Return single agent info dict with refreshed status"},
+    {"name": "AgentManager.send", "file": "agent_manager.py", "line": 332, "description": "Send text to agent's zellij tab pane via write-chars + Enter"},
+    {"name": "AgentManager.scoped", "file": "agent_manager.py", "line": 62, "description": "Return scoped agent name: {username}-{name}"},
+    {"name": "_find_channel_pkg_dir", "file": "agent_manager.py", "line": 22, "description": "Locate zchat-channel-server package dir in uv tool venv"}
+  ],
+  "dependencies": ["zellij", "irc_manager", "runner", "auth", "paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_agent_manager.py tests/unit/test_agent_focus_hide.py -v",
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "create agent",
+      "entry": "agent_manager.py:65",
+      "steps": [
+        "check_irc_connectivity (pre-check IRC reachable)",
+        "scoped_name to get {username}-{name}",
+        "create workspace directory under project_dir/agents/",
+        "_build_env_context with IRC config + auth token",
+        "render_env from template .env.example",
+        "_spawn_tab: write .zchat-env, run start.sh in new zellij tab",
+        "_auto_confirm_startup: background thread to auto-confirm Claude prompts",
+        "_wait_for_ready: poll for .ready marker file (SessionStart hook)",
+        "_save_state to agents.json"
+      ]
+    },
+    {
+      "name": "stop agent",
+      "entry": "agent_manager.py:100",
+      "steps": [
+        "scoped_name lookup",
+        "_force_stop: run pre_stop hook from template, then close_tab",
+        "_cleanup_workspace: remove .ready marker",
+        "_save_state"
+      ]
+    },
+    {
+      "name": "send text to agent",
+      "entry": "agent_manager.py:332",
+      "steps": [
+        "scoped_name lookup",
+        "check agent alive via zellij tab_exists",
+        "check .ready marker exists",
+        "get_pane_id from zellij",
+        "send_command via zellij write-chars + Enter"
+      ]
+    }
+  ]
+}

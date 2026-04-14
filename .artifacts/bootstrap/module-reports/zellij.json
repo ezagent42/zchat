@@ -1,0 +1,43 @@
+{
+  "module_name": "zellij",
+  "module_path": "zchat/cli/zellij.py",
+  "description": "Thin Zellij CLI helpers shared across CLI modules (zellij.py:1)",
+  "key_interfaces": [
+    {"name": "_run", "file": "zellij.py", "line": 8, "description": "Run a zellij action command with optional session flag"},
+    {"name": "_run_global", "file": "zellij.py", "line": 17, "description": "Run a top-level zellij command (not action)"},
+    {"name": "ensure_session", "file": "zellij.py", "line": 26, "description": "Create or verify session exists; handles EXITED sessions by deleting and recreating"},
+    {"name": "session_exists", "file": "zellij.py", "line": 60, "description": "Check if a Zellij session exists (strips ANSI escape codes)"},
+    {"name": "new_tab", "file": "zellij.py", "line": 75, "description": "Create a new tab with optional command and cwd"},
+    {"name": "close_tab", "file": "zellij.py", "line": 86, "description": "Close tab by finding tab_id from list-panes then closing"},
+    {"name": "list_tabs", "file": "zellij.py", "line": 102, "description": "List tabs via list-tabs --json"},
+    {"name": "list_panes", "file": "zellij.py", "line": 113, "description": "List all panes via list-panes --all --json"},
+    {"name": "send_command", "file": "zellij.py", "line": 124, "description": "Send text to pane using write-chars + send-keys Enter"},
+    {"name": "send_keys", "file": "zellij.py", "line": 130, "description": "Send special keys (Enter, Ctrl-C, etc.)"},
+    {"name": "dump_screen", "file": "zellij.py", "line": 135, "description": "Dump pane screen content as text"},
+    {"name": "tab_exists", "file": "zellij.py", "line": 153, "description": "Check if tab exists via list-panes matching tab_name"},
+    {"name": "get_pane_id", "file": "zellij.py", "line": 159, "description": "Get terminal pane ID for a tab in 'terminal_N' format"},
+    {"name": "go_to_tab", "file": "zellij.py", "line": 168, "description": "Switch to a tab by name"},
+    {"name": "switch_session", "file": "zellij.py", "line": 173, "description": "Switch to another Zellij session"},
+    {"name": "kill_session", "file": "zellij.py", "line": 178, "description": "Kill a Zellij session"},
+    {"name": "subscribe_pane", "file": "zellij.py", "line": 144, "description": "Start subscribe process for streaming pane reads, returns Popen"}
+  ],
+  "dependencies": [],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_zellij_helpers.py -v",
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "ensure session lifecycle",
+      "entry": "zellij.py:26",
+      "steps": [
+        "check session_exists (parse list-sessions, strip ANSI)",
+        "if exists + EXITED, delete-session then recreate",
+        "if exists + not EXITED, return session name",
+        "if not exists, create with optional layout + config via --new-session-with-layout or attach --create-background"
+      ]
+    }
+  ]
+}

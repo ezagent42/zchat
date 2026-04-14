@@ -1,0 +1,51 @@
+{
+  "module_name": "irc_manager",
+  "module_path": "zchat/cli/irc_manager.py",
+  "description": "IRC daemon (ergo) and WeeChat pane management (irc_manager.py:2)",
+  "key_interfaces": [
+    {"name": "check_irc_connectivity", "file": "irc_manager.py", "line": 13, "description": "Raise ConnectionError if IRC server unreachable via socket connect (+ optional TLS)"},
+    {"name": "IrcManager.__init__", "file": "irc_manager.py", "line": 28, "description": "Initialize with config dict, state_file path, zellij session name"},
+    {"name": "IrcManager.daemon_start", "file": "irc_manager.py", "line": 40, "description": "Start local ergo IRC server: generate config, patch port, inject auth-script if OIDC, launch subprocess"},
+    {"name": "IrcManager.daemon_stop", "file": "irc_manager.py", "line": 168, "description": "Stop local ergo by stored PID (never kills by port to avoid hitting unrelated instances)"},
+    {"name": "IrcManager.start_weechat", "file": "irc_manager.py", "line": 183, "description": "Start WeeChat in dedicated zellij tab with auto-connect to IRC server"},
+    {"name": "IrcManager.build_weechat_cmd", "file": "irc_manager.py", "line": 208, "description": "Build WeeChat startup command string with server, SASL, plugin loading"},
+    {"name": "IrcManager.stop_weechat", "file": "irc_manager.py", "line": 255, "description": "Stop WeeChat by sending /quit command to its pane"},
+    {"name": "IrcManager.status", "file": "irc_manager.py", "line": 272, "description": "Return IRC status dict: daemon running/pid, weechat running/nick"},
+    {"name": "IrcManager._inject_auth_script", "file": "irc_manager.py", "line": 122, "description": "Inject auth-script and require-sasl settings into ergo config for OIDC auth"}
+  ],
+  "dependencies": ["zellij", "auth", "paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_irc_check.py -v",
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "note": "1 failed due to WSL2 network environment"
+  },
+  "user_flows": [
+    {
+      "name": "start IRC daemon",
+      "entry": "irc_manager.py:40",
+      "steps": [
+        "check if server is local (127.0.0.1/localhost/::1)",
+        "check if port already in use",
+        "create per-project ergo data dir",
+        "generate ergo.yaml from defaultconfig, patch port/TLS",
+        "inject auth-script if OIDC credentials exist",
+        "remove stale lock file",
+        "start ergo subprocess, verify port is listening",
+        "save daemon PID to state.json"
+      ]
+    },
+    {
+      "name": "start WeeChat",
+      "entry": "irc_manager.py:183",
+      "steps": [
+        "check if WeeChat tab already exists",
+        "pre-check IRC connectivity",
+        "build_weechat_cmd with server config, SASL, plugin",
+        "create new zellij tab named 'weechat'",
+        "save weechat tab/pane info to state.json"
+      ]
+    }
+  ]
+}

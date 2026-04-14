@@ -1,0 +1,31 @@
+{
+  "module_name": "layout",
+  "module_path": "zchat/cli/layout.py",
+  "description": "KDL layout generation for Zellij sessions (layout.py:1)",
+  "key_interfaces": [
+    {"name": "generate_layout", "file": "layout.py", "line": 19, "description": "Generate KDL layout string with tab-bar, status-bar plugins, WeeChat tab, ctl tab, and agent tabs from state"},
+    {"name": "write_layout", "file": "layout.py", "line": 86, "description": "Generate and write layout.kdl to project directory, returns path"},
+    {"name": "_escape_kdl", "file": "layout.py", "line": 9, "description": "Escape string for KDL double quotes (backslash, double-quote)"},
+    {"name": "_plugins_dir", "file": "layout.py", "line": 14, "description": "Return absolute path to zchat plugins directory"}
+  ],
+  "dependencies": ["paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_layout.py -v",
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "generate project session layout",
+      "entry": "layout.py:19",
+      "steps": [
+        "write default_tab_template with tab-bar + zchat-status.wasm + status-bar plugins",
+        "add WeeChat tab (first, focused) with optional command",
+        "add ctl tab for CLI",
+        "iterate state agents, add tab for each running/starting agent",
+        "return KDL string"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "module_name": "update",
+  "module_path": "zchat/cli/update.py",
+  "description": "Update checking and upgrade logic for zchat and channel-server packages (update.py:1)",
+  "key_interfaces": [
+    {"name": "load_update_state", "file": "update.py", "line": 26, "description": "Load update state from JSON file, returns defaults if missing"},
+    {"name": "save_update_state", "file": "update.py", "line": 41, "description": "Save update state to JSON file"},
+    {"name": "should_check_today", "file": "update.py", "line": 48, "description": "Return True if no update check has been done today (UTC date comparison)"},
+    {"name": "check_for_updates", "file": "update.py", "line": 87, "description": "Check remote versions (git ls-remote for main/dev, PyPI for release) and update state"},
+    {"name": "run_upgrade", "file": "update.py", "line": 134, "description": "Run uv tool install --force for both packages. Atomic: rolls back first if second fails."},
+    {"name": "_check_remote_git", "file": "update.py", "line": 61, "description": "Get latest commit hash (7 chars) from git remote"},
+    {"name": "_check_remote_pypi", "file": "update.py", "line": 75, "description": "Get latest version from PyPI JSON API"},
+    {"name": "_build_install_args", "file": "update.py", "line": 123, "description": "Build uv tool install package specs for given channel (main/dev: git, release: PyPI)"},
+    {"name": "_background_check_main", "file": "update.py", "line": 160, "description": "Entry point for background update check subprocess"}
+  ],
+  "dependencies": ["paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_update.py -v",
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "daily update check",
+      "entry": "update.py:87",
+      "steps": [
+        "record current timestamp as last_check",
+        "if channel is main/dev: git ls-remote for zchat + channel-server repos",
+        "if channel is release: query PyPI JSON API for both packages",
+        "set installed_ref to remote_ref if first check",
+        "set update_available flag if refs differ"
+      ]
+    },
+    {
+      "name": "run upgrade",
+      "entry": "update.py:134",
+      "steps": [
+        "build package specs based on channel",
+        "uv tool install --force for each spec",
+        "if any fails, roll back previously installed specs",
+        "return success boolean"
+      ]
+    }
+  ]
+}

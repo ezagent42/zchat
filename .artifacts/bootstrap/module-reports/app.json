@@ -1,0 +1,63 @@
+{
+  "module_name": "app",
+  "module_path": "zchat/cli/app.py",
+  "description": "Main CLI application: Typer command tree for agent lifecycle management (app.py:2)",
+  "key_interfaces": [
+    {"name": "app", "file": "app.py", "line": 32, "description": "Root Typer app with subcommands: project, irc, agent, setup, template, auth, config"},
+    {"name": "main", "file": "app.py", "line": 193, "description": "@app.callback: resolve project, spawn background update check, enter main session if no subcommand"},
+    {"name": "_get_config", "file": "app.py", "line": 52, "description": "Get project config from typer context, exit if no project selected"},
+    {"name": "_get_irc_config", "file": "app.py", "line": 94, "description": "Resolve IRC connection details from project + global config (rejects old format)"},
+    {"name": "_get_irc_manager", "file": "app.py", "line": 136, "description": "Create IrcManager from project context"},
+    {"name": "_get_agent_manager", "file": "app.py", "line": 151, "description": "Create AgentManager from project context with full IRC + auth config"},
+    {"name": "_enter_main_session", "file": "app.py", "line": 385, "description": "Enter/create the zchat main Zellij session (hub for all projects)"},
+    {"name": "_launch_project_session", "file": "app.py", "line": 443, "description": "Ensure project Zellij session is running, then switch/attach"},
+    {"name": "_create_project_zellij_session", "file": "app.py", "line": 476, "description": "Create new Zellij session: start ergo if local, build layout, write config.kdl"},
+    {"name": "_get_commands_json", "file": "app.py", "line": 309, "description": "Return list-commands output as JSON for zchat-palette plugin"},
+    {"name": "_write_config_kdl", "file": "app.py", "line": 355, "description": "Generate config.kdl with Ctrl-K palette keybinding and plugin paths"},
+    {"name": "_ensure_plugins", "file": "app.py", "line": 233, "description": "Copy bundled .wasm plugins to ~/.zchat/plugins/ if missing or outdated"},
+    {"name": "_version_callback", "file": "app.py", "line": 171, "description": "Print version and exit when --version/-V is passed"},
+    {"name": "cmd_project_create", "file": "app.py", "line": 524, "description": "Create new project with interactive or non-interactive server/channel/type selection"},
+    {"name": "cmd_project_list", "file": "app.py", "line": 665, "description": "List all projects with default marker"},
+    {"name": "cmd_project_use", "file": "app.py", "line": 677, "description": "Set default project and launch/switch to its Zellij session"},
+    {"name": "cmd_project_remove", "file": "app.py", "line": 687, "description": "Remove project after checking for running agents"},
+    {"name": "cmd_auth_login", "file": "app.py", "line": 756, "description": "Authenticate via OIDC device code flow or set local username"},
+    {"name": "cmd_auth_status", "file": "app.py", "line": 797, "description": "Show current auth status"},
+    {"name": "cmd_auth_logout", "file": "app.py", "line": 839, "description": "Clear cached auth tokens"},
+    {"name": "cmd_template_list", "file": "app.py", "line": 855, "description": "List available agent templates"},
+    {"name": "cmd_set", "file": "app.py", "line": 736, "description": "Set a project config value by dotted key"}
+  ],
+  "additional_files": [
+    {"file": "zchat/cli/__init__.py", "description": "Package init: docstring only (line 1)"},
+    {"file": "zchat/cli/__main__.py", "description": "Allow running as python -m zchat.cli (line 1-4)"}
+  ],
+  "dependencies": ["project", "agent_manager", "irc_manager", "auth", "update", "config_cmd", "paths", "defaults", "template_loader", "layout", "zellij"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_list_commands.py tests/unit/test_plugin_integration.py -v",
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "CLI entry point",
+      "entry": "app.py:193",
+      "steps": [
+        "resolve project (explicit > .zchat marker > default)",
+        "load project config if project exists",
+        "spawn background update check if not checked today",
+        "if no subcommand, enter main zchat Zellij session"
+      ]
+    },
+    {
+      "name": "project use (launch session)",
+      "entry": "app.py:677",
+      "steps": [
+        "set_default_project",
+        "_launch_project_session: load config, resolve session name",
+        "if inside Zellij: switch_session (create first if needed)",
+        "if outside: create session + attach via os.execvp",
+        "_create_project_zellij_session: start ergo, build weechat cmd, write layout.kdl + config.kdl, ensure_session"
+      ]
+    }
+  ]
+}

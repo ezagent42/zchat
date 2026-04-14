@@ -1,0 +1,46 @@
+{
+  "module_name": "runner",
+  "module_path": "zchat/cli/runner.py",
+  "description": "Runner module: merges global config [runners.X] with template directory assets for agent execution (runner.py:1-8)",
+  "key_interfaces": [
+    {"name": "resolve_runner", "file": "runner.py", "line": 75, "description": "Resolve runner by name from global config + template dir, returns dict with command, args, template_dir, start_script, env_template, hooks"},
+    {"name": "render_env", "file": "runner.py", "line": 144, "description": "Render .env.example with context dict ({{placeholder}} substitution), overlay .env user overrides"},
+    {"name": "list_runners", "file": "runner.py", "line": 181, "description": "List all available runners from global config + user templates + builtin templates"},
+    {"name": "_parse_env_file", "file": "runner.py", "line": 32, "description": "Parse a .env file into dict using python-dotenv"},
+    {"name": "_resolve_template_dir", "file": "runner.py", "line": 39, "description": "Resolve template directory by name: user_template_dirs > user dir > builtin"},
+    {"name": "_load_template_toml", "file": "runner.py", "line": 61, "description": "Load template.toml from a directory, set default hooks"},
+    {"name": "RunnerNotFoundError", "file": "runner.py", "line": 26, "description": "Exception raised when runner/template not found"}
+  ],
+  "dependencies": ["paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_runner.py -v",
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "resolve runner for agent creation",
+      "entry": "runner.py:75",
+      "steps": [
+        "lookup runners.<name> in global config",
+        "resolve template directory (user dirs > default > builtin)",
+        "load template.toml for hooks",
+        "merge global config overrides (command, args, hooks)",
+        "locate start_script and env_template paths",
+        "return consolidated runner dict"
+      ]
+    },
+    {
+      "name": "render environment variables",
+      "entry": "runner.py:144",
+      "steps": [
+        "resolve template dir from name or path",
+        "parse .env.example, substitute {{placeholder}} with context",
+        "overlay .env from template dir",
+        "overlay .env from user-scoped dir (for built-in templates)",
+        "return merged env dict"
+      ]
+    }
+  ]
+}
