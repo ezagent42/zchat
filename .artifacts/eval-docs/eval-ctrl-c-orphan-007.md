@@ -115,7 +115,12 @@ if name in self._agents and self._agents[name].get("status") == "running":
 
 ## 后续行动
 
-- [ ] eval-doc 已注册到 .artifacts/eval-docs/
-- [ ] 用户已确认 testcase 表格 (status: draft → confirmed)
-- [ ] GitHub issue 已创建
-- [ ] 进入 Skill 2 生成 test-plan
+- [x] eval-doc 已注册到 registry.json（eval-doc-007）
+- [x] 用户已确认 testcase 表格（status: confirmed）
+- [x] 修复代码已合并（commit `689c385`）
+- [x] code-diff 已注册（code-diff-006）
+- [x] test-plan 已生成（plan-ctrl-c-cleanup-008，Skill 2）
+- [x] 测试代码已编写（test_agent_manager.py +6 tests，Skill 3）
+- [x] 红灯报告已记录（e2e-report-001，4 FAIL 符合预期）
+- [x] test-diff 已注册（test-diff-005）
+- [x] 绿灯报告已生成（e2e-report-005，19/19 PASS，Skill 4）
