@@ -1,0 +1,79 @@
+{
+  "project": "zchat-channel-server",
+  "command": "uv run pytest tests/unit/ -v",
+  "working_dir": "zchat-channel-server/",
+  "timestamp": "2026-04-14",
+  "python_version": "3.13.5",
+  "pytest_version": "9.0.2",
+  "exit_code": 0,
+  "summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "error": 0
+  },
+  "tests": [
+    {
+      "nodeid": "tests/unit/test_legacy.py::test_sys_message_irc_roundtrip",
+      "outcome": "passed",
+      "module": "cs_server"
+    },
+    {
+      "nodeid": "tests/unit/test_legacy.py::test_sys_message_not_user_text",
+      "outcome": "passed",
+      "module": "cs_server"
+    },
+    {
+      "nodeid": "tests/unit/test_legacy.py::test_load_instructions_interpolates_agent_name",
+      "outcome": "passed",
+      "module": "cs_server"
+    },
+    {
+      "nodeid": "tests/unit/test_legacy.py::test_load_instructions_contains_routing_rules",
+      "outcome": "passed",
+      "module": "cs_server"
+    },
+    {
+      "nodeid": "tests/unit/test_legacy.py::test_load_instructions_contains_soul_pointer",
+      "outcome": "passed",
+      "module": "cs_server"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_detect_mention",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_clean_mention",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_chunk_message_short",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_chunk_message_long",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_chunk_message_cjk",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_chunk_message_strips_newlines",
+      "outcome": "passed",
+      "module": "cs_message"
+    },
+    {
+      "nodeid": "tests/unit/test_message.py::test_detect_mention_with_dash_separator",
+      "outcome": "passed",
+      "module": "cs_message"
+    }
+  ],
+  "duration_seconds": 11.69
+}
