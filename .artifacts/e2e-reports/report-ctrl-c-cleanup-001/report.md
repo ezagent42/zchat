@@ -1,7 +1,7 @@
 ---
 type: e2e-report
 id: e2e-report-001
-status: green
+status: partial-pass
 producer: skill-4
 created_at: "2026-04-13T00:00:00Z"
 related:
