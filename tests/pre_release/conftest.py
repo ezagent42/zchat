@@ -14,9 +14,37 @@ import time
 import pytest
 
 from zchat.cli import zellij
+from tests.pre_release.reporting import PreReleaseReportCollector
 from tests.shared.irc_probe import IrcProbe
 from tests.shared.cli_runner import make_cli_runner
 from tests.pre_release import PROJECT_NAME
+
+_REPORT_COLLECTOR: PreReleaseReportCollector | None = None
+
+
+def pytest_addoption(parser):
+    """Pre-release report generation options."""
+    group = parser.getgroup("pre-release-report")
+    group.addoption(
+        "--pre-release-report-dir",
+        dest="pre_release_report_dir",
+        action="store",
+        default=None,
+        help="Directory for generated pre-release JSON/Markdown reports.",
+    )
+    group.addoption(
+        "--no-pre-release-report",
+        dest="no_pre_release_report",
+        action="store_true",
+        default=False,
+        help="Disable automatic pre-release report generation.",
+    )
+
+
+def pytest_configure(config):
+    """Initialize report collector for this test session."""
+    global _REPORT_COLLECTOR
+    _REPORT_COLLECTOR = PreReleaseReportCollector(config)
 
 
 def pytest_collection_modifyitems(config, items):
@@ -24,10 +52,39 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "pre_release" in str(item.fspath):
             item.add_marker(pytest.mark.prerelease)
+            if _REPORT_COLLECTOR is not None:
+                _REPORT_COLLECTOR.register_item(item)
     # Ensure pytest-order sorts within each module, not globally.
     # Without this, all order(1) tests across files run first, breaking
     # the file-level sequencing (test_00 → test_01 → ... → test_08).
     config.option.order_scope = "module"
+
+
+def pytest_runtest_logreport(report):
+    """Collect per-test outcomes for report generation."""
+    if _REPORT_COLLECTOR is not None:
+        _REPORT_COLLECTOR.on_report(report)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Write pre-release report files at end of session."""
+    if _REPORT_COLLECTOR is not None:
+        _REPORT_COLLECTOR.finalize(session, exitstatus)
+
+
+def pytest_terminal_summary(terminalreporter):
+    """Show generated report paths in terminal summary."""
+    if _REPORT_COLLECTOR is None:
+        return
+    if _REPORT_COLLECTOR.report_error:
+        terminalreporter.section("pre-release report", sep="-", blue=True)
+        terminalreporter.write_line("failed to generate report:")
+        terminalreporter.write_line(_REPORT_COLLECTOR.report_error)
+        return
+    if _REPORT_COLLECTOR.generated_paths:
+        terminalreporter.section("pre-release report", sep="-", blue=True)
+        for path in _REPORT_COLLECTOR.generated_paths:
+            terminalreporter.write_line(path)
 
 
 @pytest.fixture(scope="session")
@@ -154,8 +211,12 @@ def zellij_send(zellij_session):
     """Send keys to a Zellij tab by name."""
     def send(target: str, text: str):
         pane_id = zellij.get_pane_id(zellij_session, target)
-        if pane_id:
-            zellij.send_command(zellij_session, pane_id, text)
+        if not pane_id:
+            pytest.fail(
+                f"Zellij pane not found: session={zellij_session}, tab={target}. "
+                "Cannot send command to WeeChat/agent tab."
+            )
+        zellij.send_command(zellij_session, pane_id, text)
     return send
 
 

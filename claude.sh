@@ -75,6 +75,20 @@ else
     fi
 fi
 
+# WSL2: rewrite 127.0.0.1 proxy to Windows host IP
+# In WSL2, 127.0.0.1 is WSL's own loopback, not the Windows host.
+# The proxy (Clash/v2ray) runs on Windows, so we need the host IP.
+# Use default gateway (ip route) — resolv.conf may point to custom DNS, not the host.
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    WSL_HOST_IP=$(ip route show default 2>/dev/null | awk '{print $3; exit}')
+    if [ -n "$WSL_HOST_IP" ] && [ "$WSL_HOST_IP" != "127.0.0.1" ]; then
+        [ -n "$http_proxy" ]  && export http_proxy="${http_proxy//127.0.0.1/$WSL_HOST_IP}"
+        [ -n "$https_proxy" ] && export https_proxy="${https_proxy//127.0.0.1/$WSL_HOST_IP}"
+        [ -n "$HTTP_PROXY" ]  && export HTTP_PROXY="${HTTP_PROXY//127.0.0.1/$WSL_HOST_IP}"
+        [ -n "$HTTPS_PROXY" ] && export HTTPS_PROXY="${HTTPS_PROXY//127.0.0.1/$WSL_HOST_IP}"
+    fi
+fi
+
 # Source MCP server secrets (API keys, tokens)
 [ -f "$SCRIPT_DIR/.mcp.env" ] && set -a && source "$SCRIPT_DIR/.mcp.env" && set +a
 

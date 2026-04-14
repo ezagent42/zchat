@@ -202,3 +202,190 @@ def test_find_channel_pkg_dir_no_uv():
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         result = am._find_channel_pkg_dir()
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TC-001..006: Ctrl+C cleanup (test-plan-008 / eval-doc-007)
+# These tests MUST FAIL before the fix and PASS after.
+# ---------------------------------------------------------------------------
+
+def test_create_calls_force_stop_on_keyboard_interrupt(tmp_path):
+    """TC-001: create() calls _force_stop() when KeyboardInterrupt fires in _wait_for_ready."""
+    import pytest
+    from unittest.mock import patch
+
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    (tmp_path / "agents").mkdir()
+
+    with patch("zchat.cli.agent_manager.check_irc_connectivity"), \
+         patch.object(mgr, "_spawn_tab", return_value="alice-helper"), \
+         patch.object(mgr, "_auto_confirm_startup"), \
+         patch.object(mgr, "_wait_for_ready", side_effect=KeyboardInterrupt), \
+         patch.object(mgr, "_force_stop") as mock_force_stop, \
+         patch.object(mgr, "_cleanup_workspace"):
+        with pytest.raises(KeyboardInterrupt):
+            mgr.create("helper")
+
+    mock_force_stop.assert_called_once_with("alice-helper")
+
+
+def test_create_writes_offline_status_on_keyboard_interrupt(tmp_path):
+    """TC-002: create() writes status='offline' to state file when interrupted."""
+    import json
+    import pytest
+    from unittest.mock import patch
+
+    state_file = str(tmp_path / "agents.json")
+    mgr = _make_manager(state_file=state_file, project_dir=str(tmp_path))
+    (tmp_path / "agents").mkdir()
+
+    with patch("zchat.cli.agent_manager.check_irc_connectivity"), \
+         patch.object(mgr, "_spawn_tab", return_value="alice-helper"), \
+         patch.object(mgr, "_auto_confirm_startup"), \
+         patch.object(mgr, "_wait_for_ready", side_effect=KeyboardInterrupt), \
+         patch.object(mgr, "_force_stop"), \
+         patch.object(mgr, "_cleanup_workspace"):
+        with pytest.raises(KeyboardInterrupt):
+            mgr.create("helper")
+
+    with open(state_file) as f:
+        data = json.load(f)
+
+    agent = data.get("agents", {}).get("alice-helper")
+    assert agent is not None, "agent entry should exist in state file after interrupt"
+    assert agent["status"] != "starting", (
+        f"status must not remain 'starting' after KeyboardInterrupt, got: {agent['status']}"
+    )
+    assert agent["status"] == "offline", (
+        f"expected status='offline' after cleanup, got: {agent['status']}"
+    )
+
+
+def test_create_blocked_when_status_is_starting(tmp_path):
+    """TC-003: create() raises ValueError when agent already has status='starting'."""
+    import pytest
+    from unittest.mock import patch
+
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    mgr._agents["alice-helper"] = {
+        "type": "claude", "workspace": "/tmp/x",
+        "tab_name": "alice-helper", "status": "starting",
+        "created_at": 0, "channels": ["#general"],
+    }
+
+    with patch("zchat.cli.agent_manager.check_irc_connectivity"), \
+         patch.object(mgr, "_spawn_tab") as mock_spawn:
+        with pytest.raises(ValueError, match="starting|already exists"):
+            mgr.create("helper")
+
+    mock_spawn.assert_not_called()
+
+
+def test_create_cleans_ready_marker_on_keyboard_interrupt(tmp_path):
+    """TC-004: create() removes .ready marker when interrupted after Claude Code set it."""
+    import pytest
+    from unittest.mock import patch
+
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    ready_file = agents_dir / "alice-helper.ready"
+
+    def wait_touch_then_interrupt(name, timeout=60):
+        ready_file.touch()
+        raise KeyboardInterrupt
+
+    with patch("zchat.cli.agent_manager.check_irc_connectivity"), \
+         patch.object(mgr, "_spawn_tab", return_value="alice-helper"), \
+         patch.object(mgr, "_auto_confirm_startup"), \
+         patch.object(mgr, "_wait_for_ready", side_effect=wait_touch_then_interrupt), \
+         patch.object(mgr, "_force_stop"):
+        with pytest.raises(KeyboardInterrupt):
+            mgr.create("helper")
+
+    assert not ready_file.exists(), (
+        ".ready marker should be deleted by _cleanup_workspace in finally block"
+    )
+
+
+def test_create_succeeds_on_second_attempt_after_interrupt(tmp_path):
+    """TC-005: create() succeeds on second call after first was interrupted and cleaned up."""
+    import pytest
+    from unittest.mock import patch
+
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    (tmp_path / "agents").mkdir()
+
+    spawn_calls = []
+
+    def spawn_side(name, workspace, agent_type, channels):
+        spawn_calls.append(name)
+        return name
+
+    wait_calls = []
+
+    def wait_side(name, timeout=60):
+        wait_calls.append(name)
+        if len(wait_calls) == 1:
+            raise KeyboardInterrupt
+        return True
+
+    with patch("zchat.cli.agent_manager.check_irc_connectivity"), \
+         patch.object(mgr, "_spawn_tab", side_effect=spawn_side), \
+         patch.object(mgr, "_auto_confirm_startup"), \
+         patch.object(mgr, "_wait_for_ready", side_effect=wait_side), \
+         patch.object(mgr, "_force_stop"), \
+         patch.object(mgr, "_cleanup_workspace"):
+        with pytest.raises(KeyboardInterrupt):
+            mgr.create("helper")
+        info = mgr.create("helper")
+
+    assert info["status"] == "running", (
+        f"second create() should return status='running', got: {info['status']}"
+    )
+    assert len(spawn_calls) == 2, (
+        f"_spawn_tab should be called twice (once per create), got {len(spawn_calls)}"
+    )
+
+
+def test_auto_confirm_thread_exits_when_pane_not_found(tmp_path):
+    """TC-006: _auto_confirm_startup thread terminates when pane_id is None (tab was force-stopped)."""
+    import threading
+    from unittest.mock import patch
+    import zchat.cli.agent_manager as am
+
+    mgr = _make_manager(state_file=str(tmp_path / "agents.json"))
+
+    captured_threads = []
+    OriginalThread = threading.Thread
+
+    class CapturingThread(OriginalThread):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            captured_threads.append(self)
+
+    with patch.object(am, "threading", wraps=am.threading) as mock_threading:
+        mock_threading.Thread = CapturingThread
+        with patch("zchat.cli.zellij.get_pane_id", return_value=None), \
+             patch("zchat.cli.agent_manager.time") as mock_time:
+            mock_time.sleep.return_value = None
+            mock_time.time.side_effect = am.time.time
+            mgr._auto_confirm_startup("alice-helper", timeout=2)
+
+    assert len(captured_threads) == 1, "exactly one confirm thread should be spawned"
+    captured_threads[0].join(timeout=3)
+    assert not captured_threads[0].is_alive(), (
+        "confirm thread must exit when get_pane_id returns None (tab force-stopped)"
+    )

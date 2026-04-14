@@ -70,8 +70,8 @@ class AgentManager:
         check_irc_connectivity(self.irc_server, self.irc_port, tls=self.irc_tls)
 
         name = self.scoped(name)
-        if name in self._agents and self._agents[name].get("status") == "running":
-            raise ValueError(f"{name} already exists and is running")
+        if name in self._agents and self._agents[name].get("status") in ("running", "starting"):
+            raise ValueError(f"{name} already exists and is running or starting")
 
         agent_type = agent_type or self.default_type
         channels = channels or list(self.default_channels)
@@ -90,10 +90,17 @@ class AgentManager:
         self._save_state()
 
         # Wait for ready marker (SessionStart hook)
-        if self._wait_for_ready(name, timeout=60):
-            self._agents[name]["status"] = "running"
-        else:
-            self._agents[name]["status"] = "error"
+        try:
+            if self._wait_for_ready(name, timeout=60):
+                self._agents[name]["status"] = "running"
+            else:
+                self._agents[name]["status"] = "error"
+        except (KeyboardInterrupt, Exception):
+            self._force_stop(name)
+            self._cleanup_workspace(name)
+            self._agents[name]["status"] = "offline"
+            self._save_state()
+            raise
         self._save_state()
         return self._agents[name]
 

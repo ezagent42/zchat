@@ -1,8 +1,17 @@
 # tests/pre_release/test_04_agent.py
 """Pre-release: agent lifecycle management."""
 import os
+import re
 
 import pytest
+
+
+def _irc_nick() -> str:
+    """Return the sanitized IRC nick matching what zchat auth stores."""
+    raw = os.environ.get("USER", "user")
+    nick = re.sub(r"[^A-Za-z0-9\-_\\\[\]\{\}\^|]", "", raw)
+    nick = nick.lstrip("0123456789-")
+    return nick or "user"
 
 
 @pytest.mark.order(1)
@@ -10,7 +19,7 @@ def test_agent_create(cli, irc_probe, ergo_server):
     """Create agent0, verify it joins IRC."""
     result = cli("agent", "create", "agent0")
     assert result.returncode == 0, f"agent create failed: {result.stderr}"
-    username = os.environ.get("USER", "user")
+    username = _irc_nick()
     assert irc_probe.wait_for_nick(
         f"{username}-agent0", timeout=30
     ), "agent0 not on IRC"
@@ -54,9 +63,10 @@ def _capture_agent_pane(username):
 
 
 @pytest.mark.order(4)
+@pytest.mark.timeout(300)  # 3 attempts × 90s each; proxy environments can be slow
 def test_agent_send(cli, irc_probe):
     """Send message via agent0 to #general."""
-    username = os.environ.get("USER", "user")
+    username = _irc_nick()
 
     msg = None
     for attempt in range(3):
@@ -66,7 +76,7 @@ def test_agent_send(cli, irc_probe):
         if result.returncode != 0:
             print(f"[DEBUG] send attempt {attempt+1} failed: {result.stderr}")
             continue
-        msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=60)
+        msg = irc_probe.wait_for_message("prerelease-test-msg", timeout=90)
         if msg is not None:
             break
         # Capture after each failed wait
@@ -78,36 +88,49 @@ def test_agent_send(cli, irc_probe):
 
 
 @pytest.mark.order(5)
+@pytest.mark.manual
+def test_agent_focus_hide(cli):
+    """agent focus/hide switch zellij tabs without error.
+
+    Requires running inside a Zellij session — skip in headless CI.
+    """
+    result = cli("agent", "focus", "agent0", check=False)
+    assert result.returncode == 0, f"agent focus failed: {result.stderr}"
+    result = cli("agent", "hide", "agent0", check=False)
+    assert result.returncode == 0, f"agent hide failed: {result.stderr}"
+
+
+@pytest.mark.order(6)
 def test_agent_create_second(cli, irc_probe):
     """Create agent1."""
     cli("agent", "create", "agent1")
-    username = os.environ.get("USER", "user")
+    username = _irc_nick()
     assert irc_probe.wait_for_nick(
         f"{username}-agent1", timeout=30
     ), "agent1 not on IRC"
 
 
-@pytest.mark.order(6)
+@pytest.mark.order(7)
 def test_agent_restart(cli, irc_probe):
     """Restart agent1, verify it re-joins IRC."""
     cli("agent", "restart", "agent1")
-    username = os.environ.get("USER", "user")
+    username = _irc_nick()
     assert irc_probe.wait_for_nick(
         f"{username}-agent1", timeout=30
     ), "agent1 not back on IRC after restart"
 
 
-@pytest.mark.order(7)
+@pytest.mark.order(8)
 def test_agent_stop(cli, irc_probe):
     """Stop agent1, verify it leaves IRC."""
     cli("agent", "stop", "agent1")
-    username = os.environ.get("USER", "user")
+    username = _irc_nick()
     assert irc_probe.wait_for_nick_gone(
         f"{username}-agent1", timeout=10
     ), "agent1 still on IRC after stop"
 
 
-@pytest.mark.order(8)
+@pytest.mark.order(9)
 def test_agent_list_after_stop(cli):
     """agent list shows agent1 after stop."""
     result = cli("agent", "list")

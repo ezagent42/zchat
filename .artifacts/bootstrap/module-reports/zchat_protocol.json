@@ -1,0 +1,14 @@
+{
+  "module_name": "zchat_protocol",
+  "description": "Protocol spec: IRC agent naming conventions and system message encoding/decoding over IRC PRIVMSG.",
+  "files": [
+    {"path": "zchat-protocol/zchat_protocol/naming.py", "lines": 12, "key_items": ["AGENT_SEPARATOR:3", "scoped_name:6"]},
+    {"path": "zchat-protocol/zchat_protocol/sys_messages.py", "lines": 46, "key_items": ["SYS_PREFIX:8", "IRC_SYS_PREFIX:9", "is_sys_message:16", "make_sys_message:21", "encode_sys_for_irc:33", "decode_sys_from_irc:38"]},
+    {"path": "zchat-protocol/tests/test_naming.py", "lines": 18, "key_items": ["test_scoped_name_no_double_prefix:12"]},
+    {"path": "zchat-protocol/tests/test_sys_messages.py", "lines": 38, "key_items": ["test_irc_roundtrip:26"]}
+  ],
+  "public_api": ["scoped_name(name, username) -> str", "encode_sys_for_irc(msg) -> str", "decode_sys_from_irc(text) -> dict|None", "IRC_SYS_PREFIX='__zchat_sys:'"],
+  "irc_constraints": ["nick格式: {username}-{agent_name}", "系统消息前缀: '__zchat_sys:'", "JSON over IRC PRIVMSG"],
+  "bugs": ["scoped_name() 当name已有前缀时仍重复添加 — 2个测试失败"],
+  "test_results": {"command": "cd zchat-protocol && uv run pytest tests/ -q", "exit_code": 1, "passed": 7, "failed": 2, "failures": ["test_scoped_name_no_double_prefix", "test_scoped_name_different_prefix"]}
+}

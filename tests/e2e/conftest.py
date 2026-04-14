@@ -46,8 +46,12 @@ def zellij_session():
 
 
 @pytest.fixture(scope="session")
-def e2e_context(e2e_port, zellij_session):
-    """Central context dict — created BEFORE ergo so ergo can use it."""
+def e2e_context(e2e_port):
+    """Central context dict for E2E subprocesses.
+
+    Intentionally does not require a live Zellij binary so non-Zellij E2E
+    tests (e.g. pure IRC transport checks) can run independently.
+    """
     home = tempfile.mkdtemp(prefix="e2e-zchat-")
     # Write auth.json with username "alice" for get_username()
     import json as _json
@@ -70,7 +74,7 @@ def e2e_context(e2e_port, zellij_session):
         "env_file": env_file_val,
         "mcp_server_cmd": ["uv", "run", "--project", channel_server_dir, "zchat-channel"],
         "zellij": {
-            "session": zellij_session,
+            "session": f"e2e-pytest-{os.getpid()}",
         },
     }
     with open(os.path.join(project_dir, "config.toml"), "wb") as f:
@@ -98,7 +102,7 @@ def e2e_context(e2e_port, zellij_session):
     ctx = {
         "home": home,
         "project": "e2e-test",
-        "zellij_session": zellij_session,
+        "zellij_session": f"e2e-pytest-{os.getpid()}",
         "port": e2e_port,
     }
     yield ctx
@@ -158,8 +162,12 @@ def zellij_send(e2e_context):
     def send(target: str, text: str):
         session = e2e_context["zellij_session"]
         pane_id = zellij.get_pane_id(session, target)
-        if pane_id:
-            zellij.send_command(session, pane_id, text)
+        if not pane_id:
+            pytest.fail(
+                f"Zellij pane not found: session={session}, tab={target}. "
+                "Cannot send command."
+            )
+        zellij.send_command(session, pane_id, text)
     return send
 
 

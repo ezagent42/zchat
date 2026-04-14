@@ -1,0 +1,4224 @@
+{
+  "project_root": "/home/lenovo/workspace/zchat",
+  "files": [
+    {
+      "path": ".cursor/skills/zchat-testing/SKILL.md",
+      "size_bytes": 1490,
+      "lines": 47,
+      "extension": ".md"
+    },
+    {
+      "path": ".github/workflows/publish.yml",
+      "size_bytes": 2611,
+      "lines": 74,
+      "extension": ".yml"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "size_bytes": 942,
+      "lines": 44,
+      "extension": ".yml"
+    },
+    {
+      "path": ".gitignore",
+      "size_bytes": 228,
+      "lines": 19,
+      "extension": ""
+    },
+    {
+      "path": ".gitmodules",
+      "size_bytes": 666,
+      "lines": 18,
+      "extension": ""
+    },
+    {
+      "path": "CLAUDE.md",
+      "size_bytes": 7247,
+      "lines": 165,
+      "extension": ".md"
+    },
+    {
+      "path": "LICENSE",
+      "size_bytes": 1066,
+      "lines": 21,
+      "extension": ""
+    },
+    {
+      "path": "Makefile",
+      "size_bytes": 106,
+      "lines": 7,
+      "extension": ""
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 3290,
+      "lines": 105,
+      "extension": ".md"
+    },
+    {
+      "path": "bin/build-plugins",
+      "size_bytes": 1415,
+      "lines": 48,
+      "extension": ""
+    },
+    {
+      "path": "bin/zchat-dev",
+      "size_bytes": 710,
+      "lines": 17,
+      "extension": ""
+    },
+    {
+      "path": "claude.local.env",
+      "size_bytes": 89,
+      "lines": 3,
+      "extension": ".env"
+    },
+    {
+      "path": "claude.local.env.example",
+      "size_bytes": 216,
+      "lines": 6,
+      "extension": ".example"
+    },
+    {
+      "path": "claude.sh",
+      "size_bytes": 15120,
+      "lines": 451,
+      "extension": ".sh"
+    },
+    {
+      "path": "commands.json",
+      "size_bytes": 3208,
+      "lines": 122,
+      "extension": ".json"
+    },
+    {
+      "path": "docs/design-decisions.md",
+      "size_bytes": 4088,
+      "lines": 92,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/dev/agent.md",
+      "size_bytes": 1423,
+      "lines": 44,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/dev/architecture.md",
+      "size_bytes": 2105,
+      "lines": 70,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/dev/channel-server.md",
+      "size_bytes": 3238,
+      "lines": 84,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/dev/testing.md",
+      "size_bytes": 946,
+      "lines": 42,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/e2e-manual-test.md",
+      "size_bytes": 1259,
+      "lines": 81,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/guide/constraints.md",
+      "size_bytes": 1894,
+      "lines": 44,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/guide/getting-started.md",
+      "size_bytes": 2722,
+      "lines": 55,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/guide/quickstart.md",
+      "size_bytes": 2827,
+      "lines": 109,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/guide/usage.md",
+      "size_bytes": 3275,
+      "lines": 127,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-palette-cleanup-plan.md",
+      "size_bytes": 10574,
+      "lines": 346,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-palette-interactive-pane-design.md",
+      "size_bytes": 6787,
+      "lines": 142,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-zellij-migration-design.md",
+      "size_bytes": 18284,
+      "lines": 466,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-zellij-migration-plan.md",
+      "size_bytes": 42985,
+      "lines": 1346,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-zellij-plugin-design.md",
+      "size_bytes": 10166,
+      "lines": 299,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-06-zellij-plugin-plan.md",
+      "size_bytes": 24001,
+      "lines": 804,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-07-test-rewrite-design.md",
+      "size_bytes": 1748,
+      "lines": 38,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-07-test-rewrite-plan.md",
+      "size_bytes": 2887,
+      "lines": 78,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-08-path-refactor-design.md",
+      "size_bytes": 5894,
+      "lines": 130,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/plans/2026-04-08-path-refactor-plan.md",
+      "size_bytes": 3241,
+      "lines": 108,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/releasing.md",
+      "size_bytes": 2740,
+      "lines": 87,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-21-prd-gap-fixes-plan.md",
+      "size_bytes": 41220,
+      "lines": 1285,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-22-docs-split-plan.md",
+      "size_bytes": 35885,
+      "lines": 1078,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-22-nick-init-race-fix.md",
+      "size_bytes": 3569,
+      "lines": 101,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-22-sidecar-architecture-plan.md",
+      "size_bytes": 49329,
+      "lines": 1536,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-23-shared-protocol-refactor.md",
+      "size_bytes": 25918,
+      "lines": 773,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-25-irc-migration.md",
+      "size_bytes": 50194,
+      "lines": 1663,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-25-ux-improvements.md",
+      "size_bytes": 66359,
+      "lines": 2137,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-26-wc-agent-cli-redesign.md",
+      "size_bytes": 21278,
+      "lines": 632,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-27-e2e-pytest-migration.md",
+      "size_bytes": 6984,
+      "lines": 223,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-27-zchat-restructuring.md",
+      "size_bytes": 28411,
+      "lines": 918,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-28-homebrew-distribution.md",
+      "size_bytes": 19154,
+      "lines": 736,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-28-repo-split.md",
+      "size_bytes": 36864,
+      "lines": 1065,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-28-zchat-channel-skills.md",
+      "size_bytes": 16800,
+      "lines": 530,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-29-agent-template-system.md",
+      "size_bytes": 40090,
+      "lines": 1220,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-29-oidc-auth.md",
+      "size_bytes": 47427,
+      "lines": 1420,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-30-project-create-ux-and-agent-auth.md",
+      "size_bytes": 25279,
+      "lines": 730,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-31-pre-release-e2e-tests.md",
+      "size_bytes": 38708,
+      "lines": 1263,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-31-tmux-orchestration-redesign.md",
+      "size_bytes": 36908,
+      "lines": 1160,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-01-better-skill.md",
+      "size_bytes": 14143,
+      "lines": 416,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-01-fix-claude-skill-and-agent-focus.md",
+      "size_bytes": 4855,
+      "lines": 173,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-01-fix-nick-and-marketplace.md",
+      "size_bytes": 16287,
+      "lines": 514,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-02-better-distribution-plan.md",
+      "size_bytes": 38284,
+      "lines": 1205,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-21-prd-gap-fixes-design.md",
+      "size_bytes": 24337,
+      "lines": 600,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-22-docs-split-design.md",
+      "size_bytes": 9240,
+      "lines": 200,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-22-fix-agent-mcp-config-design.md",
+      "size_bytes": 1430,
+      "lines": 51,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-22-sidecar-architecture-design.md",
+      "size_bytes": 7168,
+      "lines": 156,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-22-zenohd-client-mode-design.md",
+      "size_bytes": 10466,
+      "lines": 294,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-24-ux-improvements-design.md",
+      "size_bytes": 24943,
+      "lines": 683,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-25-irc-migration-design.md",
+      "size_bytes": 23938,
+      "lines": 726,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-26-wc-agent-cli-redesign.md",
+      "size_bytes": 19788,
+      "lines": 618,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-27-e2e-pytest-migration.md",
+      "size_bytes": 14074,
+      "lines": 424,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-27-zchat-repo-split-design.md",
+      "size_bytes": 8805,
+      "lines": 207,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-29-add-local-ergo-design.md",
+      "size_bytes": 2682,
+      "lines": 82,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-29-agent-template-system-design.md",
+      "size_bytes": 9990,
+      "lines": 367,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-29-oidc-auth-design.md",
+      "size_bytes": 11202,
+      "lines": 234,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-30-project-create-ux-and-agent-auth-design.md",
+      "size_bytes": 12207,
+      "lines": 377,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-31-fix-agent-send-and-irc-tests-design.md",
+      "size_bytes": 9078,
+      "lines": 193,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-31-pre-release-e2e-tests-design.md",
+      "size_bytes": 15341,
+      "lines": 360,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-31-tmux-orchestration-redesign.md",
+      "size_bytes": 15031,
+      "lines": 367,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-01-better-skill-design.md",
+      "size_bytes": 7743,
+      "lines": 120,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-01-credentials-vs-nickname-design.md",
+      "size_bytes": 5441,
+      "lines": 175,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-01-fix-claude-skill-and-agent-focus-design.md",
+      "size_bytes": 4584,
+      "lines": 123,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-01-fix-nick-and-marketplace-design.md",
+      "size_bytes": 9332,
+      "lines": 218,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-01-remote-irc-test-coverage-design.md",
+      "size_bytes": 1730,
+      "lines": 47,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-02-better-distribution-design.md",
+      "size_bytes": 8347,
+      "lines": 225,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-02-irc-connectivity-check-design.md",
+      "size_bytes": 2134,
+      "lines": 52,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status-latest/01-file-distribution.md",
+      "size_bytes": 1904,
+      "lines": 66,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status-latest/02-test-methods.md",
+      "size_bytes": 3067,
+      "lines": 69,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status-latest/03-e2e-coverage.md",
+      "size_bytes": 2646,
+      "lines": 68,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status-latest/README.md",
+      "size_bytes": 1737,
+      "lines": 41,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status/01-file-distribution.md",
+      "size_bytes": 3870,
+      "lines": 104,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status/02-test-methods.md",
+      "size_bytes": 7285,
+      "lines": 177,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status/03-e2e-coverage.md",
+      "size_bytes": 5274,
+      "lines": 141,
+      "extension": ".md"
+    },
+    {
+      "path": "docs/test-status/README.md",
+      "size_bytes": 1693,
+      "lines": 41,
+      "extension": ".md"
+    },
+    {
+      "path": "ergo-inside/.git",
+      "size_bytes": 36,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "ergo-inside/Caddyfile",
+      "size_bytes": 457,
+      "lines": 30,
+      "extension": ""
+    },
+    {
+      "path": "ergo-inside/README.md",
+      "size_bytes": 1588,
+      "lines": 51,
+      "extension": ".md"
+    },
+    {
+      "path": "ergo-inside/auth_script_config.json",
+      "size_bytes": 53,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "ergo-inside/backup.sh",
+      "size_bytes": 1510,
+      "lines": 60,
+      "extension": ".sh"
+    },
+    {
+      "path": "ergo-inside/deploy.sh",
+      "size_bytes": 1407,
+      "lines": 40,
+      "extension": ".sh"
+    },
+    {
+      "path": "ergo-inside/ergo.yaml",
+      "size_bytes": 52732,
+      "lines": 1189,
+      "extension": ".yaml"
+    },
+    {
+      "path": "ergo-inside/ergo_auth_script.py",
+      "size_bytes": 3195,
+      "lines": 95,
+      "extension": ".py"
+    },
+    {
+      "path": "ergo-inside/launchd/com.h2os.caddy.plist",
+      "size_bytes": 707,
+      "lines": 22,
+      "extension": ".plist"
+    },
+    {
+      "path": "ergo-inside/launchd/com.h2os.ergo.plist",
+      "size_bytes": 827,
+      "lines": 25,
+      "extension": ".plist"
+    },
+    {
+      "path": "ergo-inside/setup.sh",
+      "size_bytes": 1843,
+      "lines": 62,
+      "extension": ".sh"
+    },
+    {
+      "path": "ergo.yaml",
+      "size_bytes": 52585,
+      "lines": 1190,
+      "extension": ".yaml"
+    },
+    {
+      "path": "ezagent42-marketplace/.claude-plugin/marketplace.json",
+      "size_bytes": 728,
+      "lines": 30,
+      "extension": ".json"
+    },
+    {
+      "path": "ezagent42-marketplace/.git",
+      "size_bytes": 46,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "ezagent42-marketplace/.gitignore",
+      "size_bytes": 19,
+      "lines": 2,
+      "extension": ""
+    },
+    {
+      "path": "ezagent42-marketplace/README.md",
+      "size_bytes": 313,
+      "lines": 19,
+      "extension": ".md"
+    },
+    {
+      "path": "homebrew-zchat/.git",
+      "size_bytes": 39,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "homebrew-zchat/Formula/ergo.rb",
+      "size_bytes": 1037,
+      "lines": 34,
+      "extension": ".rb"
+    },
+    {
+      "path": "homebrew-zchat/Formula/zchat.rb",
+      "size_bytes": 13642,
+      "lines": 291,
+      "extension": ".rb"
+    },
+    {
+      "path": "homebrew-zchat/README.md",
+      "size_bytes": 592,
+      "lines": 30,
+      "extension": ".md"
+    },
+    {
+      "path": "install.sh",
+      "size_bytes": 4993,
+      "lines": 173,
+      "extension": ".sh"
+    },
+    {
+      "path": "pyproject.toml",
+      "size_bytes": 1125,
+      "lines": 49,
+      "extension": ".toml"
+    },
+    {
+      "path": "pytest.ini",
+      "size_bytes": 318,
+      "lines": 9,
+      "extension": ".ini"
+    },
+    {
+      "path": "start.sh",
+      "size_bytes": 1428,
+      "lines": 44,
+      "extension": ".sh"
+    },
+    {
+      "path": "stop.sh",
+      "size_bytes": 424,
+      "lines": 11,
+      "extension": ".sh"
+    },
+    {
+      "path": "tests/__init__.py",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/conftest.py",
+      "size_bytes": 193,
+      "lines": 8,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/e2e/REPORT-2026-04-07.md",
+      "size_bytes": 21776,
+      "lines": 402,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/e2e/conftest.py",
+      "size_bytes": 6852,
+      "lines": 218,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/e2e/e2e-setup.sh",
+      "size_bytes": 3753,
+      "lines": 110,
+      "extension": ".sh"
+    },
+    {
+      "path": "tests/e2e/irc_probe.py",
+      "size_bytes": 162,
+      "lines": 3,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/e2e/test_e2e.py",
+      "size_bytes": 4478,
+      "lines": 108,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/e2e/test_private_and_system_messages.py",
+      "size_bytes": 1451,
+      "lines": 42,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/e2e/test_zellij_lifecycle.py",
+      "size_bytes": 2443,
+      "lines": 82,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/integration/__init__.py",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/integration/conftest.py",
+      "size_bytes": 296,
+      "lines": 12,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/integration/test_cli_project_irc_flow.py",
+      "size_bytes": 4478,
+      "lines": 141,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/integration/test_start_script.py",
+      "size_bytes": 3446,
+      "lines": 115,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/.gitignore",
+      "size_bytes": 22,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "tests/pre_release/__init__.py",
+      "size_bytes": 102,
+      "lines": 3,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/conftest.py",
+      "size_bytes": 8301,
+      "lines": 272,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/reporting.py",
+      "size_bytes": 21271,
+      "lines": 566,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-025900.json",
+      "size_bytes": 28803,
+      "lines": 1022,
+      "extension": ".json"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-025900.md",
+      "size_bytes": 3478,
+      "lines": 77,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-032831.json",
+      "size_bytes": 28810,
+      "lines": 1022,
+      "extension": ".json"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-032831.md",
+      "size_bytes": 3936,
+      "lines": 89,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-072807.json",
+      "size_bytes": 26881,
+      "lines": 1017,
+      "extension": ".json"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-072807.md",
+      "size_bytes": 2236,
+      "lines": 47,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-072830.json",
+      "size_bytes": 26881,
+      "lines": 1017,
+      "extension": ".json"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-072830.md",
+      "size_bytes": 2236,
+      "lines": 47,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-073155.json",
+      "size_bytes": 27148,
+      "lines": 1016,
+      "extension": ".json"
+    },
+    {
+      "path": "tests/pre_release/reports/pre-release-report-20260410-073155.md",
+      "size_bytes": 2133,
+      "lines": 47,
+      "extension": ".md"
+    },
+    {
+      "path": "tests/pre_release/run.sh",
+      "size_bytes": 897,
+      "lines": 25,
+      "extension": ".sh"
+    },
+    {
+      "path": "tests/pre_release/test_00_doctor.py",
+      "size_bytes": 641,
+      "lines": 19,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_01_project.py",
+      "size_bytes": 1906,
+      "lines": 62,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_02_template.py",
+      "size_bytes": 1050,
+      "lines": 34,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_03_irc.py",
+      "size_bytes": 1958,
+      "lines": 69,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_04_agent.py",
+      "size_bytes": 3803,
+      "lines": 114,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_04a_irc_chat.py",
+      "size_bytes": 970,
+      "lines": 24,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_04b_remote_irc.py",
+      "size_bytes": 1646,
+      "lines": 44,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_05_setup.py",
+      "size_bytes": 351,
+      "lines": 10,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_06_auth.py",
+      "size_bytes": 761,
+      "lines": 27,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_07_self_update.py",
+      "size_bytes": 711,
+      "lines": 27,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/test_08_shutdown.py",
+      "size_bytes": 1439,
+      "lines": 45,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/verify_walkthrough.py",
+      "size_bytes": 2928,
+      "lines": 97,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/pre_release/walkthrough-steps.sh",
+      "size_bytes": 7826,
+      "lines": 295,
+      "extension": ".sh"
+    },
+    {
+      "path": "tests/pre_release/walkthrough.sh",
+      "size_bytes": 2082,
+      "lines": 67,
+      "extension": ".sh"
+    },
+    {
+      "path": "tests/shared/__init__.py",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/shared/cli_runner.py",
+      "size_bytes": 1042,
+      "lines": 30,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/shared/irc_probe.py",
+      "size_bytes": 5724,
+      "lines": 154,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/shared/tmux_helpers.py",
+      "size_bytes": 1432,
+      "lines": 42,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/shared/zellij_helpers.py",
+      "size_bytes": 1436,
+      "lines": 46,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/__init__.py",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_agent_focus_hide.py",
+      "size_bytes": 2392,
+      "lines": 68,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_agent_manager.py",
+      "size_bytes": 7385,
+      "lines": 204,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_auth.py",
+      "size_bytes": 10342,
+      "lines": 282,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_config_cmd.py",
+      "size_bytes": 4513,
+      "lines": 128,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_defaults.py",
+      "size_bytes": 1098,
+      "lines": 38,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_ergo_auth_script.py",
+      "size_bytes": 2496,
+      "lines": 69,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_irc_check.py",
+      "size_bytes": 1849,
+      "lines": 47,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_layout.py",
+      "size_bytes": 2934,
+      "lines": 100,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_list_commands.py",
+      "size_bytes": 2895,
+      "lines": 76,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_migrate.py",
+      "size_bytes": 2983,
+      "lines": 103,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_paths.py",
+      "size_bytes": 6611,
+      "lines": 159,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_plugin_integration.py",
+      "size_bytes": 1610,
+      "lines": 42,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_project.py",
+      "size_bytes": 6070,
+      "lines": 164,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_project_create_params.py",
+      "size_bytes": 4107,
+      "lines": 118,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_project_use_command.py",
+      "size_bytes": 1532,
+      "lines": 40,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_runner.py",
+      "size_bytes": 7125,
+      "lines": 209,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_template_loader.py",
+      "size_bytes": 3583,
+      "lines": 88,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_update.py",
+      "size_bytes": 11927,
+      "lines": 349,
+      "extension": ".py"
+    },
+    {
+      "path": "tests/unit/test_zellij_helpers.py",
+      "size_bytes": 9502,
+      "lines": 264,
+      "extension": ".py"
+    },
+    {
+      "path": "uv.lock",
+      "size_bytes": 146416,
+      "lines": 1103,
+      "extension": ".lock"
+    },
+    {
+      "path": "weechat-zchat-plugin/.git",
+      "size_bytes": 45,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "weechat-zchat-plugin/tests/test_weechat_plugin.py",
+      "size_bytes": 2284,
+      "lines": 73,
+      "extension": ".py"
+    },
+    {
+      "path": "weechat-zchat-plugin/zchat.py",
+      "size_bytes": 8582,
+      "lines": 284,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-channel-server/.claude-plugin/plugin.json",
+      "size_bytes": 185,
+      "lines": 6,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-channel-server/.git",
+      "size_bytes": 45,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-channel-server/.github/workflows/publish.yml",
+      "size_bytes": 306,
+      "lines": 17,
+      "extension": ".yml"
+    },
+    {
+      "path": "zchat-channel-server/.mcp.json",
+      "size_bytes": 155,
+      "lines": 8,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-channel-server/LICENSE",
+      "size_bytes": 1066,
+      "lines": 21,
+      "extension": ""
+    },
+    {
+      "path": "zchat-channel-server/README.md",
+      "size_bytes": 610,
+      "lines": 25,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/commands/broadcast.md",
+      "size_bytes": 1387,
+      "lines": 41,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/commands/dm.md",
+      "size_bytes": 801,
+      "lines": 29,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/commands/join.md",
+      "size_bytes": 680,
+      "lines": 27,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/commands/reply.md",
+      "size_bytes": 991,
+      "lines": 29,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/instructions.md",
+      "size_bytes": 3100,
+      "lines": 67,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat-channel-server/message.py",
+      "size_bytes": 1414,
+      "lines": 48,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-channel-server/pyproject.toml",
+      "size_bytes": 982,
+      "lines": 44,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-channel-server/server.py",
+      "size_bytes": 12196,
+      "lines": 320,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-channel-server/skills/.gitkeep",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ""
+    },
+    {
+      "path": "zchat-channel-server/tests/test_channel_server.py",
+      "size_bytes": 2259,
+      "lines": 68,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-channel-server/uv.lock",
+      "size_bytes": 144161,
+      "lines": 1059,
+      "extension": ".lock"
+    },
+    {
+      "path": "zchat-hub-plugin/.cargo/config.toml",
+      "size_bytes": 33,
+      "lines": 2,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-hub-plugin/Cargo.lock",
+      "size_bytes": 73340,
+      "lines": 2882,
+      "extension": ".lock"
+    },
+    {
+      "path": "zchat-hub-plugin/Cargo.toml",
+      "size_bytes": 71,
+      "lines": 3,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-hub-plugin/target/.rustc_info.json",
+      "size_bytes": 2083,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/CACHEDIR.TAG",
+      "size_bytes": 177,
+      "lines": 3,
+      "extension": ".tag"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.cargo-lock",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-4ae1653a3e45384f/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-4ae1653a3e45384f/run-build-script-build-script-build.json",
+      "size_bytes": 394,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9b9641daf032a739/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9b9641daf032a739/build-script-build-script-build.json",
+      "size_bytes": 426,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9b9641daf032a739/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9b9641daf032a739/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9f8cc6a376e0c3ef/dep-lib-anyhow",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9f8cc6a376e0c3ef/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9f8cc6a376e0c3ef/lib-anyhow",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-9f8cc6a376e0c3ef/lib-anyhow.json",
+      "size_bytes": 474,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-afdac541d44ebf48/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-afdac541d44ebf48/build-script-build-script-build.json",
+      "size_bytes": 424,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-afdac541d44ebf48/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/anyhow-afdac541d44ebf48/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/autocfg-91aaf369b99c9b16/dep-lib-autocfg",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/autocfg-91aaf369b99c9b16/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/autocfg-91aaf369b99c9b16/lib-autocfg",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/autocfg-91aaf369b99c9b16/lib-autocfg.json",
+      "size_bytes": 350,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/clap_derive-42364a6eceeaff4d/dep-lib-clap_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/clap_derive-42364a6eceeaff4d/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/clap_derive-42364a6eceeaff4d/lib-clap_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/clap_derive-42364a6eceeaff4d/lib-clap_derive.json",
+      "size_bytes": 741,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/crossbeam-utils-49475ba3fef56a2f/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/crossbeam-utils-49475ba3fef56a2f/build-script-build-script-build.json",
+      "size_bytes": 428,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/crossbeam-utils-49475ba3fef56a2f/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/crossbeam-utils-49475ba3fef56a2f/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/displaydoc-1447555ba474e189/dep-lib-displaydoc",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/displaydoc-1447555ba474e189/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/displaydoc-1447555ba474e189/lib-displaydoc",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/displaydoc-1447555ba474e189/lib-displaydoc.json",
+      "size_bytes": 553,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/either-ab0dc4fe68b08df7/dep-lib-either",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/either-ab0dc4fe68b08df7/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/either-ab0dc4fe68b08df7/lib-either",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/either-ab0dc4fe68b08df7/lib-either.json",
+      "size_bytes": 393,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/generic-array-f0286b0a5de07007/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/generic-array-f0286b0a5de07007/build-script-build-script-build.json",
+      "size_bytes": 498,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/generic-array-f0286b0a5de07007/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/generic-array-f0286b0a5de07007/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/getrandom-07fed9c5b7cd3d92/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/getrandom-07fed9c5b7cd3d92/build-script-build-script-build.json",
+      "size_bytes": 405,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/getrandom-07fed9c5b7cd3d92/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/getrandom-07fed9c5b7cd3d92/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-5a768430373badad/dep-lib-heck",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-5a768430373badad/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-5a768430373badad/lib-heck",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-5a768430373badad/lib-heck.json",
+      "size_bytes": 406,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-9e9d2cdb1cb046fb/dep-lib-heck",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-9e9d2cdb1cb046fb/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-9e9d2cdb1cb046fb/lib-heck",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/heck-9e9d2cdb1cb046fb/lib-heck.json",
+      "size_bytes": 346,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_normalizer_data-5780b6e7603f295a/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_normalizer_data-5780b6e7603f295a/build-script-build-script-build.json",
+      "size_bytes": 382,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_normalizer_data-5780b6e7603f295a/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_normalizer_data-5780b6e7603f295a/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_properties_data-8a43c4d5c3a5e060/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_properties_data-8a43c4d5c3a5e060/build-script-build-script-build.json",
+      "size_bytes": 382,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_properties_data-8a43c4d5c3a5e060/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/icu_properties_data-8a43c4d5c3a5e060/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/include_dir_macros-5d55175f97847d7a/dep-lib-include_dir_macros",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/include_dir_macros-5d55175f97847d7a/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/include_dir_macros-5d55175f97847d7a/lib-include_dir_macros",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/include_dir_macros-5d55175f97847d7a/lib-include_dir_macros.json",
+      "size_bytes": 517,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/indexmap-4f77ac99d5559879/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/indexmap-4f77ac99d5559879/build-script-build-script-build.json",
+      "size_bytes": 573,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/indexmap-4f77ac99d5559879/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/indexmap-4f77ac99d5559879/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/itertools-b8ab43960e404246/dep-lib-itertools",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/itertools-b8ab43960e404246/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/itertools-b8ab43960e404246/lib-itertools",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/itertools-b8ab43960e404246/lib-itertools.json",
+      "size_bytes": 464,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/libc-5cb56853f821c2f5/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/libc-5cb56853f821c2f5/build-script-build-script-build.json",
+      "size_bytes": 522,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/libc-5cb56853f821c2f5/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/libc-5cb56853f821c2f5/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/miette-derive-662ef67bfa943cd0/dep-lib-miette_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/miette-derive-662ef67bfa943cd0/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/miette-derive-662ef67bfa943cd0/lib-miette_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/miette-derive-662ef67bfa943cd0/lib-miette_derive.json",
+      "size_bytes": 540,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/object-61343b8bd1a25eca/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/object-61343b8bd1a25eca/build-script-build-script-build.json",
+      "size_bytes": 785,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/object-61343b8bd1a25eca/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/object-61343b8bd1a25eca/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-842dfd4f25de37d2/dep-lib-proc_macro_error",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-842dfd4f25de37d2/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-842dfd4f25de37d2/lib-proc_macro_error",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-842dfd4f25de37d2/lib-proc_macro_error.json",
+      "size_bytes": 757,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-8d3221522dc7815c/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-8d3221522dc7815c/run-build-script-build-script-build.json",
+      "size_bytes": 255,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-4d2bedcee4051eae/dep-lib-proc_macro_error_attr",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-4d2bedcee4051eae/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-4d2bedcee4051eae/lib-proc_macro_error_attr",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-4d2bedcee4051eae/lib-proc_macro_error_attr.json",
+      "size_bytes": 568,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-a398e66570114823/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-a398e66570114823/build-script-build-script-build.json",
+      "size_bytes": 450,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-a398e66570114823/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-a398e66570114823/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-b22774c3db13e46c/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-attr-b22774c3db13e46c/run-build-script-build-script-build.json",
+      "size_bytes": 257,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-e3831e3312689703/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-e3831e3312689703/build-script-build-script-build.json",
+      "size_bytes": 513,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-e3831e3312689703/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro-error-e3831e3312689703/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-2d4d0a4ce0fd4793/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-2d4d0a4ce0fd4793/run-build-script-build-script-build.json",
+      "size_bytes": 489,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-999e43ef24a7dfa0/dep-lib-proc_macro2",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-999e43ef24a7dfa0/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-999e43ef24a7dfa0/lib-proc_macro2",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-999e43ef24a7dfa0/lib-proc_macro2.json",
+      "size_bytes": 578,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-d23a967a816f2fc4/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-d23a967a816f2fc4/build-script-build-script-build.json",
+      "size_bytes": 462,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-d23a967a816f2fc4/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/proc-macro2-d23a967a816f2fc4/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/prost-derive-327312d46d6e8024/dep-lib-prost_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/prost-derive-327312d46d6e8024/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/prost-derive-327312d46d6e8024/lib-prost_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/prost-derive-327312d46d6e8024/lib-prost_derive.json",
+      "size_bytes": 657,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-2c2b3ba725c84250/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-2c2b3ba725c84250/run-build-script-build-script-build.json",
+      "size_bytes": 328,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-3c3236cc368124b5/dep-lib-quote",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-3c3236cc368124b5/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-3c3236cc368124b5/lib-quote",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-3c3236cc368124b5/lib-quote.json",
+      "size_bytes": 533,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-e721b0bfc686d16a/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-e721b0bfc686d16a/build-script-build-script-build.json",
+      "size_bytes": 422,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-e721b0bfc686d16a/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/quote-e721b0bfc686d16a/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/rustix-f2668de02d4fa747/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/rustix-f2668de02d4fa747/build-script-build-script-build.json",
+      "size_bytes": 884,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/rustix-f2668de02d4fa747/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/rustix-f2668de02d4fa747/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde-387953019adde352/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde-387953019adde352/build-script-build-script-build.json",
+      "size_bytes": 502,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde-387953019adde352/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde-387953019adde352/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_core-dfbec8d86362ee33/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_core-dfbec8d86362ee33/build-script-build-script-build.json",
+      "size_bytes": 457,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_core-dfbec8d86362ee33/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_core-dfbec8d86362ee33/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_derive-86465ad342c7ead5/dep-lib-serde_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_derive-86465ad342c7ead5/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_derive-86465ad342c7ead5/lib-serde_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_derive-86465ad342c7ead5/lib-serde_derive.json",
+      "size_bytes": 585,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_json-dbc3b753ac6d39a9/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_json-dbc3b753ac6d39a9/build-script-build-script-build.json",
+      "size_bytes": 540,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_json-dbc3b753ac6d39a9/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/serde_json-dbc3b753ac6d39a9/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/strum_macros-a2c7d5c575b51ff0/dep-lib-strum_macros",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/strum_macros-a2c7d5c575b51ff0/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/strum_macros-a2c7d5c575b51ff0/lib-strum_macros",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/strum_macros-a2c7d5c575b51ff0/lib-strum_macros.json",
+      "size_bytes": 592,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-71680525c8d4f2a1/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-71680525c8d4f2a1/build-script-build-script-build.json",
+      "size_bytes": 656,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-71680525c8d4f2a1/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-71680525c8d4f2a1/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-89a90ca143c6b3d4/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-89a90ca143c6b3d4/run-build-script-build-script-build.json",
+      "size_bytes": 258,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-95063535a3781a6d/dep-lib-syn",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-95063535a3781a6d/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-95063535a3781a6d/lib-syn",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-95063535a3781a6d/lib-syn.json",
+      "size_bytes": 805,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-ac811012affa20af/dep-lib-syn",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-ac811012affa20af/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-ac811012affa20af/lib-syn",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/syn-ac811012affa20af/lib-syn.json",
+      "size_bytes": 887,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/synstructure-dabf0e3315ecd169/dep-lib-synstructure",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/synstructure-dabf0e3315ecd169/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/synstructure-dabf0e3315ecd169/lib-synstructure",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/synstructure-dabf0e3315ecd169/lib-synstructure.json",
+      "size_bytes": 591,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-2f2c82a361741cb9/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-2f2c82a361741cb9/build-script-build-script-build.json",
+      "size_bytes": 373,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-2f2c82a361741cb9/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-2f2c82a361741cb9/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-impl-2c6820bb69dfe388/dep-lib-thiserror_impl",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-impl-2c6820bb69dfe388/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-impl-2c6820bb69dfe388/lib-thiserror_impl",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/thiserror-impl-2c6820bb69dfe388/lib-thiserror_impl.json",
+      "size_bytes": 539,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/typenum-4fd58cbb619ae7fa/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/typenum-4fd58cbb619ae7fa/build-script-build-script-build.json",
+      "size_bytes": 486,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/typenum-4fd58cbb619ae7fa/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/typenum-4fd58cbb619ae7fa/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/unicode-ident-8de8fef636edc8de/dep-lib-unicode_ident",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/unicode-ident-8de8fef636edc8de/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/unicode-ident-8de8fef636edc8de/lib-unicode_ident",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/unicode-ident-8de8fef636edc8de/lib-unicode_ident.json",
+      "size_bytes": 364,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/version_check-68d673891ab22851/dep-lib-version_check",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/version_check-68d673891ab22851/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/version_check-68d673891ab22851/lib-version_check",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/version_check-68d673891ab22851/lib-version_check.json",
+      "size_bytes": 364,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/vte_generate_state_changes-d9c36a3549ca5b40/dep-lib-vte_generate_state_changes",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/vte_generate_state_changes-d9c36a3549ca5b40/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/vte_generate_state_changes-d9c36a3549ca5b40/lib-vte_generate_state_changes",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/vte_generate_state_changes-d9c36a3549ca5b40/lib-vte_generate_state_changes.json",
+      "size_bytes": 509,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/yoke-derive-a7089fa9fe8c2a34/dep-lib-yoke_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/yoke-derive-a7089fa9fe8c2a34/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/yoke-derive-a7089fa9fe8c2a34/lib-yoke_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/yoke-derive-a7089fa9fe8c2a34/lib-yoke_derive.json",
+      "size_bytes": 597,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerofrom-derive-1a4e47b0ef71fa04/dep-lib-zerofrom_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerofrom-derive-1a4e47b0ef71fa04/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerofrom-derive-1a4e47b0ef71fa04/lib-zerofrom_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerofrom-derive-1a4e47b0ef71fa04/lib-zerofrom_derive.json",
+      "size_bytes": 605,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerovec-derive-7b1b710e188a9634/dep-lib-zerovec_derive",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerovec-derive-7b1b710e188a9634/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerovec-derive-7b1b710e188a9634/lib-zerovec_derive",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zerovec-derive-7b1b710e188a9634/lib-zerovec_derive.json",
+      "size_bytes": 540,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zmij-456c6a3583351889/build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zmij-456c6a3583351889/build-script-build-script-build.json",
+      "size_bytes": 379,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zmij-456c6a3583351889/dep-build-script-build-script-build",
+      "size_bytes": 14,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/.fingerprint/zmij-456c6a3583351889/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/anyhow-9f8cc6a376e0c3ef.d",
+      "size_bytes": 4646,
+      "lines": 17,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/autocfg-91aaf369b99c9b16.d",
+      "size_bytes": 1898,
+      "lines": 10,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/clap_derive-42364a6eceeaff4d.d",
+      "size_bytes": 5073,
+      "lines": 19,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/clap_derive-42364a6eceeaff4d.dll",
+      "size_bytes": 2682880,
+      "lines": 17211,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/clap_derive-42364a6eceeaff4d.dll.exp",
+      "size_bytes": 1279,
+      "lines": 3,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/clap_derive-42364a6eceeaff4d.dll.lib",
+      "size_bytes": 2396,
+      "lines": 15,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/clap_derive-42364a6eceeaff4d.pdb",
+      "size_bytes": 14315520,
+      "lines": 57986,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/displaydoc-1447555ba474e189.d",
+      "size_bytes": 1418,
+      "lines": 8,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/displaydoc-1447555ba474e189.dll",
+      "size_bytes": 1419776,
+      "lines": 10026,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/displaydoc-1447555ba474e189.dll.exp",
+      "size_bytes": 1268,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/displaydoc-1447555ba474e189.dll.lib",
+      "size_bytes": 2370,
+      "lines": 12,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/displaydoc-1447555ba474e189.pdb",
+      "size_bytes": 9555968,
+      "lines": 41366,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/either-ab0dc4fe68b08df7.d",
+      "size_bytes": 1538,
+      "lines": 9,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/heck-5a768430373badad.d",
+      "size_bytes": 3802,
+      "lines": 15,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/heck-9e9d2cdb1cb046fb.d",
+      "size_bytes": 3802,
+      "lines": 15,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/include_dir_macros-5d55175f97847d7a.d",
+      "size_bytes": 570,
+      "lines": 5,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/include_dir_macros-5d55175f97847d7a.dll",
+      "size_bytes": 468480,
+      "lines": 2443,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/include_dir_macros-5d55175f97847d7a.dll.exp",
+      "size_bytes": 1320,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/include_dir_macros-5d55175f97847d7a.dll.lib",
+      "size_bytes": 2510,
+      "lines": 11,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/include_dir_macros-5d55175f97847d7a.pdb",
+      "size_bytes": 3354624,
+      "lines": 13142,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/itertools-b8ab43960e404246.d",
+      "size_bytes": 18495,
+      "lines": 49,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libanyhow-9f8cc6a376e0c3ef.rlib",
+      "size_bytes": 1860318,
+      "lines": 12370,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libanyhow-9f8cc6a376e0c3ef.rmeta",
+      "size_bytes": 434387,
+      "lines": 4217,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libautocfg-91aaf369b99c9b16.rlib",
+      "size_bytes": 2960290,
+      "lines": 16513,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libautocfg-91aaf369b99c9b16.rmeta",
+      "size_bytes": 80046,
+      "lines": 529,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libeither-ab0dc4fe68b08df7.rlib",
+      "size_bytes": 193504,
+      "lines": 1282,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libeither-ab0dc4fe68b08df7.rmeta",
+      "size_bytes": 191144,
+      "lines": 1274,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libheck-5a768430373badad.rlib",
+      "size_bytes": 714512,
+      "lines": 3931,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libheck-5a768430373badad.rmeta",
+      "size_bytes": 73871,
+      "lines": 448,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libheck-9e9d2cdb1cb046fb.rlib",
+      "size_bytes": 1024958,
+      "lines": 5333,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libheck-9e9d2cdb1cb046fb.rmeta",
+      "size_bytes": 77889,
+      "lines": 488,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libitertools-b8ab43960e404246.rlib",
+      "size_bytes": 2425562,
+      "lines": 23114,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libitertools-b8ab43960e404246.rmeta",
+      "size_bytes": 2074201,
+      "lines": 21057,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libproc_macro2-999e43ef24a7dfa0.rlib",
+      "size_bytes": 3641220,
+      "lines": 19094,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libproc_macro2-999e43ef24a7dfa0.rmeta",
+      "size_bytes": 337845,
+      "lines": 2057,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libproc_macro_error-842dfd4f25de37d2.rlib",
+      "size_bytes": 1344678,
+      "lines": 6502,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libproc_macro_error-842dfd4f25de37d2.rmeta",
+      "size_bytes": 128911,
+      "lines": 658,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libquote-3c3236cc368124b5.rlib",
+      "size_bytes": 987384,
+      "lines": 4824,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libquote-3c3236cc368124b5.rmeta",
+      "size_bytes": 273914,
+      "lines": 1306,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsyn-95063535a3781a6d.rlib",
+      "size_bytes": 22330988,
+      "lines": 129109,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsyn-95063535a3781a6d.rmeta",
+      "size_bytes": 3181459,
+      "lines": 29443,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsyn-ac811012affa20af.rlib",
+      "size_bytes": 33764816,
+      "lines": 183542,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsyn-ac811012affa20af.rmeta",
+      "size_bytes": 3533683,
+      "lines": 22370,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsynstructure-dabf0e3315ecd169.rlib",
+      "size_bytes": 4602296,
+      "lines": 26281,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libsynstructure-dabf0e3315ecd169.rmeta",
+      "size_bytes": 219665,
+      "lines": 1593,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libunicode_ident-8de8fef636edc8de.rlib",
+      "size_bytes": 81932,
+      "lines": 313,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libunicode_ident-8de8fef636edc8de.rmeta",
+      "size_bytes": 32880,
+      "lines": 75,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libversion_check-68d673891ab22851.rlib",
+      "size_bytes": 1853970,
+      "lines": 9424,
+      "extension": ".rlib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/libversion_check-68d673891ab22851.rmeta",
+      "size_bytes": 72900,
+      "lines": 309,
+      "extension": ".rmeta"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/miette_derive-662ef67bfa943cd0.d",
+      "size_bytes": 4677,
+      "lines": 18,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/miette_derive-662ef67bfa943cd0.dll",
+      "size_bytes": 1632768,
+      "lines": 11812,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/miette_derive-662ef67bfa943cd0.dll.exp",
+      "size_bytes": 1293,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/miette_derive-662ef67bfa943cd0.dll.lib",
+      "size_bytes": 2430,
+      "lines": 15,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/miette_derive-662ef67bfa943cd0.pdb",
+      "size_bytes": 10055680,
+      "lines": 48486,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro2-999e43ef24a7dfa0.d",
+      "size_bytes": 5085,
+      "lines": 17,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error-842dfd4f25de37d2.d",
+      "size_bytes": 2959,
+      "lines": 12,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error_attr-4d2bedcee4051eae.d",
+      "size_bytes": 1256,
+      "lines": 7,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error_attr-4d2bedcee4051eae.dll",
+      "size_bytes": 404992,
+      "lines": 2541,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error_attr-4d2bedcee4051eae.dll.exp",
+      "size_bytes": 1341,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error_attr-4d2bedcee4051eae.dll.lib",
+      "size_bytes": 2566,
+      "lines": 15,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/proc_macro_error_attr-4d2bedcee4051eae.pdb",
+      "size_bytes": 3125248,
+      "lines": 12412,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/prost_derive-327312d46d6e8024.d",
+      "size_bytes": 2490,
+      "lines": 11,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/prost_derive-327312d46d6e8024.dll",
+      "size_bytes": 2743296,
+      "lines": 16614,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/prost_derive-327312d46d6e8024.dll.exp",
+      "size_bytes": 1286,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/prost_derive-327312d46d6e8024.dll.lib",
+      "size_bytes": 2408,
+      "lines": 12,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/prost_derive-327312d46d6e8024.pdb",
+      "size_bytes": 15224832,
+      "lines": 63559,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/quote-3c3236cc368124b5.d",
+      "size_bytes": 3075,
+      "lines": 13,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/serde_derive-86465ad342c7ead5.d",
+      "size_bytes": 9471,
+      "lines": 34,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/serde_derive-86465ad342c7ead5.dll",
+      "size_bytes": 2489856,
+      "lines": 19681,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/serde_derive-86465ad342c7ead5.dll.exp",
+      "size_bytes": 1286,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/serde_derive-86465ad342c7ead5.dll.lib",
+      "size_bytes": 2408,
+      "lines": 11,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/serde_derive-86465ad342c7ead5.pdb",
+      "size_bytes": 13914112,
+      "lines": 52140,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/strum_macros-a2c7d5c575b51ff0.d",
+      "size_bytes": 8612,
+      "lines": 28,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/strum_macros-a2c7d5c575b51ff0.dll",
+      "size_bytes": 2252288,
+      "lines": 16006,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/strum_macros-a2c7d5c575b51ff0.dll.exp",
+      "size_bytes": 1286,
+      "lines": 3,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/strum_macros-a2c7d5c575b51ff0.dll.lib",
+      "size_bytes": 2408,
+      "lines": 11,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/strum_macros-a2c7d5c575b51ff0.pdb",
+      "size_bytes": 12685312,
+      "lines": 52433,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/syn-95063535a3781a6d.d",
+      "size_bytes": 19167,
+      "lines": 55,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/syn-ac811012affa20af.d",
+      "size_bytes": 19131,
+      "lines": 55,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/synstructure-dabf0e3315ecd169.d",
+      "size_bytes": 1187,
+      "lines": 8,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/thiserror_impl-2c6820bb69dfe388.d",
+      "size_bytes": 3373,
+      "lines": 14,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/thiserror_impl-2c6820bb69dfe388.dll",
+      "size_bytes": 1752064,
+      "lines": 13076,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/thiserror_impl-2c6820bb69dfe388.dll.exp",
+      "size_bytes": 1292,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/thiserror_impl-2c6820bb69dfe388.dll.lib",
+      "size_bytes": 2438,
+      "lines": 12,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/thiserror_impl-2c6820bb69dfe388.pdb",
+      "size_bytes": 12120064,
+      "lines": 46941,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/unicode_ident-8de8fef636edc8de.d",
+      "size_bytes": 1198,
+      "lines": 8,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/version_check-68d673891ab22851.d",
+      "size_bytes": 2016,
+      "lines": 10,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/vte_generate_state_changes-d9c36a3549ca5b40.d",
+      "size_bytes": 610,
+      "lines": 5,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/vte_generate_state_changes-d9c36a3549ca5b40.dll",
+      "size_bytes": 448000,
+      "lines": 2407,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/vte_generate_state_changes-d9c36a3549ca5b40.dll.exp",
+      "size_bytes": 1368,
+      "lines": 3,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/vte_generate_state_changes-d9c36a3549ca5b40.dll.lib",
+      "size_bytes": 2646,
+      "lines": 11,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/vte_generate_state_changes-d9c36a3549ca5b40.pdb",
+      "size_bytes": 3100672,
+      "lines": 12215,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/yoke_derive-a7089fa9fe8c2a34.d",
+      "size_bytes": 1155,
+      "lines": 7,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/yoke_derive-a7089fa9fe8c2a34.dll",
+      "size_bytes": 1627648,
+      "lines": 11660,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/yoke_derive-a7089fa9fe8c2a34.dll.exp",
+      "size_bytes": 1279,
+      "lines": 3,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/yoke_derive-a7089fa9fe8c2a34.dll.lib",
+      "size_bytes": 2396,
+      "lines": 15,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/yoke_derive-a7089fa9fe8c2a34.pdb",
+      "size_bytes": 10375168,
+      "lines": 46318,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerofrom_derive-1a4e47b0ef71fa04.d",
+      "size_bytes": 874,
+      "lines": 6,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerofrom_derive-1a4e47b0ef71fa04.dll",
+      "size_bytes": 1703424,
+      "lines": 11656,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerofrom_derive-1a4e47b0ef71fa04.dll.exp",
+      "size_bytes": 1303,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerofrom_derive-1a4e47b0ef71fa04.dll.lib",
+      "size_bytes": 2464,
+      "lines": 15,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerofrom_derive-1a4e47b0ef71fa04.pdb",
+      "size_bytes": 10653696,
+      "lines": 48071,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerovec_derive-7b1b710e188a9634.d",
+      "size_bytes": 2142,
+      "lines": 10,
+      "extension": ".d"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerovec_derive-7b1b710e188a9634.dll",
+      "size_bytes": 1631744,
+      "lines": 14101,
+      "extension": ".dll"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerovec_derive-7b1b710e188a9634.dll.exp",
+      "size_bytes": 1300,
+      "lines": 2,
+      "extension": ".exp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerovec_derive-7b1b710e188a9634.dll.lib",
+      "size_bytes": 2442,
+      "lines": 11,
+      "extension": ".lib"
+    },
+    {
+      "path": "zchat-hub-plugin/target/debug/deps/zerovec_derive-7b1b710e188a9634.pdb",
+      "size_bytes": 9793536,
+      "lines": 46901,
+      "extension": ".pdb"
+    },
+    {
+      "path": "zchat-hub-plugin/target/flycheck0/stderr",
+      "size_bytes": 168359,
+      "lines": 3689,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/flycheck0/stdout",
+      "size_bytes": 240812,
+      "lines": 166,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/CACHEDIR.TAG",
+      "size_bytes": 177,
+      "lines": 3,
+      "extension": ".tag"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.cargo-lock",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/adler2-e5e898f445db0bd5/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/adler2-e5e898f445db0bd5/output-lib-adler2",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/anyhow-76760442e8531701/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/anyhow-76760442e8531701/output-lib-anyhow",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/anyhow-a93212e5cd400ea5/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/anyhow-a93212e5cd400ea5/run-build-script-build-script-build.json",
+      "size_bytes": 410,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/arrayvec-0d1711026b17d693/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/arrayvec-0d1711026b17d693/output-lib-arrayvec",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/atty-22722e1cf46ba273/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/atty-22722e1cf46ba273/output-lib-atty",
+      "size_bytes": 3170,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bitflags-005be6c4f96a1aa4/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bitflags-005be6c4f96a1aa4/output-lib-bitflags",
+      "size_bytes": 3174,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bitflags-86b0a9b57b00a134/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bitflags-86b0a9b57b00a134/output-lib-bitflags",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bytes-3d3a0231d3174c26/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/bytes-3d3a0231d3174c26/output-lib-bytes",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/cfg-if-db28e06602a18bce/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/cfg-if-db28e06602a18bce/output-lib-cfg_if",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/colorsys-9a907722669d0cfb/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/colorsys-9a907722669d0cfb/output-lib-colorsys",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/crossbeam-utils-446e5b57486635aa/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/crossbeam-utils-446e5b57486635aa/output-lib-crossbeam_utils",
+      "size_bytes": 3183,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/crossbeam-utils-7eefa4bd5ec6baba/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/crossbeam-utils-7eefa4bd5ec6baba/run-build-script-build-script-build.json",
+      "size_bytes": 356,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/fastrand-b430e1412585fa83/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/fastrand-b430e1412585fa83/output-lib-fastrand",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/generic-array-23200d4480cf2c7c/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/generic-array-23200d4480cf2c7c/run-build-script-build-script-build.json",
+      "size_bytes": 257,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/getrandom-1dbea553817d8e91/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/getrandom-1dbea553817d8e91/run-build-script-build-script-build.json",
+      "size_bytes": 347,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/gimli-fc8ef3a77fad8c27/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/gimli-fc8ef3a77fad8c27/output-lib-gimli",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/hashbrown-437cac3511eb1282/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/hashbrown-437cac3511eb1282/output-lib-hashbrown",
+      "size_bytes": 3177,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_normalizer_data-831d1f2223121d98/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_normalizer_data-831d1f2223121d98/run-build-script-build-script-build.json",
+      "size_bytes": 287,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_normalizer_data-fe7839275a4b241d/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_normalizer_data-fe7839275a4b241d/output-lib-icu_normalizer_data",
+      "size_bytes": 3186,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_properties_data-52b63186b2d68da1/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_properties_data-52b63186b2d68da1/output-lib-icu_properties_data",
+      "size_bytes": 3186,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_properties_data-c9b76d7527e527c6/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/icu_properties_data-c9b76d7527e527c6/run-build-script-build-script-build.json",
+      "size_bytes": 288,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/include_dir-2939b23ca7a7fb5a/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/include_dir-2939b23ca7a7fb5a/output-lib-include_dir",
+      "size_bytes": 3176,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/indexmap-56810b08b1871a63/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/indexmap-56810b08b1871a63/run-build-script-build-script-build.json",
+      "size_bytes": 346,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/is_ci-67a2913fc4a59a84/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/is_ci-67a2913fc4a59a84/output-lib-is_ci",
+      "size_bytes": 3170,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/itoa-b3f50bf387d5838b/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/itoa-b3f50bf387d5838b/output-lib-itoa",
+      "size_bytes": 3172,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/lazy_static-548296d5f6eeadbc/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/lazy_static-548296d5f6eeadbc/output-lib-lazy_static",
+      "size_bytes": 3178,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/libc-d0f8d268cd6f6b2f/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/libc-d0f8d268cd6f6b2f/output-lib-libc",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/libc-e078cb5a182e908d/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/libc-e078cb5a182e908d/run-build-script-build-script-build.json",
+      "size_bytes": 733,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/litemap-961ec42628f4906c/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/litemap-961ec42628f4906c/output-lib-litemap",
+      "size_bytes": 3174,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/log-6e049c2757597331/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/log-6e049c2757597331/output-lib-log",
+      "size_bytes": 3171,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/memchr-1864a34c24da4ce1/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/memchr-1864a34c24da4ce1/output-lib-memchr",
+      "size_bytes": 3173,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/minimal-lexical-a9d788474d117b5c/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/minimal-lexical-a9d788474d117b5c/output-lib-minimal_lexical",
+      "size_bytes": 3182,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/object-3d557ee96282910d/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/object-3d557ee96282910d/run-build-script-build-script-build.json",
+      "size_bytes": 256,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/once_cell-8f2a2cb31b884add/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/once_cell-8f2a2cb31b884add/output-lib-once_cell",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/option-ext-5f4f2e1b6c28f577/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/option-ext-5f4f2e1b6c28f577/output-lib-option_ext",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/os_str_bytes-de5075fd8d81cf19/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/os_str_bytes-de5075fd8d81cf19/output-lib-os_str_bytes",
+      "size_bytes": 3177,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/owo-colors-45a490cd8370e1b2/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/owo-colors-45a490cd8370e1b2/output-lib-owo_colors",
+      "size_bytes": 3177,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/percent-encoding-550f57e02b8b4abf/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/percent-encoding-550f57e02b8b4abf/output-lib-percent_encoding",
+      "size_bytes": 3183,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/rustc-demangle-c072979ab789753e/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/rustc-demangle-c072979ab789753e/output-lib-rustc_demangle",
+      "size_bytes": 3182,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/rustix-66df1d1d07fac947/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/rustix-66df1d1d07fac947/run-build-script-build-script-build.json",
+      "size_bytes": 692,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde-57b57f9672ba7cd1/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde-57b57f9672ba7cd1/run-build-script-build-script-build.json",
+      "size_bytes": 344,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_core-9e72467804ab8b22/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_core-9e72467804ab8b22/run-build-script-build-script-build.json",
+      "size_bytes": 349,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_core-d8b22ad4114a55b8/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_core-d8b22ad4114a55b8/output-lib-serde_core",
+      "size_bytes": 3177,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_json-2f0361f47e05f6de/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/serde_json-2f0361f47e05f6de/run-build-script-build-script-build.json",
+      "size_bytes": 349,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/smallvec-cb0707beb26876d0/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/smallvec-cb0707beb26876d0/output-lib-smallvec",
+      "size_bytes": 3176,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/smawk-d2ac0d9fdd3b55c5/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/smawk-d2ac0d9fdd3b55c5/output-lib-smawk",
+      "size_bytes": 3170,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/stable_deref_trait-6dc83c8442e06111/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/stable_deref_trait-6dc83c8442e06111/output-lib-stable_deref_trait",
+      "size_bytes": 3185,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/strsim-76bd4f7f689259b6/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/strsim-76bd4f7f689259b6/output-lib-strsim",
+      "size_bytes": 3172,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/strum-fc5d7808a55a9bf7/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/strum-fc5d7808a55a9bf7/output-lib-strum",
+      "size_bytes": 3171,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/termcolor-9dc6286347aa2b48/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/termcolor-9dc6286347aa2b48/output-lib-termcolor",
+      "size_bytes": 3174,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/textwrap-4d6982a493589171/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/textwrap-4d6982a493589171/output-lib-textwrap",
+      "size_bytes": 3174,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/thiserror-c346ec690316dc34/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/thiserror-c346ec690316dc34/run-build-script-build-script-build.json",
+      "size_bytes": 411,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/thiserror-f5d0173b07b3b94e/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/thiserror-f5d0173b07b3b94e/output-lib-thiserror",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/typenum-19c2d00fa3ad0b6d/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/typenum-19c2d00fa3ad0b6d/run-build-script-build-script-build.json",
+      "size_bytes": 340,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/typenum-857c98b937972afc/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/typenum-857c98b937972afc/output-lib-typenum",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/unicode-linebreak-9b28990625503d97/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/unicode-linebreak-9b28990625503d97/output-lib-unicode_linebreak",
+      "size_bytes": 3184,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/unicode-width-e5baf692326fc747/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/unicode-width-e5baf692326fc747/output-lib-unicode_width",
+      "size_bytes": 3181,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/utf8_iter-12ac747b7394d2ea/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/utf8_iter-12ac747b7394d2ea/output-lib-utf8_iter",
+      "size_bytes": 3176,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/utf8parse-3cf8fc0e59cbbf04/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/utf8parse-3cf8fc0e59cbbf04/output-lib-utf8parse",
+      "size_bytes": 3176,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/writeable-5297642205c73100/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/writeable-5297642205c73100/output-lib-writeable",
+      "size_bytes": 3176,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zerofrom-fe8f310b6e2c28cd/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zerofrom-fe8f310b6e2c28cd/output-lib-zerofrom",
+      "size_bytes": 3175,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zmij-09d4c26587337185/run-build-script-build-script-build",
+      "size_bytes": 16,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zmij-09d4c26587337185/run-build-script-build-script-build.json",
+      "size_bytes": 343,
+      "lines": 1,
+      "extension": ".json"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zmij-e4865ab4faa37104/invoked.timestamp",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".timestamp"
+    },
+    {
+      "path": "zchat-hub-plugin/target/wasm32-wasip1/debug/.fingerprint/zmij-e4865ab4faa37104/output-lib-zmij",
+      "size_bytes": 3172,
+      "lines": 3,
+      "extension": ""
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-palette/Cargo.toml",
+      "size_bytes": 171,
+      "lines": 9,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-palette/src/commands.rs",
+      "size_bytes": 6415,
+      "lines": 190,
+      "extension": ".rs"
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-palette/src/fuzzy.rs",
+      "size_bytes": 3393,
+      "lines": 114,
+      "extension": ".rs"
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-palette/src/main.rs",
+      "size_bytes": 14533,
+      "lines": 442,
+      "extension": ".rs"
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-status/Cargo.toml",
+      "size_bytes": 104,
+      "lines": 7,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-hub-plugin/zchat-status/src/main.rs",
+      "size_bytes": 2104,
+      "lines": 77,
+      "extension": ".rs"
+    },
+    {
+      "path": "zchat-protocol/.git",
+      "size_bytes": 39,
+      "lines": 1,
+      "extension": ""
+    },
+    {
+      "path": "zchat-protocol/.github/workflows/publish.yml",
+      "size_bytes": 306,
+      "lines": 17,
+      "extension": ".yml"
+    },
+    {
+      "path": "zchat-protocol/LICENSE",
+      "size_bytes": 1066,
+      "lines": 21,
+      "extension": ""
+    },
+    {
+      "path": "zchat-protocol/pyproject.toml",
+      "size_bytes": 480,
+      "lines": 21,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat-protocol/tests/test_naming.py",
+      "size_bytes": 441,
+      "lines": 17,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-protocol/tests/test_sys_messages.py",
+      "size_bytes": 1115,
+      "lines": 37,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-protocol/uv.lock",
+      "size_bytes": 4655,
+      "lines": 79,
+      "extension": ".lock"
+    },
+    {
+      "path": "zchat-protocol/zchat_protocol/__init__.py",
+      "size_bytes": 134,
+      "lines": 3,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-protocol/zchat_protocol/naming.py",
+      "size_bytes": 308,
+      "lines": 11,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat-protocol/zchat_protocol/sys_messages.py",
+      "size_bytes": 1218,
+      "lines": 45,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat.sh",
+      "size_bytes": 306,
+      "lines": 7,
+      "extension": ".sh"
+    },
+    {
+      "path": "zchat/__init__.py",
+      "size_bytes": 52,
+      "lines": 1,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/_version.py",
+      "size_bytes": 537,
+      "lines": 24,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/__init__.py",
+      "size_bytes": 48,
+      "lines": 1,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/__main__.py",
+      "size_bytes": 83,
+      "lines": 4,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/agent_manager.py",
+      "size_bytes": 14335,
+      "lines": 370,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/app.py",
+      "size_bytes": 48947,
+      "lines": 1332,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/auth.py",
+      "size_bytes": 9522,
+      "lines": 272,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/config_cmd.py",
+      "size_bytes": 3675,
+      "lines": 106,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/data/config.kdl",
+      "size_bytes": 317,
+      "lines": 12,
+      "extension": ".kdl"
+    },
+    {
+      "path": "zchat/cli/data/defaults.toml",
+      "size_bytes": 661,
+      "lines": 28,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat/cli/data/plugins/.gitkeep",
+      "size_bytes": 0,
+      "lines": 0,
+      "extension": ""
+    },
+    {
+      "path": "zchat/cli/defaults.py",
+      "size_bytes": 896,
+      "lines": 34,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/doctor.py",
+      "size_bytes": 5957,
+      "lines": 179,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/ergo_auth_script.py",
+      "size_bytes": 3593,
+      "lines": 108,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/irc_manager.py",
+      "size_bytes": 13376,
+      "lines": 325,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/layout.py",
+      "size_bytes": 3385,
+      "lines": 97,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/migrate.py",
+      "size_bytes": 3384,
+      "lines": 114,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/paths.py",
+      "size_bytes": 4684,
+      "lines": 159,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/project.py",
+      "size_bytes": 5130,
+      "lines": 159,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/runner.py",
+      "size_bytes": 7875,
+      "lines": 233,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/template_loader.py",
+      "size_bytes": 3771,
+      "lines": 111,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/templates/claude/.env.example",
+      "size_bytes": 643,
+      "lines": 21,
+      "extension": ".example"
+    },
+    {
+      "path": "zchat/cli/templates/claude/soul.md",
+      "size_bytes": 1135,
+      "lines": 20,
+      "extension": ".md"
+    },
+    {
+      "path": "zchat/cli/templates/claude/start.sh",
+      "size_bytes": 3173,
+      "lines": 107,
+      "extension": ".sh"
+    },
+    {
+      "path": "zchat/cli/templates/claude/template.toml",
+      "size_bytes": 113,
+      "lines": 6,
+      "extension": ".toml"
+    },
+    {
+      "path": "zchat/cli/update.py",
+      "size_bytes": 6299,
+      "lines": 176,
+      "extension": ".py"
+    },
+    {
+      "path": "zchat/cli/zellij.py",
+      "size_bytes": 5867,
+      "lines": 180,
+      "extension": ".py"
+    }
+  ],
+  "summary": {
+    "total_files": 698,
+    "total_lines": 1283894,
+    "by_extension": {
+      "(no ext)": 190,
+      ".timestamp": 96,
+      ".md": 94,
+      ".json": 82,
+      ".py": 82,
+      ".d": 27,
+      ".rmeta": 14,
+      ".rlib": 14,
+      ".sh": 13,
+      ".lib": 13,
+      ".pdb": 13,
+      ".dll": 13,
+      ".exp": 13,
+      ".toml": 9,
+      ".lock": 4,
+      ".rs": 4,
+      ".yml": 4,
+      ".yaml": 2,
+      ".example": 2,
+      ".tag": 2,
+      ".rb": 2,
+      ".plist": 2,
+      ".env": 1,
+      ".ini": 1,
+      ".kdl": 1
+    }
+  }
+}

@@ -675,13 +675,23 @@ def cmd_project_list():
         typer.echo(f"  {p}{marker}  {project_dir(p)}")
 
 @project_app.command("use")
-def cmd_project_use(name: str):
-    """Set default project and launch/switch to its Zellij session."""
+def cmd_project_use(
+    name: str,
+    no_attach: bool = typer.Option(
+        False,
+        "--no-attach",
+        help="Only set default project, do not switch/attach Zellij session.",
+    ),
+):
+    """Set default project and optionally launch/switch to its Zellij session."""
     if not os.path.isdir(project_dir(name)):
         typer.echo(f"Project '{name}' does not exist.")
         raise typer.Exit(1)
     set_default_project(name)
     typer.echo(f"Default project set to '{name}'.")
+    if no_attach:
+        typer.echo("Skip attaching session.")
+        return
     _launch_project_session(name)
 
 @project_app.command("remove")
@@ -726,11 +736,16 @@ def cmd_project_show(name: Optional[str] = typer.Argument(None)):
     except FileNotFoundError:
         typer.echo(f"Project '{name}' does not exist.")
         raise typer.Exit(1)
+    irc = _get_irc_config(cfg)
+    nickname = cfg.get("username", "")
+    channels = cfg.get("default_channels", [])
+    if not isinstance(channels, list):
+        channels = []
     typer.echo(f"Project: {name}")
-    typer.echo(f"  IRC server: {cfg['irc']['server']}:{cfg['irc']['port']}")
-    typer.echo(f"  TLS: {cfg['irc']['tls']}")
-    typer.echo(f"  Nickname: {cfg['agents']['username']}")
-    typer.echo(f"  Channels: {', '.join(cfg['agents']['default_channels'])}")
+    typer.echo(f"  IRC server: {irc['host']}:{irc['port']}")
+    typer.echo(f"  TLS: {irc.get('tls', False)}")
+    typer.echo(f"  Nickname: {nickname}")
+    typer.echo(f"  Channels: {', '.join(channels)}")
 
 
 @app.command("set")

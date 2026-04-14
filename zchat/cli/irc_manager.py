@@ -57,13 +57,36 @@ class IrcManager:
         ergo_data_dir = os.path.join(state_dir, "ergo")
         os.makedirs(ergo_data_dir, exist_ok=True)
 
-        # Copy languages from system ergo install if needed
-        system_ergo = os.path.expanduser("~/.local/share/ergo")
-        if os.path.isdir(os.path.join(system_ergo, "languages")) and \
-           not os.path.isdir(os.path.join(ergo_data_dir, "languages")):
+        # Copy languages from system ergo install if needed.
+        # Search multiple locations: ~/.local/share/ergo (manual install),
+        # brew --prefix ergo share (Homebrew), and next to the ergo binary.
+        if not os.path.isdir(os.path.join(ergo_data_dir, "languages")):
             import shutil
-            shutil.copytree(os.path.join(system_ergo, "languages"),
-                            os.path.join(ergo_data_dir, "languages"))
+            lang_candidates = [
+                os.path.expanduser("~/.local/share/ergo/languages"),
+            ]
+            # Check Homebrew prefix
+            try:
+                brew_result = subprocess.run(
+                    ["brew", "--prefix", "ergo"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if brew_result.returncode == 0:
+                    brew_prefix = brew_result.stdout.strip()
+                    lang_candidates.append(os.path.join(brew_prefix, "share", "languages"))
+                    lang_candidates.append(os.path.join(brew_prefix, "languages"))
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+            # Check next to ergo binary
+            ergo_bin = shutil.which("ergo")
+            if ergo_bin:
+                lang_candidates.append(os.path.join(os.path.dirname(ergo_bin), "..", "share", "ergo", "languages"))
+                lang_candidates.append(os.path.join(os.path.dirname(ergo_bin), "languages"))
+            for candidate in lang_candidates:
+                candidate = os.path.realpath(candidate)
+                if os.path.isdir(candidate):
+                    shutil.copytree(candidate, os.path.join(ergo_data_dir, "languages"))
+                    break
 
         # Generate ergo config with project's port
         ergo_conf = os.path.join(ergo_data_dir, "ergo.yaml")
@@ -240,9 +263,17 @@ class IrcManager:
         plugin_path = self._find_weechat_plugin()
         load_plugin = f"; /script load {plugin_path}" if plugin_path else ""
 
+        # Use /server add for first time, then /set addresses + tls to ensure
+        # config is up-to-date even if WeeChat cached an old server address
+        # (fixes issue where switching IRC servers left WeeChat connecting to
+        # the old one because /server add silently ignores duplicates).
+        tls_on_off = "on" if tls else "off"
         return (
             f"{source_env}weechat -d {weechat_home} -r '"
             f"/server add {srv_name} {server}/{port}{tls_flag} -nicks={nick}"
+            f"; /set irc.server.{srv_name}.addresses \"{server}/{port}\""
+            f"; /set irc.server.{srv_name}.ssl {tls_on_off}"
+            f"; /set irc.server.{srv_name}.nicks \"{nick}\""
             f"; /set irc.server.{srv_name}.autojoin \"{autojoin}\""
             f"; /set irc.server.{srv_name}.autoconnect on"
             f"; /set irc.server.{srv_name}.autoreconnect on"

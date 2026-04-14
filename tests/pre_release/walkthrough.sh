@@ -45,11 +45,21 @@ asciinema rec "$CAST_FILE" \
 GIF_FILE="${CAST_FILE%.cast}.gif"
 echo ""
 echo "=== Recording saved: $CAST_FILE ==="
+echo "Verifying walkthrough output..."
+python3 tests/pre_release/verify_walkthrough.py "$CAST_FILE"
 
 if command -v agg &>/dev/null; then
     echo "Generating GIF..."
     agg "$CAST_FILE" "$GIF_FILE"
     echo "GIF: $GIF_FILE"
+    if [[ -n "${WALKTHROUGH_GIF_BASELINE:-}" ]]; then
+        echo "Comparing GIF with baseline: $WALKTHROUGH_GIF_BASELINE"
+        if ! cmp -s "$GIF_FILE" "$WALKTHROUGH_GIF_BASELINE"; then
+            echo "GIF differs from baseline."
+            exit 1
+        fi
+        echo "GIF matches baseline."
+    fi
 else
     echo "Install agg to auto-generate GIF: brew install agg"
 fi

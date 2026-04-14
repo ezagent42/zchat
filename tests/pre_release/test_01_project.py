@@ -23,11 +23,11 @@ def test_project_show(cli, project):
 @pytest.mark.order(3)
 def test_project_set(cli, project, e2e_port):
     """zchat set updates config, then restore original value."""
-    cli("set", "irc.port", "6668")
+    cli("set", "username", "testuser")
     result = cli("project", "show", PROJECT_NAME)
-    assert "6668" in result.stdout
+    assert "testuser" in result.stdout
     # Restore
-    cli("set", "irc.port", str(e2e_port))
+    cli("set", "username", "")
 
 
 @pytest.mark.order(4)
@@ -50,7 +50,7 @@ def test_project_create_second(cli, e2e_port):
 @pytest.mark.order(5)
 def test_project_use(cli):
     """Switch default project."""
-    result = cli("project", "use", SECOND_PROJECT, check=False)
+    result = cli("project", "use", SECOND_PROJECT, "--no-attach", check=False)
     assert result.returncode == 0
 
 
