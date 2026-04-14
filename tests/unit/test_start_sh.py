@@ -1,10 +1,13 @@
-"""Integration checks for repository bootstrap scripts."""
+"""Unit tests for start.sh bootstrap script syntax and early-exit behavior."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _write_executable(path: Path, content: str) -> None:
@@ -14,10 +17,9 @@ def _write_executable(path: Path, content: str) -> None:
 
 def test_start_sh_has_valid_bash_syntax():
     """`start.sh` should pass shell syntax check."""
-    repo_root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         ["bash", "-n", "start.sh"],
-        cwd=str(repo_root),
+        cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -29,13 +31,11 @@ def test_start_sh_has_valid_bash_syntax():
 
 def test_start_sh_fails_fast_when_required_tools_missing():
     """Script should fail early and print missing dependency hints."""
-    repo_root = Path(__file__).resolve().parents[2]
     env = os.environ.copy()
-    # Keep common system bins for bash internals, but drop user-installed tools.
     env["PATH"] = "/usr/bin:/bin"
     result = subprocess.run(
         ["bash", "start.sh"],
-        cwd=str(repo_root),
+        cwd=str(REPO_ROOT),
         env=env,
         capture_output=True,
         text=True,
@@ -50,7 +50,6 @@ def test_start_sh_fails_fast_when_required_tools_missing():
 
 def test_start_sh_launch_flow_attaches_expected_session(tmp_path):
     """Script should run launch flow and attach to `zchat-<project>` session."""
-    repo_root = Path(__file__).resolve().parents[2]
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir(parents=True)
     logs_dir = tmp_path / "logs"
@@ -78,7 +77,6 @@ echo "zellij $*" >> "$FAKE_ZELLIJ_LOG"
 exit 0
 """,
     )
-    # Dependency checks only need these commands to exist in PATH.
     _write_executable(fake_bin / "claude", "#!/bin/bash\nexit 0\n")
     _write_executable(fake_bin / "weechat", "#!/bin/bash\nexit 0\n")
 
@@ -86,7 +84,6 @@ exit 0
     env["PATH"] = f"{fake_bin}:/usr/bin:/bin"
     env["FAKE_UV_LOG"] = str(uv_log)
     env["FAKE_ZELLIJ_LOG"] = str(zellij_log)
-    # Force project show to fail once so start.sh executes project create.
     env["FAKE_UV_SHOW_EXIT_CODE"] = "1"
 
     workspace = tmp_path / "ws"
@@ -94,7 +91,7 @@ exit 0
 
     result = subprocess.run(
         ["bash", "start.sh", str(workspace), "demo"],
-        cwd=str(repo_root),
+        cwd=str(REPO_ROOT),
         env=env,
         capture_output=True,
         text=True,
