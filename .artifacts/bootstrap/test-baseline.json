@@ -1,0 +1,17 @@
+{
+  "suite": "unit",
+  "command": "uv run pytest tests/unit/ -q --tb=short",
+  "exit_code": 1,
+  "passed": 236,
+  "failed": 1,
+  "skipped": 0,
+  "failures": [
+    {
+      "nodeid": "tests/unit/test_irc_check.py::test_unreachable_server_raises",
+      "reason": "pre-existing bug — check_irc_connectivity does not raise ConnectionError on unreachable server",
+      "type": "code_bug"
+    }
+  ],
+  "captured_at": "2026-04-14",
+  "notes": "Updated after adding 38 new unit tests for issues #40/#41/#42/ctrl-c (was 198 on 2026-04-10)"
+}
