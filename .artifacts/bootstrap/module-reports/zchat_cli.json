@@ -1,0 +1,29 @@
+{
+  "module_name": "zchat_cli",
+  "description": "Claude Code agent lifecycle management CLI. Manages project config, agent create/stop/restart, IRC daemon (ergo) + WeeChat, OIDC auth, Zellij session orchestration.",
+  "files": [
+    {"path": "zchat/cli/app.py", "lines": 800, "key_items": ["main:194", "_get_agent_manager:151", "_get_irc_manager:136", "_enter_main_session:385", "_launch_project_session:443", "_create_project_zellij_session:476"]},
+    {"path": "zchat/cli/agent_manager.py", "lines": 371, "key_items": ["AgentManager.create:65", "AgentManager.stop:100", "_spawn_tab:179", "_wait_for_ready:264", "_auto_confirm_startup:276", "send:332"]},
+    {"path": "zchat/cli/irc_manager.py", "lines": 326, "key_items": ["check_irc_connectivity:13", "IrcManager.daemon_start:40", "IrcManager.start_weechat:182", "IrcManager.build_weechat_cmd:207"]},
+    {"path": "zchat/cli/zellij.py", "lines": 181, "key_items": ["ensure_session:26", "new_tab:75", "send_command:124", "dump_screen:135", "get_pane_id:159", "kill_session:178"]},
+    {"path": "zchat/cli/paths.py", "lines": 160, "key_items": ["zchat_home:14", "project_dir:103", "agent_ready_marker:152", "ergo_data_dir:128"]},
+    {"path": "zchat/cli/auth.py", "lines": 273, "key_items": ["device_code_flow:137", "get_credentials:238", "get_username:20", "_sanitize_irc_nick:106"]},
+    {"path": "zchat/cli/project.py", "lines": 160, "key_items": ["create_project_config:24", "load_project_config:94", "set_config_value:135", "resolve_project:81"]},
+    {"path": "zchat/cli/layout.py", "lines": 98, "key_items": ["generate_layout:19", "write_layout:86"]},
+    {"path": "zchat/cli/migrate.py", "lines": 115, "key_items": ["migrate_config_if_needed:12", "migrate_state_if_needed:59"]},
+    {"path": "zchat/cli/doctor.py", "lines": 180, "key_items": ["run_doctor:73", "setup_weechat:148"]},
+    {"path": "zchat/cli/runner.py", "lines": 234, "key_items": ["resolve_runner:75", "render_env:144"]},
+    {"path": "zchat/cli/update.py", "lines": 177, "key_items": ["check_for_updates:87", "run_upgrade:134"]}
+  ],
+  "cli_commands": ["project create","project list","project use","project use --no-attach","project remove","project show","set","auth login","auth status","auth logout","irc daemon start","irc daemon stop","irc start","irc stop","irc status","agent create","agent stop","agent list","agent status","agent send","agent restart","agent focus","agent hide","shutdown","doctor","setup weechat","update","upgrade","config get","config set","config list"],
+  "external_deps": ["typer", "tomllib", "tomli_w", "httpx", "dotenv", "segno", "zchat_protocol"],
+  "key_integrations": [
+    "app.py → agent_manager.py: agent lifecycle",
+    "app.py → irc_manager.py: IRC daemon/client",
+    "app.py → zellij.py: session/tab operations",
+    "app.py → paths.py: all path resolution",
+    "agent_manager.py → auth.py: inject tokens",
+    "irc_manager.py → ergo_auth_script.py: SASL auth"
+  ],
+  "test_results": {"command": "uv run pytest tests/unit/ -q", "exit_code": 1, "passed": 198, "failed": 1, "failure": "test_irc_check.py::test_unreachable_server_raises — pre-existing bug"}
+}

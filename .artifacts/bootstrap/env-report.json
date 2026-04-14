@@ -1,0 +1,114 @@
+{
+  "project_root": "/home/lenovo/workspace/zchat",
+  "checks": [
+    {
+      "name": "python3",
+      "status": "ready",
+      "version": "Python 3.14.3",
+      "optional": false,
+      "install_hint": ""
+    },
+    {
+      "name": "node",
+      "status": "ready",
+      "version": "v20.19.4",
+      "optional": true,
+      "install_hint": "apt install nodejs / brew install node"
+    },
+    {
+      "name": "uv",
+      "status": "ready",
+      "version": "uv 0.11.1 (a6042f67f 2026-03-24 x86_64-unknown-linux-gnu)",
+      "optional": true,
+      "install_hint": "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    },
+    {
+      "name": "pip",
+      "status": "ready",
+      "version": "pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)",
+      "optional": true,
+      "install_hint": ""
+    },
+    {
+      "name": "git",
+      "status": "ready",
+      "version": "git version 2.43.0",
+      "optional": false,
+      "install_hint": ""
+    },
+    {
+      "name": "pytest",
+      "status": "ready",
+      "version": "/home/linuxbrew/.linuxbrew/opt/python@3.14/bin/python3.14: No module named pytest",
+      "optional": true,
+      "install_hint": "uv sync --dev"
+    },
+    {
+      "name": "tmux",
+      "status": "ready",
+      "version": "tmux 3.6a",
+      "optional": true,
+      "install_hint": "apt install tmux / brew install tmux"
+    },
+    {
+      "name": "zellij",
+      "status": "ready",
+      "version": "zellij 0.44.1",
+      "optional": true,
+      "install_hint": "cargo install zellij"
+    },
+    {
+      "name": "asciinema",
+      "status": "missing",
+      "version": null,
+      "optional": true,
+      "install_hint": "pip install asciinema"
+    },
+    {
+      "name": "docker",
+      "status": "missing",
+      "version": null,
+      "optional": true,
+      "install_hint": "https://docs.docker.com/get-docker/"
+    },
+    {
+      "name": "service (detected in tests/unit/test_migrate.py) (port 6667)",
+      "status": "missing",
+      "version": "not listening on 6667",
+      "optional": true,
+      "start_hint": ""
+    },
+    {
+      "name": "service (detected in tests/unit/test_project.py) (port 6697)",
+      "status": "missing",
+      "version": "not listening on 6697",
+      "optional": true,
+      "start_hint": ""
+    }
+  ],
+  "detected_ports": {
+    "6667": {
+      "name": "service (detected in tests/unit/test_migrate.py)",
+      "source": "tests/unit/test_migrate.py"
+    },
+    "6697": {
+      "name": "service (detected in tests/unit/test_project.py)",
+      "source": "tests/unit/test_project.py"
+    }
+  },
+  "project_dependencies": [
+    "httpx",
+    "segno",
+    "tomli-w",
+    "python-dotenv",
+    "typer[all]",
+    "zchat-protocol",
+    "zchat-channel-server"
+  ],
+  "summary": {
+    "ready": 8,
+    "missing_required": 0,
+    "missing_optional": 4,
+    "total": 12
+  }
+}

@@ -87,6 +87,15 @@ def test_agent_send(cli, irc_probe):
 
 
 @pytest.mark.order(5)
+def test_agent_focus_hide(cli):
+    """agent focus/hide switch zellij tabs without error."""
+    result = cli("agent", "focus", "agent0", check=False)
+    assert result.returncode == 0, f"agent focus failed: {result.stderr}"
+    result = cli("agent", "hide", "agent0", check=False)
+    assert result.returncode == 0, f"agent hide failed: {result.stderr}"
+
+
+@pytest.mark.order(6)
 def test_agent_create_second(cli, irc_probe):
     """Create agent1."""
     cli("agent", "create", "agent1")
@@ -96,7 +105,7 @@ def test_agent_create_second(cli, irc_probe):
     ), "agent1 not on IRC"
 
 
-@pytest.mark.order(6)
+@pytest.mark.order(7)
 def test_agent_restart(cli, irc_probe):
     """Restart agent1, verify it re-joins IRC."""
     cli("agent", "restart", "agent1")
@@ -106,7 +115,7 @@ def test_agent_restart(cli, irc_probe):
     ), "agent1 not back on IRC after restart"
 
 
-@pytest.mark.order(7)
+@pytest.mark.order(8)
 def test_agent_stop(cli, irc_probe):
     """Stop agent1, verify it leaves IRC."""
     cli("agent", "stop", "agent1")
@@ -116,7 +125,7 @@ def test_agent_stop(cli, irc_probe):
     ), "agent1 still on IRC after stop"
 
 
-@pytest.mark.order(8)
+@pytest.mark.order(9)
 def test_agent_list_after_stop(cli):
     """agent list shows agent1 after stop."""
     result = cli("agent", "list")

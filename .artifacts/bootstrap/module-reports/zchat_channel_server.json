@@ -1,0 +1,13 @@
+{
+  "module_name": "zchat_channel_server",
+  "description": "MCP server bridging IRC messaging with Claude Code via stdio. Receives @mentions in channels/DMs, relays to Claude Code through MCP notifications. Provides reply and join_channel tools.",
+  "files": [
+    {"path": "zchat-channel-server/server.py", "lines": 321, "key_items": ["inject_message:43", "poll_irc_queue:63", "setup_irc:76", "on_pubmsg:112", "on_privmsg:133", "_handle_sys_message:186", "register_tools:224", "_handle_reply:270", "main:290"]},
+    {"path": "zchat-channel-server/message.py", "lines": 49, "key_items": ["detect_mention:10", "clean_mention:15", "chunk_message:20"]},
+    {"path": "zchat-channel-server/tests/test_channel_server.py", "lines": 69, "key_items": ["test_detect_mention:10", "test_chunk_message_long:24", "test_sys_message_irc_roundtrip:31"]}
+  ],
+  "mcp_tools": ["reply: Reply to user or channel", "join_channel: Join an IRC channel"],
+  "irc_events": ["welcome: auto-join channels", "pubmsg: filter @mentions", "privmsg: DM + sys messages", "disconnect: reconnect after 5s"],
+  "external_deps": ["mcp>=1.2.0", "irc>=20.0", "zchat-protocol>=0.1.0"],
+  "test_results": {"command": "cd zchat-channel-server && uv run pytest tests/ -q", "exit_code": 0, "passed": 10, "failed": 0}
+}

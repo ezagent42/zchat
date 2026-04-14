@@ -1,7 +1,7 @@
 ---
 type: test-plan
 id: test-plan-008
-status: draft
+status: executed
 producer: skill-2
 created_at: "2026-04-13T00:00:00Z"
 trigger: "eval-doc-007"
