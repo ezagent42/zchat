@@ -16,6 +16,9 @@ docs/test-status-latest/
 # Machine-specific bootstrap artifacts (all generated, not committed)
 .artifacts/bootstrap/
 
+# Discussion artifacts (local only)
+docs/discuss/
+
 # Runtime artifacts
 .mcp.json
 ircd.db
@@ -25,8 +28,7 @@ languages/
 claude.local.env
 .mcp.env
 
-# One-time test run reports
-docs/discuss/skill-dev/e2e-report/
+# One-time test run reports (subpath rules superseded by docs/discuss/ above)
 
 # IDE config
 .cursor/
