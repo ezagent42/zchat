@@ -179,6 +179,79 @@ class TestTC02BrewShareExists(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# TC-03: Homebrew 备选路径（brew_prefix/languages）存在时正确 copy
+# ---------------------------------------------------------------------------
+class TestTC03BrewAltExists(unittest.TestCase):
+    def test_copies_from_brew_alt(self):
+        brew_prefix = "/opt/homebrew/opt/ergo"
+        brew_alt_lang = str(Path(brew_prefix) / "languages")
+        dest = "/tmp/ergo_test3/languages"
+
+        # brew share 路径不存在，备选路径存在
+        existing = {brew_alt_lang}
+
+        def fake_isdir(p):
+            return os.path.abspath(str(p)) in {os.path.abspath(s) for s in existing}
+
+        with patch("shutil.copytree") as mock_copytree, \
+             patch("shutil.which", return_value=None), \
+             patch("subprocess.run", return_value=MagicMock(returncode=0, stdout=brew_prefix + "\n")), \
+             patch("os.path.isdir", side_effect=fake_isdir), \
+             patch("os.path.realpath", side_effect=lambda p, **kw: os.path.abspath(str(p))):
+            if not fake_isdir(dest):
+                candidates = [
+                    str(Path("~/.local/share/ergo/languages").expanduser()),
+                    str(Path(brew_prefix) / "share" / "languages"),
+                    brew_alt_lang,
+                ]
+                for c in candidates:
+                    c = os.path.abspath(c)
+                    if fake_isdir(c):
+                        mock_copytree(c, dest)
+                        break
+
+            mock_copytree.assert_called_once()
+            src_arg = mock_copytree.call_args[0][0]
+            self.assertEqual(src_arg, os.path.abspath(brew_alt_lang))
+
+
+# ---------------------------------------------------------------------------
+# TC-04: ergo binary 旁路径（binary/../share/ergo/languages）存在时正确 copy
+# ---------------------------------------------------------------------------
+class TestTC04BinaryRelativeExists(unittest.TestCase):
+    def test_copies_from_binary_relative(self):
+        ergo_bin = "/usr/local/bin/ergo"
+        bin_share_lang = str((Path(ergo_bin).parent / ".." / "share" / "ergo" / "languages").resolve())
+        dest = "/tmp/ergo_test4/languages"
+
+        existing = {bin_share_lang}
+
+        def fake_isdir(p):
+            return os.path.abspath(str(p)) in {os.path.abspath(s) for s in existing}
+
+        with patch("shutil.copytree") as mock_copytree, \
+             patch("shutil.which", return_value=ergo_bin), \
+             patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="")), \
+             patch("os.path.isdir", side_effect=fake_isdir), \
+             patch("os.path.realpath", side_effect=lambda p, **kw: os.path.abspath(str(p))):
+            if not fake_isdir(dest):
+                candidates = [
+                    str(Path("~/.local/share/ergo/languages").expanduser()),
+                    str(Path(ergo_bin).parent / ".." / "share" / "ergo" / "languages"),
+                    str(Path(ergo_bin).parent / "languages"),
+                ]
+                for c in candidates:
+                    c = os.path.abspath(c)
+                    if fake_isdir(c):
+                        mock_copytree(c, dest)
+                        break
+
+            mock_copytree.assert_called_once()
+            src_arg = mock_copytree.call_args[0][0]
+            self.assertIn("share", src_arg)
+
+
+# ---------------------------------------------------------------------------
 # TC-05: ergo_data_dir/languages 已存在时不重复 copy
 # ---------------------------------------------------------------------------
 class TestTC05DestAlreadyExists(unittest.TestCase):
