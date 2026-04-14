@@ -1,0 +1,45 @@
+{
+  "module_name": "paths",
+  "module_path": "zchat/cli/paths.py",
+  "description": "Centralized path resolution for zchat with priority: env var > config.toml [paths] > defaults.toml [paths] (paths.py:1-6)",
+  "key_interfaces": [
+    {"name": "zchat_home", "file": "paths.py", "line": 14, "description": "Root zchat directory (~/.zchat), overridable via $ZCHAT_HOME"},
+    {"name": "plugins_dir", "file": "paths.py", "line": 59, "description": "Plugin WASM directory, overridable via $ZCHAT_PLUGINS_DIR"},
+    {"name": "templates_dir", "file": "paths.py", "line": 64, "description": "User template directory, overridable via $ZCHAT_TEMPLATES_DIR"},
+    {"name": "projects_dir", "file": "paths.py", "line": 69, "description": "Directory containing all projects"},
+    {"name": "global_config_path", "file": "paths.py", "line": 79, "description": "Global config.toml path"},
+    {"name": "auth_file", "file": "paths.py", "line": 84, "description": "Authentication token file path"},
+    {"name": "update_state", "file": "paths.py", "line": 89, "description": "Update check state file path"},
+    {"name": "default_project_file", "file": "paths.py", "line": 94, "description": "File storing the default project name"},
+    {"name": "project_dir", "file": "paths.py", "line": 103, "description": "Root directory for a project"},
+    {"name": "project_config", "file": "paths.py", "line": 108, "description": "Project config.toml path"},
+    {"name": "project_state", "file": "paths.py", "line": 113, "description": "Project runtime state.json path"},
+    {"name": "project_env_file", "file": "paths.py", "line": 118, "description": "Per-project Claude environment file path"},
+    {"name": "project_kdl_config", "file": "paths.py", "line": 123, "description": "Per-project Zellij KDL config path"},
+    {"name": "ergo_data_dir", "file": "paths.py", "line": 128, "description": "Per-project ergo IRC daemon data directory"},
+    {"name": "weechat_home", "file": "paths.py", "line": 133, "description": "Per-project WeeChat config directory"},
+    {"name": "zellij_layout_dir", "file": "paths.py", "line": 138, "description": "Directory for Zellij layout files (~/.zchat/main)"},
+    {"name": "agent_workspace", "file": "paths.py", "line": 147, "description": "Agent workspace directory within a project"},
+    {"name": "agent_ready_marker", "file": "paths.py", "line": 152, "description": "Agent startup ready marker file path"},
+    {"name": "legacy_agent_state", "file": "paths.py", "line": 157, "description": "Legacy agent state file path (~/.local/state/zchat/agents.json)"}
+  ],
+  "dependencies": ["defaults"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_paths.py -v",
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "resolve subdirectory path",
+      "entry": "paths.py:19",
+      "steps": [
+        "check environment variable override",
+        "check global config.toml [paths] section",
+        "fall back to defaults.toml [paths] value",
+        "return absolute path relative to zchat_home()"
+      ]
+    }
+  ]
+}

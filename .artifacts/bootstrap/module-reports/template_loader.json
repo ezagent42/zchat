@@ -1,0 +1,33 @@
+{
+  "module_name": "template_loader",
+  "module_path": "zchat/cli/template_loader.py",
+  "description": "Template loading: resolve, load, render environment variables for agent templates (template_loader.py:1)",
+  "key_interfaces": [
+    {"name": "resolve_template_dir", "file": "template_loader.py", "line": 18, "description": "Resolve template directory by name (user dir priority over built-in), raises TemplateNotFoundError"},
+    {"name": "load_template", "file": "template_loader.py", "line": 36, "description": "Load template.toml metadata, returns dict with 'template' and 'hooks' keys"},
+    {"name": "render_env", "file": "template_loader.py", "line": 47, "description": "Render .env.example with context ({{placeholder}} substitution), overlay .env user overrides"},
+    {"name": "get_start_script", "file": "template_loader.py", "line": 76, "description": "Return absolute path to template's start.sh, raises FileNotFoundError"},
+    {"name": "list_templates", "file": "template_loader.py", "line": 85, "description": "List all templates (user + built-in, deduplicated) with source tag"},
+    {"name": "_parse_env_file", "file": "template_loader.py", "line": 29, "description": "Parse .env file into dict using python-dotenv"},
+    {"name": "TemplateNotFoundError", "file": "template_loader.py", "line": 11, "description": "Exception raised when template not found"}
+  ],
+  "dependencies": ["paths"],
+  "test_results": {
+    "command": "uv run pytest tests/unit/test_template_loader.py -v",
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "user_flows": [
+    {
+      "name": "list available templates",
+      "entry": "template_loader.py:85",
+      "steps": [
+        "scan user templates dir (~/.zchat/templates/)",
+        "scan built-in templates dir (zchat/cli/templates/)",
+        "deduplicate (user overrides built-in)",
+        "load template.toml for each, tag with source"
+      ]
+    }
+  ]
+}
