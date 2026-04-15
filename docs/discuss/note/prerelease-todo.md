@@ -315,3 +315,35 @@ IRC 中是两条消息，飞书中通过 edit_of 标记合并为一条。
 | 文件 | 位置 | 问题 | 修改方向 |
 |------|------|------|---------|
 | `07-migration-plan.md` | L66-86 | 包含 zchat CLI 模板系统 + create-team 命令 | 标注 v1.0 out of scope |
+
+---
+
+## 已知问题（待修复）
+
+### Issue 1: ergo languages 目录下载 — fix/language-dir 分支未合并
+
+**分支**: `fix/language-dir` (bac2f3c)，3 个 commit，未合并到 dev 或 main。
+
+**问题**: 当前 dev 分支的 `zchat/cli/irc_manager.py` 只从 `~/.local/share/ergo/languages` 复制，如果该目录不存在则 ergo 启动失败。
+
+**修复内容**: 新增 `_ensure_ergo_languages()` 方法，3 级 fallback：
+1. `~/.local/share/ergo/languages`（系统安装）
+2. Homebrew Cellar 路径
+3. GitHub release 下载
+
+**状态**: 代码已写完，待合并到 dev。不阻塞 channel-server 开发，但影响本地 ergo 首次启动。
+
+### Issue 2: SQLite 数据库拆分为 3 个独立文件 — 需重构
+
+**位置**: `engine/conversation_manager.py` + `engine/event_bus.py` + `engine/message_store.py`
+
+**问题**: 3 个 engine 组件各自创建独立的 SQLite 文件（conversations.db / conversations_events.db / conversations_messages.db），但它们通过 conversation_id 强关联。跨文件无法建外键约束，导致：
+- 删除对话无法 cascade 清理 events/messages
+- 无事务一致性（resolve 写 conversations.db 后 crash → events.db 不一致）
+- participants/resolutions 表即使在同一个 db 内也没有 FK 约束
+
+**修复方案**: 合并为 1 个 SQLite 文件 5 张表，添加 FK + CASCADE + PRAGMA foreign_keys。详见 `spec/channel-server/11-db-consolidation.md`。
+
+**影响范围**: engine/ 内部接线（构造函数签名），外部接口不变。~200 行代码。
+
+**状态**: 未开始。应在 Phase Final 前完成，避免 pre-release 测试产生假绿。
