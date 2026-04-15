@@ -255,4 +255,59 @@ fast-agent 判断需要深度查询:
 
 ---
 
+## 实现状态追踪（Phase 4 完成后）
+
+> 更新于 2026-04-15，基于 `feat/server-v1` 分支 `5289488` commit
+
+### 已完成（WORKING）
+
+| 组件 | 实现文件 | 测试 |
+|------|---------|------|
+| MessageGate (gate_message) | `protocol/gate.py` | 28 unit tests |
+| ModeManager (6 种转换) | `engine/mode_manager.py` | 19 unit tests |
+| ConversationManager (CRUD + resolve + set_csat + reactivate) | `engine/conversation_manager.py` | 22 unit tests |
+| MessageStore (save + edit + get) | `engine/message_store.py` | unit tests |
+| TimerManager (set + cancel + expire event) | `engine/timer_manager.py` | unit tests |
+| EventBus (subscribe + publish + query + SQLite) | `engine/event_bus.py` | unit tests |
+| PluginManager (hook load + call) | `engine/plugin_manager.py` | unit tests |
+| ParticipantRegistry | `engine/participant_registry.py` | unit tests |
+| SquadRegistry (assign + unassign + reassign + get) | `engine/squad_registry.py` | unit tests |
+| CommandParser (parse 10 commands) | `protocol/commands.py` | unit tests |
+| IRC Transport (extract + handle) | `transport/irc_transport.py` | 7 unit tests |
+| Bridge API (WebSocket register + customer_connect + message routing) | `bridge_api/ws_server.py` | 4 E2E tests |
+| MCP tools: reply, edit_message, join_conversation, send_side_message, list_conversations, get_conversation_status | `server.py` | 4 unit + E2E |
+| /hijack /release /copilot handler | `server.py:412-443` | E2E mode_switching |
+| Gate enforcement E2E | `tests/e2e/test_gate_enforcement.py` | 2 E2E tests |
+
+**总计**: 125 tests PASS, 0 FAIL
+
+### 待实现（命令 Handler）
+
+以下命令在 `protocol/commands.py` 中已定义和解析，但 **缺少执行 handler**：
+
+| 命令 | 优先级 | 前置 | Phase Final 阻塞 |
+|------|--------|------|------------------|
+| `/resolve` | **P0** | ConversationManager.resolve() 已实现，需在 bridge callback 中接通 | ✅ 阻塞 |
+| `/status` | **P0** | ConversationManager.list_active() 已实现，需返回格式化结果 | ✅ 阻塞 |
+| `/dispatch` | **P1** | 需实现：指定 agent JOIN conversation + 通知 agent MCP | ✅ 阻塞 |
+| `/abandon` | P2 | ConversationManager.close() 已实现 | 否 |
+| `/assign` | P2 | SquadRegistry.assign() 已实现，需在 bridge callback 中接通 | 否 |
+| `/reassign` | P2 | SquadRegistry.reassign() 已实现 | 否 |
+| `/squad` | P2 | SquadRegistry.get_squad() 已实现 | 否 |
+
+**实现位置**: 命令 handler 应添加到 `server.py` 的 `_on_operator_command()` 或 `_on_admin_command()` 回调中，与现有 /hijack handler 模式一致。
+
+### 待验证（端到端路径）
+
+以下路径各组件单独 WORKING，但未串成端到端测试：
+
+| 路径 | 涉及组件 | 状态 |
+|------|---------|------|
+| edit_message → Bridge → Feishu 编辑 | MCP tool + Bridge send_edit + feishu sender.update | MCP tool WORKING，Bridge→Feishu 在 Phase 4.5 |
+| /resolve → close + CSAT 请求 → Bridge → 评分卡片 → csat_response → set_csat | ConversationManager WORKING，Bridge→Feishu 在 Phase 4.5 |
+| Timer expire → mode auto-revert → 安抚消息 | TimerManager WORKING，需 App plugin 配合设置 timer |
+| @operator 求助 → timer start → timeout → auto-revert | Agent 行为 + Timer + Plugin，需集成 |
+
+---
+
 *End of GAP Fixes v1.0*

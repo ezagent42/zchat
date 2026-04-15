@@ -114,18 +114,54 @@ def parse_message(msg_type, content, message, bridge) -> tuple[str, str]:
 
 ---
 
-## 4. 飞书发送能力
+## 4. 飞书发送能力 + 所需权限
 
-| 操作 | API | 用途 |
-|------|-----|------|
-| 发文本 | `POST /im/v1/messages` msg_type=text | agent 回复 |
-| 发卡片 | `POST /im/v1/messages` msg_type=interactive | CSAT 评分邀请、状态卡片、分队通知 |
-| 编辑消息 | `PATCH /im/v1/messages/{id}` | 占位→续写替换 |
-| 添加 reaction | `POST /im/v1/messages/{id}/reactions` | ACK 确认（OnIt） |
-| 移除 reaction | `DELETE /im/v1/messages/{id}/reactions/{rid}` | 回复后移除 ACK |
-| 下载文件 | `GET /im/v1/messages/{id}/resources/{key}` | 接收客户文件 |
-| 读群消息 | `GET /im/v1/messages` | E2E 测试验证 |
-| 查群成员 | `GET /im/v1/chats/{id}/members` | reconciler 同步 |
+### API 调用权限（飞书开放平台 → 权限管理）
+
+| 操作 | API | 所需权限（任一） | 用途 |
+|------|-----|----------------|------|
+| 发文本/卡片 | `POST /im/v1/messages` | `im:message` 或 `im:message:send_as_bot` | agent 回复、CSAT 卡片、分队通知 |
+| 编辑消息 | `PATCH /im/v1/messages/{id}` | `im:message` 或 `im:message:update` | 占位→续写替换 |
+| 添加 reaction | `POST /im/v1/messages/{id}/reactions` | `im:message` 或 `im:message.reactions:write_only` | ACK 确认（OnIt） |
+| 移除 reaction | `DELETE /im/v1/messages/{id}/reactions/{rid}` | `im:message` 或 `im:message.reactions:write_only` | 回复后移除 ACK |
+| 下载文件 | `GET /im/v1/messages/{id}/resources/{key}` | `im:message.media` ⚠️ | 接收客户图片/文件/音频 |
+| 读群消息 | `GET /im/v1/messages` | `im:message.group_msg:readonly` | E2E 测试验证 |
+| 查群信息 | `GET /im/v1/chats/{id}` | `im:chat:readonly` | 群角色识别 |
+| 查群成员 | `GET /im/v1/chats/{id}/members` | `im:chat.members:readonly` ⚠️ | reconciler 同步 |
+| 查用户信息 | `GET /contact/v3/users/{id}` | `contact:user.base:readonly` | 显示发送者姓名 |
+
+> ⚠️ 标注权限名称从 SDK 代码推断，未能从文档页面直接验证（页面 JS 渲染）。开通时如找不到，搜索关键词：`media`、`members`。
+
+### 事件订阅权限（飞书开放平台 → 事件与回调）
+
+| 事件名称 | 所需订阅权限（接收消息） | 触发场景 | 涉及角色 |
+|---------|----------------------|---------|---------|
+| `im.message.receive_v1` | `im:message.group_msg:readonly` | 收到任意群消息 | customer / operator / admin |
+| `im.chat.member.bot.added_v1` | `im:chat` | bot 被拉入新群 | customer（动态注册） |
+| `im.chat.member.user.added_v1` | `im:chat` | 用户加入群 | operator（加入 squad 群）/ admin（加入管理群）|
+| `im.chat.member.user.deleted_v1` | `im:chat` | 用户退出群 | operator（撤销）/ admin（撤销）|
+| `im.chat.disbanded_v1` | `im:chat` | 群解散 | 归档 conversation |
+
+### 最小权限开通清单
+
+```
+API 权限（权限管理 tab）：
+  ✅ im:message                    获取与发送单聊、群组消息
+  ✅ im:message:update             更新消息
+  ✅ im:message.reactions:write_only  发送、删除消息表情回复
+  ✅ im:message.group_msg:readonly  获取群聊中所有用户聊天消息
+  ✅ im:message.media              下载消息附件（图片/文件/音频）⚠️
+  ✅ im:chat:readonly              获取群组信息
+  ✅ im:chat.members:readonly      获取群成员列表 ⚠️
+  ✅ contact:user.base:readonly    获取用户基本信息
+
+事件订阅（事件与回调 tab）：
+  ✅ im.message.receive_v1
+  ✅ im.chat.member.bot.added_v1
+  ✅ im.chat.member.user.added_v1
+  ✅ im.chat.member.user.deleted_v1
+  ✅ im.chat.disbanded_v1
+```
 
 ### Card 消息模板
 
@@ -173,7 +209,39 @@ def parse_message(msg_type, content, message, bridge) -> tuple[str, str]:
 
 ---
 
-## 5. 群 ↔ 角色映射（GroupManager）
+## 5. 授权模型 + 群 ↔ 角色映射（GroupManager）
+
+### 授权模型
+
+**飞书平台保证授权**：channel-server 不需要自己做用户鉴权。
+
+- 飞书 WSS 只向 bot 投递**其所在群**的消息事件
+- 消息发送者必须是该群的成员（飞书平台强制）
+- 因此：**用户在某个群里 = 拥有该群对应角色的使用权限**
+
+三种角色的授权来源：
+
+| 角色 | 授权方式 | 配置方式 |
+|------|---------|---------|
+| **customer** | Bot 被拉入任意群 → 自动识别 | 动态：bot 收到 `im.chat.member.bot.added_v1` 时注册 |
+| **operator (squad)** | 用户是指定分队群的成员 | 静态配置：`squad_chats` 列表 |
+| **admin** | 用户是指定管理群的成员 | 静态配置：`admin_chat_id` |
+
+**成员变动实时生效**：
+
+| 飞书事件 | 角色变更 |
+|---------|---------|
+| `im.chat.member.user.added_v1` → squad 群 | 该用户获得 operator 权限 |
+| `im.chat.member.user.deleted_v1` → squad 群 | 该用户失去 operator 权限 |
+| `im.chat.member.user.added_v1` → admin 群 | 该用户获得 admin 权限 |
+| `im.chat.member.user.deleted_v1` → admin 群 | 该用户失去 admin 权限 |
+| `im.chat.member.bot.added_v1` → 未配置群 | 自动注册为 customer 群 |
+| `im.chat.member.bot.added_v1` → 已配置群 | 跳过（已是 squad/admin） |
+| `im.chat.disbanded_v1` | 清理 conversation 映射，归档 |
+
+**customer 群持久化**：动态发现的 customer 群写入 `.feishu-bridge/customer_chats.json`，重启时加载（防止 bot 重启后遗忘已服务的客户群）。
+
+---
 
 ### 配置
 
@@ -190,13 +258,14 @@ groups:
       operator_id: "xiaoli"
     - chat_id: "oc_squad_xiaowang"
       operator_id: "xiaowang"
-  # 其他群 → customer 角色（动态，bot 被拉入时自动识别）
+  # customer 群：动态，bot 被拉入时自动注册，持久化到 customer_chats.json
 
 channel_server:
   url: "ws://localhost:9999"
 
 storage:
   upload_dir: ".feishu-bridge/uploads"
+  customer_chats_path: ".feishu-bridge/customer_chats.json"
 ```
 
 ### 群角色自动识别
@@ -210,8 +279,15 @@ class GroupManager:
         for squad in self.squad_chats:
             if chat_id == squad["chat_id"]:
                 return "operator"
-        return "customer"  # 默认: 未配置的群当作客户群
-    
+        if chat_id in self._dynamic_customer_chats:
+            return "customer"
+        return "unknown"  # 未注册的群，忽略其消息
+
+    def register_customer_chat(self, chat_id: str) -> None:
+        """bot 被拉入新群时调用，持久化"""
+        self._dynamic_customer_chats.add(chat_id)
+        self._save_customer_chats()
+
     def get_operator_id(self, chat_id: str) -> str | None:
         for squad in self.squad_chats:
             if chat_id == squad["chat_id"]:
@@ -219,14 +295,17 @@ class GroupManager:
         return None
 ```
 
-### 群事件处理
+### 群事件处理（EventDispatcher 注册）
 
-| 飞书事件 | 处理 |
-|---------|------|
-| bot 被拉入新群 | 自动识别为 customer 群 → 注册到 channel-server |
-| 群解散 | 清理 conversation 映射 |
-| 成员加入管理群 | 注册为 admin |
-| 成员加入分队群 | 注册为 operator |
+```python
+lark.EventDispatcherHandler.builder("", "")
+    .register_p2_im_message_receive_v1(_on_message)           # 所有群消息
+    .register_p2_im_chat_member_bot_added_v1(_on_bot_added)   # bot 被拉入
+    .register_p2_im_chat_member_user_added_v1(_on_user_added) # 成员加入
+    .register_p2_im_chat_member_user_deleted_v1(_on_user_del) # 成员退出
+    .register_p2_im_chat_disbanded_v1(_on_disbanded)          # 群解散
+    .build()
+```
 
 ---
 

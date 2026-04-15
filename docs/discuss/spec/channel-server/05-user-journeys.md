@@ -416,7 +416,7 @@ T+5s  [开发者在 agent tab]     可以直接在 Claude Code session 中输入
 
 ## 状态机总览
 
-基于上述旅程，对话的完整状态机：
+基于上述旅程，对话的完整状态机（注意：state 和 mode 是两个正交维度——state 有 4 种：created/active/idle/closed；mode 有 3 种：auto/copilot/takeover，仅在 state=active 时有意义）：
 
 ```
                          Customer connect
@@ -464,6 +464,44 @@ T+5s  [开发者在 agent tab]     可以直接在 Claude Code session 中输入
         /resolve ──────►│  closed   │◄────── /abandon
         (from active)   └───────────┘  (from active/idle)
 ```
+
+---
+
+## Pre-release 验证映射
+
+每个 User Journey 在 Phase Final 中的验证方式：
+
+| 旅程 | PRD Story | Pre-release 测试 | 验证方式 |
+|------|-----------|-----------------|---------|
+| 旅程 1: 客户接入 | US-2.1 | TestFeishuFullJourney.test_step1 | 自动 — 发消息 → 验证回复 |
+| 旅程 2: 占位续写 | US-2.2 | TestFeishuPlaceholderAndEdit | 自动 — 验证 message_edited 事件 |
+| 旅程 3: Copilot 旁听 | US-2.3 + US-2.4 | TestFeishuFullJourney.test_step2/3 + TestFeishuGateIsolation | 自动 — 验证 visibility 路由 |
+| 旅程 4: 接管翻转 | US-2.5 + US-2.6 | TestFeishuFullJourney.test_step4/5/6 + TestFeishuTimerAndEscalation + TestFeishuCSATFlow | 自动（CSAT card action 可能需手动） |
+| 旅程 5: 管理命令 | US-3.2 | TestFeishuAdminCommands | 自动 — /status + /dispatch |
+| 旅程 6: Dream Engine | US-4.x | — | v1.1 scope，不测 |
+| 旅程 7: 开发者调试 | — | — | 开发者手动，非 pre-release 范围 |
+| 老客户重入 | US-2.1 补充 | TestFeishuConversationReactivation | 自动 — 两轮对话 |
+| 授权模型 | 飞书 Bridge spec | TestFeishuAuthorizationModel | 自动 — 3 角色群验证 |
+
+### 全栈操作流程
+
+Pre-release 通过 zchat CLI 启动真实运行栈（在 Zellij session 内）：
+
+```
+1. zchat project create prerelease-test     ← fixture / 人工一次性
+2. zchat irc daemon start                    ← fixture 自动
+3. zchat agent create fast-agent             ← fixture 自动
+   → Zellij tab → Claude Code → channel-server (MCP + Bridge API :9999 + IRC)
+   → 等待 .ready marker（最多 60s）
+4. feishu_bridge 启动                        ← fixture 自动（连接 ws://localhost:9999）
+5. 飞书测试群中发消息                         ← FeishuTestClient 自动
+6. Claude 真实响应 → channel-server → Bridge → 飞书
+7. 验证消息路由和 visibility                  ← assert_message_appears/absent
+```
+
+**关键点**: channel-server 不是独立进程，而是 Claude Code 的 MCP server。`zchat agent create` 一条命令启动整个链路（Zellij tab → Claude Code → channel-server → IRC + Bridge API）。
+
+**无 Zellij 降级**: CI 环境可直接启动 channel-server 进程（`uv run zchat-channel`），此模式下无真实 agent 回复，只能验证协议行为。
 
 ---
 

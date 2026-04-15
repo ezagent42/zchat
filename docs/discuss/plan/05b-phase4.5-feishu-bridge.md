@@ -176,10 +176,19 @@ def test_update_message_calls_patch_api():
 
 **Spec 参考:** `09-feishu-bridge.md §5 §6`
 
+**授权原则（必须理解）：**
+飞书平台保证"用户在群里 = 拥有该群角色的使用权"。三种角色的授权都通过群成员资格实现：
+- customer：bot 被拉入任意群 → 自动注册
+- operator：用户是配置的 squad 群成员
+- admin：用户是配置的 admin 群成员
+
+GroupManager 需处理全部三种角色的动态成员变动。
+
 - [ ] **写测试** `feishu_bridge/tests/test_group_manager.py`
 
 ```python
 from feishu_bridge.group_manager import GroupManager
+import tempfile, os
 
 def test_admin_group():
     gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[])
@@ -193,9 +202,56 @@ def test_squad_group():
     assert gm.identify_role("oc_squad_1") == "operator"
     assert gm.get_operator_id("oc_squad_1") == "xiaoli"
 
-def test_unknown_group_is_customer():
+def test_unknown_group_is_unknown_before_registration():
     gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[])
-    assert gm.identify_role("oc_random") == "customer"
+    assert gm.identify_role("oc_random") == "unknown"
+
+def test_bot_added_registers_as_customer():
+    with tempfile.TemporaryDirectory() as tmp:
+        gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[],
+                          customer_chats_path=os.path.join(tmp, "c.json"))
+        gm.register_customer_chat("oc_new")
+        assert gm.identify_role("oc_new") == "customer"
+
+def test_customer_chats_persisted_and_loaded():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "c.json")
+        gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[], customer_chats_path=path)
+        gm.register_customer_chat("oc_persist")
+        # 重新加载
+        gm2 = GroupManager(admin_chat_id="oc_admin", squad_chats=[], customer_chats_path=path)
+        assert gm2.identify_role("oc_persist") == "customer"
+
+def test_bot_added_to_squad_group_skipped():
+    """bot 被拉入已配置的 squad 群，不覆盖为 customer"""
+    gm = GroupManager(
+        admin_chat_id="oc_admin",
+        squad_chats=[{"chat_id": "oc_squad_1", "operator_id": "xiaoli"}]
+    )
+    gm.register_customer_chat("oc_squad_1")  # 应被忽略
+    assert gm.identify_role("oc_squad_1") == "operator"
+
+def test_member_added_to_admin_group():
+    gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[])
+    gm.on_member_added("ou_user1", "oc_admin")
+    assert gm.has_admin_permission("ou_user1")
+
+def test_member_removed_from_squad():
+    gm = GroupManager(
+        admin_chat_id="oc_admin",
+        squad_chats=[{"chat_id": "oc_squad_1", "operator_id": "xiaoli"}]
+    )
+    gm.on_member_added("ou_op1", "oc_squad_1")
+    gm.on_member_removed("ou_op1", "oc_squad_1")
+    assert not gm.has_operator_permission("ou_op1", "oc_squad_1")
+
+def test_group_disbanded_removes_customer():
+    with tempfile.TemporaryDirectory() as tmp:
+        gm = GroupManager(admin_chat_id="oc_admin", squad_chats=[],
+                          customer_chats_path=os.path.join(tmp, "c.json"))
+        gm.register_customer_chat("oc_cust1")
+        gm.on_group_disbanded("oc_cust1")
+        assert gm.identify_role("oc_cust1") == "unknown"
 ```
 
 - [ ] **写测试** `feishu_bridge/tests/test_visibility.py`
@@ -236,7 +292,20 @@ def test_side_only_goes_to_squad():
 ## Task 4.5.4: bridge.py + config.py + test_client.py
 
 - [ ] **实现 config.py**（YAML 加载 + env var 替换，参考 cc-openclaw `sidecar/config.py`）
-- [ ] **实现 bridge.py**（主编排类：WSS → parsers → Bridge API → sender）
+- [ ] **实现 bridge.py**（主编排类），注册全部 5 个事件：
+  ```python
+  lark.EventDispatcherHandler.builder("", "")
+      .register_p2_im_message_receive_v1(_on_message)
+      .register_p2_im_chat_member_bot_added_v1(_on_bot_added)
+      .register_p2_im_chat_member_user_added_v1(_on_user_added)
+      .register_p2_im_chat_member_user_deleted_v1(_on_user_deleted)
+      .register_p2_im_chat_disbanded_v1(_on_disbanded)
+      .build()
+  ```
+  - `_on_bot_added`: 调用 `group_manager.register_customer_chat()`（跳过已配置群）
+  - `_on_user_added/deleted`: 调用 `group_manager.on_member_added/removed()`，对 squad/admin 群通知 channel-server
+  - `_on_disbanded`: 调用 `group_manager.on_group_disbanded()`，通知 channel-server 归档 conversation
+  - 重启时加载 `customer_chats.json` 恢复动态 customer 群
 - [ ] **实现 test_client.py**（E2E 辅助工具：send_message / list_messages / assert_message_appears / assert_message_absent）
 - [ ] **Commit**
 
