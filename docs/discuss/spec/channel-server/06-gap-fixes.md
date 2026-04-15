@@ -277,25 +277,27 @@ fast-agent 判断需要深度查询:
 | Bridge API (WebSocket register + customer_connect + message routing) | `bridge_api/ws_server.py` | 4 E2E tests |
 | MCP tools: reply, edit_message, join_conversation, send_side_message, list_conversations, get_conversation_status | `server.py` | 4 unit + E2E |
 | /hijack /release /copilot handler | `server.py:412-443` | E2E mode_switching |
+| /resolve /status /dispatch handler | `server.py` wire_bridge_callbacks() | 10 unit + 3 E2E |
 | Gate enforcement E2E | `tests/e2e/test_gate_enforcement.py` | 2 E2E tests |
 
-**总计**: 125 tests PASS, 0 FAIL
+**总计**: 138 tests PASS, 0 FAIL
 
 ### 待实现（命令 Handler）
 
-以下命令在 `protocol/commands.py` 中已定义和解析，但 **缺少执行 handler**：
+以下命令在 `protocol/commands.py` 中已定义和解析：
 
-| 命令 | 优先级 | 前置 | Phase Final 阻塞 |
-|------|--------|------|------------------|
-| `/resolve` | **P0** | ConversationManager.resolve() 已实现，需在 bridge callback 中接通 | ✅ 阻塞 |
-| `/status` | **P0** | ConversationManager.list_active() 已实现，需返回格式化结果 | ✅ 阻塞 |
-| `/dispatch` | **P1** | 需实现：指定 agent JOIN conversation + 通知 agent MCP | ✅ 阻塞 |
-| `/abandon` | P2 | ConversationManager.close() 已实现 | 否 |
-| `/assign` | P2 | SquadRegistry.assign() 已实现，需在 bridge callback 中接通 | 否 |
-| `/reassign` | P2 | SquadRegistry.reassign() 已实现 | 否 |
-| `/squad` | P2 | SquadRegistry.get_squad() 已实现 | 否 |
+| 命令 | 优先级 | 状态 | 说明 |
+|------|--------|------|------|
+| `/resolve` | **P0** | ✅ 已实现 | `_on_operator_command()` → resolve + event + CSAT 邀请（13 tests） |
+| `/status` | **P0** | ✅ 已实现 | `_on_admin_command()` → list_active 格式化返回（13 tests） |
+| `/dispatch` | **P1** | ✅ 已实现 | `_on_admin_command()` → add_participant(AGENT) + event（13 tests） |
+| `/abandon` | P2 | 待实现 | ConversationManager.close() 已实现 |
+| `/assign` | P2 | 待实现 | SquadRegistry.assign() 已实现，需在 bridge callback 中接通 |
+| `/reassign` | P2 | 待实现 | SquadRegistry.reassign() 已实现 |
+| `/squad` | P2 | 待实现 | SquadRegistry.get_squad() 已实现 |
 
-**实现位置**: 命令 handler 应添加到 `server.py` 的 `_on_operator_command()` 或 `_on_admin_command()` 回调中，与现有 /hijack handler 模式一致。
+**P0/P1 命令已全部实现**（2026-04-15，feat/server-v1 分支）。138 tests PASS (125 原有 + 13 新增)，0 回归。
+**实现位置**: `server.py` 的 `wire_bridge_callbacks()` 中的 `_on_operator_command()`、`_on_admin_command()`、`_on_customer_message()` 回调。
 
 ### 待验证（端到端路径）
 
