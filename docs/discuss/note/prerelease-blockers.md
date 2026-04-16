@@ -54,6 +54,16 @@
 
 ---
 
+### Blocker 5: MCP server 指向旧的 zchat-channel（已修复）
+
+**影响**: agent 创建时启动嵌入式 channel-server 而非轻量 agent_mcp，Phase 4.6 架构拆分失效
+**修复**: 5 个文件中 `zchat-channel` → `zchat-agent-mcp`（start.sh, .env.example, defaults.toml, migrate.py, CLAUDE.md）
+**验证**: `zchat project create prerelease-test` → config.toml 中 `mcp_server_cmd = ["zchat-agent-mcp"]` ✅
+**commit**: f77908a
+**状态**: ✅ 已修复
+
+---
+
 ## 已做的修改（本次 session）
 
 | 修改 | commit | 说明 |
