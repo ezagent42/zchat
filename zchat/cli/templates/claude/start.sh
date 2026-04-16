@@ -104,5 +104,11 @@ fi
 # Write .mcp.json
 jq -n --argjson srv "$SERVER_JSON" '{"mcpServers": {"zchat-channel": $srv}}' > .mcp.json
 
+ADD_DIR_FLAG=""
+if [ -n "${ADD_DIR:-}" ]; then
+  ADD_DIR_FLAG="--add-dir $ADD_DIR"
+fi
+
 exec -a "zchat-claude-agent" claude --permission-mode bypassPermissions \
+  $ADD_DIR_FLAG \
   --dangerously-load-development-channels server:zchat-channel

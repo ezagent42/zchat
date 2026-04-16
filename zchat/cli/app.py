@@ -168,6 +168,7 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
         state_file=state_file_path(project_name),
         project_dir=project_dir(project_name),
         mcp_server_cmd=mcp_server_cmd,
+        add_dir=cfg.get("add_dir", ""),
     )
 
 
