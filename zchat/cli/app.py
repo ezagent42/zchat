@@ -153,6 +153,8 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
     cfg = _get_config(ctx)
     project_name = ctx.obj["project"]
     irc = _get_irc_config(cfg)
+    mcp_cmd_list = cfg.get("mcp_server_cmd", ["zchat-channel"])
+    mcp_server_cmd = " ".join(mcp_cmd_list) if isinstance(mcp_cmd_list, list) else mcp_cmd_list
     return AgentManager(
         irc_server=irc["host"],
         irc_port=irc["port"],
@@ -165,6 +167,7 @@ def _get_agent_manager(ctx: typer.Context) -> AgentManager:
         zellij_session=_get_zellij_session(ctx),
         state_file=state_file_path(project_name),
         project_dir=project_dir(project_name),
+        mcp_server_cmd=mcp_server_cmd,
     )
 
 

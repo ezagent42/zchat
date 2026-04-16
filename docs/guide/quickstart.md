@@ -89,6 +89,16 @@ zchat project use local
 
 agent0 会通过 IRC 收到你的消息，然后回复到 channel 中。
 
+### 使用 dev-loop 开发流水线
+
+如果项目启用了 dev-loop-skills 插件，可以通过 `/dev-loop` 命令触发完整的功能开发流水线：
+
+```
+@agent0 /dev-loop 我想给 zchat 加一个 dm send 命令
+```
+
+agent 会自动走完需求评估 → 编码 → 测试计划 → 写测试 → 跑测试 → 归档的完整流程。
+
 ## 停止
 
 ```bash

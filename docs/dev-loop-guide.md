@@ -2,6 +2,16 @@
 
 > 功能开发流水线。所有 feature / bug 修复统一走这个流程。
 
+## 快速开始
+
+在飞书群或 IRC 中，向 Agent 发送 `/dev-loop` + 需求描述即可启动流水线：
+
+```
+/dev-loop 我想给 zchat 加一个 dm send 命令
+```
+
+Agent 会自动走完下面的完整流程。
+
 ## 流程总览
 
 ```
@@ -123,7 +133,7 @@ Agent 跑完测试后在 issue comment 贴报告摘要。你决定下一步：
 
 ### Phase 1：提需求
 
-**你说**："我想给 zchat 加一个 dm send 命令"
+**你说**：`/dev-loop 我想给 zchat 加一个 dm send 命令`
 
 **Agent 做**：创建 `feat/dm-support` 分支 → 分析代码 → 生成评估文档 → 创建 GitHub issue #54
 

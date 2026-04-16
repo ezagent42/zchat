@@ -52,7 +52,8 @@ jq -n \
       ]
     },
     enabledPlugins: {
-      "zchat@ezagent42": true
+      "zchat@ezagent42": true,
+      "dev-loop-skills@ezagent42": true
     }
   }' > .claude/settings.local.json
 
@@ -103,5 +104,5 @@ fi
 # Write .mcp.json
 jq -n --argjson srv "$SERVER_JSON" '{"mcpServers": {"zchat-channel": $srv}}' > .mcp.json
 
-exec claude --permission-mode bypassPermissions \
+exec -a "zchat-claude-agent" claude --permission-mode bypassPermissions \
   --dangerously-load-development-channels server:zchat-channel

@@ -40,7 +40,8 @@ class AgentManager:
                  default_type: str = "claude",
                  zellij_session: str = "zchat",
                  state_file: str = DEFAULT_STATE_FILE,
-                 project_dir: str = ""):
+                 project_dir: str = "",
+                 mcp_server_cmd: str = "zchat-channel"):
         self.irc_server = irc_server
         self.irc_port = irc_port
         self.irc_tls = irc_tls
@@ -52,6 +53,7 @@ class AgentManager:
         self._session_name = zellij_session
         self._state_file = state_file
         self.project_dir = project_dir
+        self.mcp_server_cmd = mcp_server_cmd
         self._agents: dict[str, dict] = {}
         self._load_state()
 
@@ -181,6 +183,7 @@ class AgentManager:
             context["channel_pkg_dir"] = channel_pkg
         else:
             context["channel_pkg_dir"] = ""
+        context["mcp_server_cmd"] = self.mcp_server_cmd
         return context
 
     def _spawn_tab(self, name: str, workspace: str, agent_type: str,

@@ -61,6 +61,20 @@
 | `/agent list` | 列出 agent 状态 |
 | `/agent restart <name>` | 重启 agent |
 
+### Agent 聊天命令
+
+在频道中 @agent 时，可使用以下命令：
+
+| 命令 | 说明 |
+|------|------|
+| `/dev-loop <描述>` | 触发 dev-loop 开发流水线（需求评估 → 编码 → 测试 → 归档） |
+
+示例：
+
+```
+@agent0 /dev-loop 我想给 zchat 加一个 dm send 命令
+```
+
 ## 使用场景
 
 ### 场景 1：人 ↔ Agent 对话
