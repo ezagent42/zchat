@@ -1,6 +1,7 @@
 """KDL layout generation for Zellij sessions."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from zchat.cli import paths
