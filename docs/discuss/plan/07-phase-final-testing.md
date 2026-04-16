@@ -1,6 +1,6 @@
 # Phase Final: Pre-release 验收测试
 
-> **执行位置:** `~/projects/zchat/`（feat/architecture-split 分支 — Phase 4.6 完成后）
+> **执行位置:** `~/projects/zchat/`（zchat: `feat/channel-server-v1` / submodule: `refactor/channel-server`）
 > **仓库:** zchat-channel-server submodule
 > **Spec 参考:** `spec/channel-server/05-user-journeys.md` + `09-feishu-bridge.md §7`
 > **预估:** 3-4h
@@ -96,7 +96,7 @@ Phase 4 中以下命令已有 parser 但缺少 handler，**必须在 Phase Final
 uv run pytest tests/unit/ feishu_bridge/tests/ -v
 ```
 
-Expected: ~70+ tests PASS
+Expected: 226+ tests PASS
 
 ### Layer 2: E2E — Bridge API（无需飞书凭证）
 
@@ -133,7 +133,7 @@ Pre-release 测试需要完整的 zchat 运行栈。v1.0 架构中 channel-serve
      → IRC nick: {user}-fast-agent → JOIN #conv-{id}
 4. zchat agent create deep-agent
      → 同上，模型为 sonnet
-5. feishu_bridge → ws://localhost:9999（连 channel-server Bridge API）
+5. feishu_bridge → ws://127.0.0.1:9999（连 channel-server Bridge API）
 ```
 
 ### routing.toml 配置
@@ -171,11 +171,11 @@ zchat irc daemon start
 cd ~/projects/zchat/zchat-channel-server
 
 # channel-server 是独立进程，启动 IRC bot + Bridge API + engine
-BRIDGE_PORT=9999 IRC_SERVER=127.0.0.1 ROUTING_CONFIG=tests/pre_release/routing.toml \
+BRIDGE_PORT=9999 IRC_SERVER=127.0.0.1 CS_ROUTING_CONFIG=tests/pre_release/routing.toml \
   uv run zchat-channel &
 
 # 等待 IRC 连接 + Bridge API ready（约 3s）
-# 验证: cs-bot 在 IRC 可见，Bridge API ws://localhost:9999 可达
+# 验证: cs-bot 在 IRC 可见，Bridge API ws://127.0.0.1:9999 可达
 ```
 
 ### Step 4: 创建双 agent
@@ -205,11 +205,11 @@ cd ~/projects/zchat/zchat-channel-server
 
 # feishu_bridge 作为独立进程，连接 channel-server 的 Bridge API
 FEISHU_APP_ID=xxx FEISHU_APP_SECRET=xxx \
-  uv run python -m feishu_bridge.bridge \
+  uv run python -m feishu_bridge \
     --config tests/pre_release/feishu-e2e-config.yaml
 ```
 
-feishu_bridge 连接 `ws://localhost:9999`（channel-server 独立进程的 Bridge API）。
+feishu_bridge 连接 `ws://127.0.0.1:9999`（channel-server 独立进程的 Bridge API）。
 
 ### Step 6: 运行 Pre-release 测试
 
@@ -251,12 +251,12 @@ def full_stack(feishu_config):
                                   os.path.expanduser("~/.zchat/projects/prerelease-test"))
 
     # 1. 确保项目存在
-    subprocess.run(["zchat", "project", "create", "prerelease-test"],
+    subprocess.run(["uv", "run", "zchat", "project", "create", "prerelease-test"],
                    capture_output=True)  # 幂等，已存在不报错
-    subprocess.run(["zchat", "project", "use", "prerelease-test"], check=True)
+    subprocess.run(["uv", "run", "zchat", "project", "use", "prerelease-test"], check=True)
 
     # 2. 启动 ergo IRC daemon
-    subprocess.run(["zchat", "irc", "daemon", "start"], check=True)
+    subprocess.run(["uv", "run", "zchat", "irc", "daemon", "start"], check=True)
     time.sleep(2)
 
     # 3. 启动 channel-server 独立进程（IRC bot + Bridge API + engine）
@@ -266,14 +266,14 @@ def full_stack(feishu_config):
         env={**os.environ,
              "BRIDGE_PORT": "9999",
              "IRC_SERVER": "127.0.0.1",
-             "ROUTING_CONFIG": "tests/pre_release/routing.toml"}
+             "CS_ROUTING_CONFIG": "tests/pre_release/routing.toml"}
     )
     time.sleep(3)  # 等待 IRC 连接 + Bridge API ready
 
     # 4. 验证 Bridge API 可达
     import websockets, asyncio
     async def _check_bridge():
-        bridge_url = feishu_config.get("channel_server", {}).get("url", "ws://localhost:9999")
+        bridge_url = feishu_config.get("channel_server", {}).get("url", "ws://127.0.0.1:9999")
         async with websockets.connect(bridge_url) as ws:
             await ws.send('{"type":"register","bridge_type":"test","instance_id":"test-probe","capabilities":["customer"]}')
             resp = await asyncio.wait_for(ws.recv(), timeout=5)
@@ -291,7 +291,7 @@ def full_stack(feishu_config):
         "takeover 时在 squad thread 提供副驾驶建议。"
     )
     subprocess.run(
-        ["zchat", "agent", "create", "fast-agent"],
+        ["uv", "run", "zchat", "agent", "create", "fast-agent"],
         timeout=90, check=True
     )
 
@@ -303,13 +303,13 @@ def full_stack(feishu_config):
         "处理完用 reply(edit_of=msg_id) 替换占位消息。"
     )
     subprocess.run(
-        ["zchat", "agent", "create", "deep-agent"],
+        ["uv", "run", "zchat", "agent", "create", "deep-agent"],
         timeout=90, check=True
     )
 
     # 7. 启动 feishu_bridge（连 channel-server :9999）
     bridge_proc = subprocess.Popen([
-        "uv", "run", "python", "-m", "feishu_bridge.bridge",
+        "uv", "run", "python", "-m", "feishu_bridge",
         "--config", "tests/pre_release/feishu-e2e-config.yaml"
     ], cwd=str(Path(__file__).parent.parent.parent))  # zchat-channel-server/
     time.sleep(3)
@@ -319,11 +319,11 @@ def full_stack(feishu_config):
     # 清理（逆序）
     bridge_proc.terminate()
     bridge_proc.wait(timeout=10)
-    subprocess.run(["zchat", "agent", "stop", "fast-agent"], check=False)
-    subprocess.run(["zchat", "agent", "stop", "deep-agent"], check=False)
+    subprocess.run(["uv", "run", "zchat", "agent", "stop", "fast-agent"], check=False)
+    subprocess.run(["uv", "run", "zchat", "agent", "stop", "deep-agent"], check=False)
     cs_proc.terminate()
     cs_proc.wait(timeout=10)
-    subprocess.run(["zchat", "irc", "daemon", "stop"], check=False)
+    subprocess.run(["uv", "run", "zchat", "irc", "daemon", "stop"], check=False)
 ```
 
 ### 测试 timeout 说明
@@ -341,7 +341,7 @@ channel-server 是独立进程，不依赖 Zellij 或 Claude Code。降级时直
 ```bash
 # 1. 启动 channel-server 独立进程（始终可用）
 cd zchat-channel-server
-BRIDGE_PORT=9999 IRC_SERVER=127.0.0.1 ROUTING_CONFIG=tests/pre_release/routing.toml \
+BRIDGE_PORT=9999 IRC_SERVER=127.0.0.1 CS_ROUTING_CONFIG=tests/pre_release/routing.toml \
   uv run zchat-channel &
 
 # 2. 启动 agent_mcp（无 Claude Code，模拟 agent IRC 连接）
@@ -952,11 +952,11 @@ tests/pre_release/evidence/
 
 - [ ] **channel-server 独立进程** — IRC bot (cs-bot) 在 IRC 可见 + Bridge API :9999 可达
 - [ ] **双 agent 在 IRC 可见** — fast-agent + deep-agent 均 JOIN 相关频道
-- [ ] **feishu_bridge 注册成功** — ws://localhost:9999 连接 + register 握手完成
+- [ ] **feishu_bridge 注册成功** — ws://127.0.0.1:9999 连接 + register 握手完成
 
 ### 测试通过
 
-- [ ] Unit 回归: 全部 PASS (~130+ tests，含 Phase 4.5 feishu_bridge)
+- [ ] Unit 回归: 全部 PASS (226+ tests，含 Phase 4.5 feishu_bridge)
 - [ ] E2E Bridge API: 全部 PASS (7+ scenarios，含 mode switching + gate enforcement)
 - [ ] 飞书 E2E 6 步状态机: 全部 PASS（含 card+thread 断言）
 - [ ] 飞书 占位+续写 (双 agent edit 流程): 全部 PASS
