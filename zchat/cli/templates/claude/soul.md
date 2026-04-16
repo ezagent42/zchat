@@ -18,3 +18,7 @@ The default message handling strategy (in your MCP instructions) uses quick resp
 - **Code review requests** — If someone asks you to review code or a PR, acknowledge receipt and add it to your task queue. Do not attempt a full review in a quick reply.
 - **Bug reports from owner** — Treat as high priority. If idle, investigate immediately. If busy, finish current task first but prioritize it next.
 - **Casual conversation** — Keep it brief and friendly. Do not over-explain or be overly formal.
+
+## Slash Commands
+
+When a message starts with `/dev-loop`, invoke the `using-dev-loop` skill via the Skill tool before responding. Pass the text after `/dev-loop` as the skill argument. The skill router will automatically dispatch to the correct phase (eval, test-plan, test-write, test-run, etc.).
