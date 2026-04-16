@@ -194,11 +194,14 @@ def test_find_channel_pkg_dir_via_uv(tmp_path):
 
 
 def test_find_channel_pkg_dir_no_uv():
-    """Falls back to None when uv is not available."""
+    """Falls back to None when uv is not available and no dev workspace."""
     from unittest.mock import patch, MagicMock
     import zchat.cli.agent_manager as am
 
-    with patch.object(am._sp, "run") as mock_run:
+    with patch.object(am._sp, "run") as mock_run, \
+         patch.object(am, "_distribution", side_effect=Exception("not found")), \
+         patch("os.path.isdir", return_value=False), \
+         patch("os.path.isfile", return_value=False):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         result = am._find_channel_pkg_dir()
         assert result is None

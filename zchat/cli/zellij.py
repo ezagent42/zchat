@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 
 
 def _run(args: list[str], session: str | None = None, **kwargs) -> subprocess.CompletedProcess:
@@ -34,14 +35,19 @@ def ensure_session(name: str, layout: str | None = None, config: str | None = No
             _run_global(["delete-session", name])
         else:
             return name
-    cmd: list[str] = []
+    args: list[str] = []
     if config:
-        cmd += ["--config", config]
+        args += ["--config", config]
     if layout:
-        cmd += ["--new-session-with-layout", layout, "--session", name]
+        args += ["--new-session-with-layout", layout, "--session", name]
+        # Build full command — Popen doesn't block like subprocess.run
+        full_cmd = ["zellij"] + args
+        subprocess.Popen(full_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Wait briefly for session to initialize
+        time.sleep(2)
     else:
-        cmd += ["attach", "--create-background", name]
-    _run_global(cmd)
+        args += ["attach", "--create-background", name]
+        _run_global(args)
     return name
 
 

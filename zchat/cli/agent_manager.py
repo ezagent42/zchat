@@ -1,6 +1,7 @@
 """Agent lifecycle management: create workspace, spawn zellij tab, track state."""
 
 import glob as _glob
+from importlib.metadata import distribution as _distribution
 import json
 import os
 import shlex
@@ -20,16 +21,36 @@ DEFAULT_STATE_FILE = os.path.expanduser("~/.local/state/zchat/agents.json")
 
 
 def _find_channel_pkg_dir() -> str | None:
-    """Locate zchat-channel-server package dir in its uv tool venv."""
+    """Locate zchat-channel-server package dir."""
+    # Try uv tool dir first (production install)
     result = _sp.run(["uv", "tool", "dir"], capture_output=True, text=True)
-    if result.returncode != 0:
-        return None
-    tool_dir = result.stdout.strip()
-    patterns = _glob.glob(
-        os.path.join(tool_dir, "zchat-channel-server", "lib", "python*",
-                     "site-packages", "zchat_channel_server")
-    )
-    return patterns[0] if patterns else None
+    if result.returncode == 0:
+        tool_dir = result.stdout.strip()
+        patterns = _glob.glob(
+            os.path.join(tool_dir, "zchat-channel-server", "lib", "python*",
+                         "site-packages", "zchat_channel_server")
+        )
+        if patterns:
+            return patterns[0]
+
+    # Fallback: editable install — find via importlib
+    try:
+        dist = _distribution("zchat-channel-server")
+        for f in dist.files or []:
+            if f.name == "server.py" or f.name == "__init__.py":
+                resolved = f.locate()
+                if resolved and resolved.parent.exists():
+                    return str(resolved.parent)
+    except Exception:
+        pass
+
+    # Fallback: check sibling directory (dev workspace)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    cs_dir = os.path.join(project_root, "zchat-channel-server")
+    if os.path.isdir(cs_dir) and os.path.isfile(os.path.join(cs_dir, "server.py")):
+        return cs_dir
+
+    return None
 
 
 class AgentManager:
@@ -40,7 +61,8 @@ class AgentManager:
                  default_type: str = "claude",
                  zellij_session: str = "zchat",
                  state_file: str = DEFAULT_STATE_FILE,
-                 project_dir: str = ""):
+                 project_dir: str = "",
+                 mcp_server_cmd: list[str] | None = None):
         self.irc_server = irc_server
         self.irc_port = irc_port
         self.irc_tls = irc_tls
@@ -52,6 +74,7 @@ class AgentManager:
         self._session_name = zellij_session
         self._state_file = state_file
         self.project_dir = project_dir
+        self.mcp_server_cmd = mcp_server_cmd
         self._agents: dict[str, dict] = {}
         self._load_state()
 
@@ -194,6 +217,10 @@ class AgentManager:
             merged = dict(project_env)
             merged.update(env)
             env = merged
+
+        # 项目配置的 mcp_server_cmd 最终覆盖（最高优先级）
+        if self.mcp_server_cmd:
+            env["MCP_SERVER_CMD"] = " ".join(self.mcp_server_cmd)
 
         # Resolve start script from template directory
         tpl_dir = _resolve_template_dir(agent_type)
