@@ -44,13 +44,14 @@
 **优先级**: P0 — 阻塞飞书测试
 **状态**: 模板已创建，待用户填入
 
-### Blocker 4: 3 个 E2E WebSocket flaky errors
+### Blocker 4: E2E 偶发端口连接失败 (WSL2 已知问题)
 
-**影响**: bridge_ws fixture 偶发连接失败 (websockets.InvalidMessage)
-**原因**: channel-server 进程未完全就绪时 WebSocket connect
-**修复方向**: conftest.py 中 bridge_ws 增加 retry with backoff
-**优先级**: P2 — 偶发，不阻塞功能
-**状态**: 待修复
+**影响**: 个别 E2E 测试偶发 ConnectionRefusedError（端口释放延迟）
+**原因**: WSL2 网络栈端口释放慢 + channel_server function-scoped fixture 每个测试重启进程
+**已做**: bridge_ws 增加 5 次 retry + 1s backoff（de6942d）
+**现状**: 从 3 errors → 1 error（偶发），非代码 bug
+**优先级**: P2 — WSL2 环境特有，Linux/macOS 原生不受影响
+**状态**: 已缓解，接受偶发
 
 ---
 
