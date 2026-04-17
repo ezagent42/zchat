@@ -1,114 +1,129 @@
-# V3 架构审计结论（修正版）
+# V3 架构审计结论（最终版）
 
 日期: 2026-04-17
 
 ## 基础设施原语
 
 ```
-Project  → 工作空间配置（IRC server + agent 模板 + routing 配置）
+Project  → 工作空间配置（IRC server + routing 配置）
 Channel  → IRC 频道（一个群一个 channel）
 Agent    → Claude Code 实例（连接到 channel，有独立 soul.md）
 ```
 
-**不使用 Customer 作为原语**——Customer 是业务概念，由 Bridge adapter 赋予。
+## Channel-server = 纯消息转发
 
-## 命令分类（修正）
+Channel-server 只做一件事：**消息进 channel → channel 内广播**。
 
-| 命令 | 分类 | 理由 | 位置 |
+```
+入站 message → 找到 conversation 的 IRC channel → PRIVMSG → channel 内所有人收到
+```
+
+不做：
+- 不判断角色（customer/operator/admin）
+- 不判断可见性（public/side）
+- 不过滤消息
+- 不决定 Bridge 是否转发
+
+## Gate 属于 Bridge adapter，不属于 channel-server
+
+```
+当前（错误）：
+  channel-server Gate(mode, role) → visibility → 控制 Bridge 转发
+  zchat_protocol/gate.py 在协议层
+
+正确：
+  channel-server 不知道 Gate
+  IRC channel 中所有消息对所有参与者可见
+  Bridge adapter 自己决定哪些消息转发到飞书群
+  Gate 逻辑在 feishu_bridge 中
+```
+
+Gate 规则包含 operator/agent 角色名——这是业务概念，不属于协议层。
+
+## Mode 的位置
+
+Mode（auto/copilot/takeover）是 conversation 的状态属性，由命令切换。
+但 mode 的**含义**（copilot 下 operator 消息不给客户看）是 Bridge 的业务解读。
+
+Channel-server 存储 mode 状态，但不根据 mode 做路由决策。
+Bridge adapter 查询 mode → 自己的 Gate 逻辑决定是否转发到飞书群。
+
+## 命令分类
+
+| 命令 | 分类 | 位置 | 说明 |
 |------|------|------|------|
-| /dispatch agent channel | **基础设施** | agent 加入 channel | channel-server |
-| /hijack | **基础设施** | mode 切换 | channel-server |
-| /release | **基础设施** | mode 切换 | channel-server |
-| /copilot | **基础设施** | mode 切换 | channel-server |
-| /resolve | **基础设施** | 关闭 conversation | channel-server |
-| /abandon | **基础设施** | 关闭 conversation（无 CSAT） | channel-server |
-| /status | **业务** | 查看状态 | agent skill |
-| /review | **业务** | 查看统计 | agent skill |
-| /assign /reassign /squad | **业务** | squad 管理 | agent skill |
+| /dispatch agent channel | 基础设施 | channel-server | agent 加入 channel |
+| /hijack | 基础设施 | channel-server | mode 切换为 takeover |
+| /release | 基础设施 | channel-server | mode 切换为 auto |
+| /copilot | 基础设施 | channel-server | mode 切换为 copilot |
+| /resolve | 基础设施 | channel-server | 关闭 conversation |
+| /abandon | 基础设施 | channel-server | 关闭 conversation |
+| /status | 业务 | agent skill | 查看状态 |
+| /review | 业务 | agent skill | 查看统计 |
+| /assign /reassign /squad | 业务 | agent skill | squad 管理 |
 
 ## 配置分层
 
 ```
-routing.toml（业务配置）：
-  default_agents = ["fast-agent"]          ← 新 conversation 自动 dispatch 谁
-  escalation_chain = ["deep-agent"]        ← 升级时按什么顺序
-  available_agents = ["fast-agent", "deep-agent"]  ← 白名单（基础设施）
+routing.toml（基础设施配置）：
+  default_agents             ← 新 conversation 自动 dispatch 谁
+  escalation_chain           ← 升级时按什么顺序
+  available_agents           ← dispatch 白名单
 
-soul.md（业务指令，per-agent）：
+soul.md（业务指令，per-agent-type）：
   角色定义、沟通风格、行为规则
-  存在于 agent workspace，每个实例独立
+  不同 agent type 有不同模板
 
-templates/claude/（基础设施模板）：
-  start.sh        ← 启动脚本
-  .env.example     ← 环境变量
-  template.toml    ← 模板配置
+templates/（agent 模板）：
+  ~/.zchat/templates/fast-agent/soul.md
+  ~/.zchat/templates/deep-agent/soul.md
+  ~/.zchat/templates/admin-agent/soul.md     ← 含 /status /review skill
+  ~/.zchat/templates/squad-agent/soul.md     ← 含 /assign /squad skill
+  创建 project 后手动复制到项目中，后续自动化
 ```
 
-## 三个仓库审计
+## 三个仓库改动清单
 
-### zchat-protocol（2 处清理）
+### zchat-protocol
 
 | 文件 | 动作 |
 |------|------|
-| event.py | 删除 `SLA_BREACH`, `SQUAD_ASSIGNED`, `SQUAD_REASSIGNED` |
+| gate.py | **删除或移到 feishu_bridge**（Gate 是业务逻辑，不属于协议） |
+| event.py | 删除 SLA_BREACH, SQUAD_ASSIGNED, SQUAD_REASSIGNED |
 | commands.py | 保留 hijack/release/copilot/resolve/dispatch/abandon；移除 status/review/assign/reassign/squad |
 
-### zchat-channel-server（4 处重构）
+### zchat-channel-server
 
 | 文件 | 动作 |
 |------|------|
-| engine/command_handler.py | 保留基础设施命令（hijack/release/copilot/resolve/dispatch/abandon）；移除业务命令（status/review/assign/reassign/squad → agent skill） |
-| feishu_bridge/bridge.py | 移除 auto-hijack（注释已关）；简化为纯协议转换 |
-| feishu_bridge/visibility_router.py | 保持当前拆分（visibility_router + feishu_renderer） |
-| plugins/sla_app.py | SLA 时长已可配置（环境变量）；SLA 策略移到 routing.toml 或 skill 配置 |
+| engine/command_handler.py | 移除 status/review/assign/reassign/squad 处理；移除 Gate 调用 |
+| engine/message_router.py | 移除 Gate 调用——消息直接转发到 IRC channel + Bridge 广播 |
+| feishu_bridge/bridge.py | 接管 Gate 逻辑——根据 mode + sender 决定是否转发到飞书群 |
+| feishu_bridge/visibility_router.py | Gate 逻辑从 channel-server 移到这里 |
+| plugins/sla_app.py | SLA 策略可配置 |
 
-### zchat 主库（核心改动）
+### zchat 主库
 
-| 改动 | 说明 |
+| 文件 | 动作 |
 |------|------|
-| CLI: `zchat channel create/list/delete` | 新增 channel 管理命令 |
-| CLI: `zchat agent join agent channel` | 新增 agent 加入 channel 命令 |
-| agent_manager.py | create() 支持指定 channels；per-channel agent 实例 |
-| irc_manager.py | 动态 channel 解析 |
-| templates/ | soul.md 支持 per-agent-type 差异化（fast vs deep vs admin vs squad） |
-
-## Agent 模板体系
-
-```
-内置模板（zchat/cli/templates/）：
-  claude/          ← 通用 agent 模板
-    soul.md        ← 默认业务指令
-    start.sh       ← 启动脚本
-  
-用户自定义（~/.zchat/templates/）：
-  fast-agent/      ← 快速应答 agent
-    soul.md        ← "简单问题直接答，复杂问题占位"
-  deep-agent/      ← 深度分析 agent
-    soul.md        ← "接收委托，深度分析，reply(edit_of=)"
-  admin-agent/     ← 管理 agent（未来）
-    soul.md        ← admin skill 指令
-  squad-agent/     ← 分队 agent（未来）
-    soul.md        ← squad skill 指令
-```
-
-每种 agent type 有独立的 soul.md 定义行为。启动时复制到 agent workspace。
+| CLI | 新增 `zchat channel create/list` 命令 |
+| CLI | 新增 `zchat agent join agent channel` 命令 |
+| templates/ | 提供 fast-agent/deep-agent/admin-agent/squad-agent 模板 |
 
 ## 执行计划
 
-### Phase 1: 协议清理 + 命令修正
-1. zchat-protocol: event.py 删业务事件
-2. zchat-protocol: commands.py 调整（保留 dispatch，移除 status/review/assign/reassign/squad）
-3. channel-server: command_handler.py 移除业务命令处理
+### Phase 1: Gate 迁移
+1. zchat-protocol: gate.py 移到 feishu_bridge/（或删除，在 bridge 中重新实现）
+2. channel-server engine/: 移除所有 Gate 调用
+3. feishu_bridge: 接管 Gate 逻辑（根据 mode + sender 决定飞书转发）
+4. 回归测试
 
-### Phase 2: Channel 管理
-4. zchat CLI: channel create/list/delete 命令
-5. zchat CLI: agent join/leave channel 命令
-6. channel-server: 统一 channel 管理 API
+### Phase 2: 命令清理
+5. zchat-protocol commands.py: 移除业务命令
+6. channel-server command_handler.py: 移除业务命令处理
+7. event.py: 移除业务事件
 
-### Phase 3: Agent 模板差异化
-7. templates/: fast-agent / deep-agent / admin-agent / squad-agent 独立 soul.md
-8. 运行时 per-channel agent 实例
-
-### Phase 4: Bridge 清理
-9. bridge.py: 简化为纯协议转换
-10. 卡片/thread 路由修正
+### Phase 3: Channel 管理 + Agent 模板
+8. CLI: channel/agent 命令
+9. templates/: 多种 agent 模板
+10. routing.toml 完善
