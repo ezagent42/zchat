@@ -1,0 +1,6 @@
+[template]
+name = "admin-agent"
+description = "系统管理 agent — /status /review 查询 + SLA 告警处理"
+
+[hooks]
+pre_stop = "/exit"

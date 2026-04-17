@@ -1,0 +1,6 @@
+[template]
+name = "squad-agent"
+description = "客服团队协调 agent — /assign /squad 管理 + 对话通知 + 指导 agent"
+
+[hooks]
+pre_stop = "/exit"

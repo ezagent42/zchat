@@ -1,0 +1,6 @@
+[template]
+name = "fast-agent"
+description = "快速应答客服 agent — 简单问题直答，复杂问题占位委托"
+
+[hooks]
+pre_stop = "/exit"

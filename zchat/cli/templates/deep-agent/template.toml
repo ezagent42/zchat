@@ -1,0 +1,6 @@
+[template]
+name = "deep-agent"
+description = "深度分析客服 agent — 接收委托，深入分析，reply(edit_of) 替换占位"
+
+[hooks]
+pre_stop = "/exit"
