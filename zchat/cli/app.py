@@ -15,7 +15,7 @@ from zchat.cli.project import (
     create_project_config, list_projects,
     get_default_project, set_default_project, resolve_project,
     load_project_config, remove_project, project_dir, state_file_path,
-    normalize_channel_name, list_channels, channel_exists, add_channel,
+    normalize_channel_name,
 )
 from zchat.cli.agent_manager import AgentManager
 from zchat.cli.irc_manager import IrcManager
@@ -1035,8 +1035,16 @@ def cmd_agent_create(
     workspace: Optional[str] = typer.Option(None, help="Custom workspace path"),
     channels: Optional[str] = typer.Option(None, help="Comma-separated channels to join"),
     agent_type: Optional[str] = typer.Option(None, "--type", "-t", help="Template type (default: from config)"),
+    channel_id: Optional[str] = typer.Option(None, "--channel", "-c",
+                                              help="Register agent into this channel in routing.toml"),
+    role: Optional[str] = typer.Option(None, "--role", "-r",
+                                        help="Role name in routing.toml (defaults to agent short name)"),
 ):
-    """Create and launch a new agent."""
+    """Create and launch a new agent.
+
+    If --channel is given, automatically registers the agent nick in routing.toml
+    under the specified (or inferred) role after creation.
+    """
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
     try:
@@ -1049,6 +1057,27 @@ def cmd_agent_create(
     typer.echo(f"Created {scoped} (type: {info['type']})")
     typer.echo(f"  tab: {info.get('tab_name', info.get('window_name', '—'))}")
     typer.echo(f"  workspace: {info.get('workspace', '—')}")
+
+    # 若指定 --channel，自动登记到 routing.toml
+    if channel_id:
+        from zchat.cli.routing import join_agent as routing_join_agent, channel_exists as routing_channel_exists
+        project_name = ctx.obj.get("project") if ctx.obj else None
+        pdir = project_dir(project_name)
+        channel_normalized = normalize_channel_name(channel_id)
+        _role = role or name
+        if not routing_channel_exists(pdir, channel_normalized):
+            typer.echo(
+                f"Warning: Channel '{channel_normalized}' not registered in routing.toml. "
+                f"Run `zchat channel create {channel_normalized}` first.",
+                err=True,
+            )
+        else:
+            try:
+                routing_join_agent(pdir, channel_normalized, _role, scoped)
+                typer.echo(f"  routing: registered as '{_role}' in '{channel_normalized}'")
+            except ValueError as e:
+                typer.echo(f"Warning: routing registration failed: {e}", err=True)
+
 
 @agent_app.command("stop")
 def cmd_agent_stop(ctx: typer.Context, name: str = typer.Argument(...)):
@@ -1159,10 +1188,17 @@ def cmd_agent_hide(
 @agent_app.command("join")
 def cmd_agent_join(
     ctx: typer.Context,
-    agent: str = typer.Argument(..., help="Agent name"),
+    agent: str = typer.Argument(..., help="Agent name (short name or scoped nick)"),
     channel: str = typer.Argument(..., help="Channel name (with or without #)"),
+    role: Optional[str] = typer.Option(None, "--role", "-r",
+                                        help="Role name in routing.toml (defaults to agent short name)"),
 ):
-    """Add agent to a registered channel (updates state; restart to take effect)."""
+    """Add agent to a registered channel.
+
+    Updates agent state (channels list) and registers the agent nick in
+    routing.toml under the given role.  Restart agent for IRC JOIN to take effect.
+    """
+    from zchat.cli.routing import channel_exists as routing_channel_exists, join_agent as routing_join_agent
     project_name = ctx.obj.get("project") if ctx.obj else None
     if not project_name:
         typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
@@ -1170,8 +1206,9 @@ def cmd_agent_join(
 
     channel = normalize_channel_name(channel)
 
-    # Verify channel is registered in project config
-    if not channel_exists(project_name, channel):
+    # Verify channel is registered in routing.toml
+    pdir = project_dir(project_name)
+    if not routing_channel_exists(pdir, channel):
         typer.echo(
             f"Error: Channel '{channel}' not registered. "
             f"Run `zchat channel create {channel}` first.",
@@ -1188,16 +1225,26 @@ def cmd_agent_join(
         typer.echo(f"Error: Agent '{scoped}' not found. Run `zchat agent create {agent}` first.", err=True)
         raise typer.Exit(1)
 
+    # 1. 更新 agent state 中的 channels 列表（用于重启时 IRC JOIN）
     current_channels: list[str] = list(agents[scoped].get("channels", []))
     if channel not in current_channels:
         current_channels.append(channel)
         agents[scoped]["channels"] = current_channels
         mgr._save_state()
 
+    # 2. 在 routing.toml 注册 agent nick → role
+    _role = role or agent
+    try:
+        routing_join_agent(pdir, channel, _role, scoped)
+    except ValueError as e:
+        # channel_exists 已验证，此路径理论上不会触发
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
     status = agents[scoped].get("status", "offline")
     if status == "running":
         typer.echo(
-            f"Agent '{scoped}' joined '{channel}' (state updated).\n"
+            f"Agent '{scoped}' joined '{channel}' (state + routing updated).\n"
             f"Restart agent for channel to take effect: zchat agent restart {agent}"
         )
     else:
@@ -1212,27 +1259,33 @@ def cmd_agent_join(
 def cmd_channel_create(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Channel name (with or without #)"),
-    channel_type: Optional[str] = typer.Option(None, "--type", "-t",
-                                                help="Channel type: customer/squad/admin/general"),
-    description: Optional[str] = typer.Option(None, "--description", "-d",
-                                               help="Short description"),
+    feishu_chat: Optional[str] = typer.Option(None, "--feishu-chat",
+                                               help="Feishu chat ID (e.g. oc_xxx)"),
+    squad_chat: Optional[str] = typer.Option(None, "--squad-chat",
+                                              help="Squad chat ID (e.g. oc_squad)"),
+    default_agents: Optional[str] = typer.Option(None, "--default-agents",
+                                                  help="Comma-separated default agent roles"),
 ):
-    """Register a channel in project config.
+    """Register a channel in routing.toml.
 
     Channel will be created on the IRC server automatically when an agent JOINs.
     """
+    from zchat.cli.routing import add_channel as routing_add_channel
     project_name = ctx.obj.get("project") if ctx.obj else None
     if not project_name:
         typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
         raise typer.Exit(1)
 
     channel_name = normalize_channel_name(name)
+    pdir = project_dir(project_name)
+    agents_list = [a.strip() for a in default_agents.split(",")] if default_agents else None
     try:
-        add_channel(
-            project_name,
+        routing_add_channel(
+            pdir,
             channel_name,
-            channel_type=channel_type or "",
-            description=description or "",
+            feishu_chat_id=feishu_chat,
+            squad_chat_id=squad_chat,
+            default_agents=agents_list,
         )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1243,22 +1296,26 @@ def cmd_channel_create(
 
 @channel_app.command("list")
 def cmd_channel_list(ctx: typer.Context):
-    """List all registered channels in current project."""
+    """List all registered channels in current project (reads routing.toml)."""
+    from zchat.cli.routing import list_channels as routing_list_channels
     project_name = ctx.obj.get("project") if ctx.obj else None
     if not project_name:
         typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
         raise typer.Exit(1)
 
-    channels = list_channels(project_name)
+    pdir = project_dir(project_name)
+    channels = routing_list_channels(pdir)
     if not channels:
         typer.echo("No channels registered. Run 'zchat channel create <name>'.")
         return
 
-    for ch_name, ch_cfg in channels.items():
-        ch_type = ch_cfg.get("type", "")
-        agents = ", ".join(ch_cfg.get("default_agents", []))
-        desc = ch_cfg.get("description", "")
-        typer.echo(f"  {ch_name}\t{ch_type}\t{agents}\t{desc}")
+    for ch in channels:
+        ch_id = ch["channel_id"]
+        feishu = ch.get("feishu_chat_id", "")
+        agents_map = ch.get("agents", {})
+        agent_roles = ", ".join(agents_map.keys()) if agents_map else ""
+        default_ag = ", ".join(ch.get("default_agents", []))
+        typer.echo(f"  {ch_id}\t{feishu}\t{default_ag}\t{agent_roles}")
 
 
 # ============================================================
