@@ -42,29 +42,30 @@
 
 ## 3. 三种通信路由
 
-在任何 channel 中，只有 3 种通信模式：
+所有消息都在 channel 中，区别是**是否回到 bridge（飞书）**：
 
 ```
-模式 1: A 发 channel，C 回 channel（公开对话）
-  A（人）在 channel 发消息 → @C（bot/agent）→ C 回复到 channel
-  = 客户在 customer channel @agent，agent 回复
-  = 所有人可见
+模式 1: public（公开）
+  A 在 channel @C → C 回复到 channel → bridge 转发到飞书群
+  = 客户 @agent，agent 回复，所有人可见
 
-模式 2: A 发 C，C 回 A（私聊/side）
-  A 私信 C → C 私信回 A
-  = operator 在 squad thread 给 agent 下指令
-  = 只有 A 和 C 看到
+模式 2: side（旁路）
+  A 在 channel @C → C 回复到 channel → 不回到 bridge
+  = operator 给 agent 指令，客户看不到
+  = 消息仍在 IRC channel 中留存（审计）
 
-模式 3: A @B 在 channel，B 回 channel（人对人，channel 公开）
-  A @B 在 channel 发消息 → B 看到并回复
-  = operator @agent 在 squad channel
-  = channel 内所有人可见
+模式 3: @人（在 channel 中 @特定人）
+  A 在 channel @B → B 收到并回复到 channel
+  = 人和 bot 在 IRC 中无区别
 ```
+
+**Side 不是私聊**，还是在 channel 中发的。只是 bridge 不转发到飞书群。
+Gate 决定哪些消息 bridge 应该转发，哪些不转发。
 
 映射到 IRC：
-- 模式 1 = PRIVMSG #channel :@agent text（channel pubmsg + @mention）
-- 模式 2 = PRIVMSG agent :text（private message）
-- 模式 3 = PRIVMSG #channel :@agent text（同模式 1，但发起者不同）
+- 模式 1 = PRIVMSG #channel :@agent text → agent 回复 → bridge 转发
+- 模式 2 = PRIVMSG #channel :@agent text → agent 回复 → bridge 不转发（Gate: side）
+- 模式 3 = PRIVMSG #channel :@agent text → 同上，人和 bot 无区别
 
 ---
 
@@ -120,15 +121,25 @@ Admin 和 squad 的 channel 不接收 side 消息（只有 customer channel 有 
 
 ---
 
-## 9. 每个客户群 = 独立 agent 实例
+## 9. 多租户 = 每客户独立 agent 实例组
 
 ```
-customer-A 群 → #customer-A channel → agent-A（独立 Claude Code session）
-customer-B 群 → #customer-B channel → agent-B（独立 Claude Code session）
+客户 A 进群 → zchat agent create fast-agent-A + deep-agent-A
+  → 复制 agent 模板（soul.md / skill / .mcp.json）到 agents/fast-agent-A/
+  → 启动独立 Claude Code session
+  → IRC nick: yaosh-fast-agent-A, yaosh-deep-agent-A
+  → 加入 #customer-A channel
+
+客户 B 进群 → zchat agent create fast-agent-B + deep-agent-B
+  → 同上，独立实例
+  → 加入 #customer-B channel
 ```
 
-虽然用的是同一个 agent 配置（soul.md / skill），但每个客户群有自己的 agent 进程。
-Agent 之间通过 IRC channel 通信（如果需要协作）。
+每个租户（客户）有自己的 agent 实例组（fast + deep），路由到各自的 channel。
+agent 模板文件夹复制一份以客户名命名（后续可用 git worktree 替代）。
+
+对外飞书只有一个 bot（cs-bot），但后台每个客户对应独立的 agent CLI 进程。
+`/dispatch` 命令把 agent 实例派到指定 channel（群），不是派到飞书群。
 
 ---
 
