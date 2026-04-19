@@ -1,114 +1,36 @@
 {
-  "project_root": "/home/lenovo/workspace/zchat",
-  "checks": [
-    {
-      "name": "python3",
-      "status": "ready",
-      "version": "Python 3.14.3",
-      "optional": false,
-      "install_hint": ""
-    },
-    {
-      "name": "node",
-      "status": "ready",
-      "version": "v20.19.4",
-      "optional": true,
-      "install_hint": "apt install nodejs / brew install node"
-    },
-    {
-      "name": "uv",
-      "status": "ready",
-      "version": "uv 0.11.1 (a6042f67f 2026-03-24 x86_64-unknown-linux-gnu)",
-      "optional": true,
-      "install_hint": "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    },
-    {
-      "name": "pip",
-      "status": "ready",
-      "version": "pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)",
-      "optional": true,
-      "install_hint": ""
-    },
-    {
-      "name": "git",
-      "status": "ready",
-      "version": "git version 2.43.0",
-      "optional": false,
-      "install_hint": ""
-    },
-    {
-      "name": "pytest",
-      "status": "ready",
-      "version": "/home/linuxbrew/.linuxbrew/opt/python@3.14/bin/python3.14: No module named pytest",
-      "optional": true,
-      "install_hint": "uv sync --dev"
-    },
-    {
-      "name": "tmux",
-      "status": "ready",
-      "version": "tmux 3.6a",
-      "optional": true,
-      "install_hint": "apt install tmux / brew install tmux"
-    },
-    {
-      "name": "zellij",
-      "status": "ready",
-      "version": "zellij 0.44.1",
-      "optional": true,
-      "install_hint": "cargo install zellij"
-    },
-    {
-      "name": "asciinema",
-      "status": "missing",
-      "version": null,
-      "optional": true,
-      "install_hint": "pip install asciinema"
-    },
-    {
-      "name": "docker",
-      "status": "missing",
-      "version": null,
-      "optional": true,
-      "install_hint": "https://docs.docker.com/get-docker/"
-    },
-    {
-      "name": "service (detected in tests/unit/test_migrate.py) (port 6667)",
-      "status": "missing",
-      "version": "not listening on 6667",
-      "optional": true,
-      "start_hint": ""
-    },
-    {
-      "name": "service (detected in tests/unit/test_project.py) (port 6697)",
-      "status": "missing",
-      "version": "not listening on 6697",
-      "optional": true,
-      "start_hint": ""
-    }
-  ],
-  "detected_ports": {
-    "6667": {
-      "name": "service (detected in tests/unit/test_migrate.py)",
-      "source": "tests/unit/test_migrate.py"
-    },
-    "6697": {
-      "name": "service (detected in tests/unit/test_project.py)",
-      "source": "tests/unit/test_project.py"
-    }
+  "generated_at": "2026-04-17",
+  "project_root": "/home/yaosh/projects/zchat",
+  "python_version": "3.13.5",
+  "uv_version": "0.7.15",
+  "zchat_version": "0.3.1.dev27",
+  "venv_path": "/home/yaosh/projects/zchat/.venv",
+  "platform": "linux",
+  "os_version": "Linux 6.6.87.2-microsoft-standard-WSL2",
+  "import_check": {
+    "command": "uv run python -c \"from zchat.cli import app; print('OK')\"",
+    "result": "OK",
+    "success": true
   },
+  "entry_point": "zchat.cli.app:app",
+  "cli_framework": "Typer",
   "project_dependencies": [
-    "httpx",
-    "segno",
-    "tomli-w",
-    "python-dotenv",
-    "typer[all]",
-    "zchat-protocol",
-    "zchat-channel-server"
+    "httpx>=0.27.0",
+    "segno>=1.6.0",
+    "tomli-w>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "typer[all]>=0.9.0",
+    "zchat-protocol>=0.1.0",
+    "zchat-channel-server>=0.2.0"
   ],
-  "summary": {
-    "ready": 8,
-    "missing_required": 0,
-    "missing_optional": 4,
-    "total": 12
+  "dev_dependencies": [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-order>=1.3.0",
+    "pytest-timeout>=2.4.0"
+  ],
+  "submodules": {
+    "zchat-protocol": "zchat-protocol/",
+    "zchat-channel-server": "zchat-channel-server/"
   }
 }

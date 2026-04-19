@@ -1,46 +1,22 @@
 {
-  "module_name": "update",
-  "module_path": "zchat/cli/update.py",
-  "description": "Update checking and upgrade logic for zchat and channel-server packages (update.py:1)",
-  "key_interfaces": [
-    {"name": "load_update_state", "file": "update.py", "line": 26, "description": "Load update state from JSON file, returns defaults if missing"},
-    {"name": "save_update_state", "file": "update.py", "line": 41, "description": "Save update state to JSON file"},
-    {"name": "should_check_today", "file": "update.py", "line": 48, "description": "Return True if no update check has been done today (UTC date comparison)"},
-    {"name": "check_for_updates", "file": "update.py", "line": 87, "description": "Check remote versions (git ls-remote for main/dev, PyPI for release) and update state"},
-    {"name": "run_upgrade", "file": "update.py", "line": 134, "description": "Run uv tool install --force for both packages. Atomic: rolls back first if second fails."},
-    {"name": "_check_remote_git", "file": "update.py", "line": 61, "description": "Get latest commit hash (7 chars) from git remote"},
-    {"name": "_check_remote_pypi", "file": "update.py", "line": 75, "description": "Get latest version from PyPI JSON API"},
-    {"name": "_build_install_args", "file": "update.py", "line": 123, "description": "Build uv tool install package specs for given channel (main/dev: git, release: PyPI)"},
-    {"name": "_background_check_main", "file": "update.py", "line": 160, "description": "Entry point for background update check subprocess"}
+  "module": "update",
+  "path": "zchat/cli/update.py",
+  "lines": 176,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "load_update_state", "line": 26, "signature": "def load_update_state(path: str = UPDATE_STATE_FILE) -> dict", "description": "加载更新状态 JSON，缺失返回默认值"},
+    {"name": "save_update_state", "line": 41, "signature": "def save_update_state(state: dict, path: str = UPDATE_STATE_FILE) -> None", "description": "保存更新状态到 JSON 文件"},
+    {"name": "should_check_today", "line": 48, "signature": "def should_check_today(state: dict) -> bool", "description": "判断今天是否已检查过更新（UTC 日期比较）"},
+    {"name": "_check_remote_git", "line": 61, "signature": "def _check_remote_git(repo_url: str, branch: str) -> str | None", "description": "从 git remote 获取最新 commit hash（7 位）"},
+    {"name": "_check_remote_pypi", "line": 75, "signature": "def _check_remote_pypi(package: str) -> str | None", "description": "从 PyPI JSON API 获取最新版本"},
+    {"name": "check_for_updates", "line": 87, "signature": "def check_for_updates(state: dict) -> dict", "description": "检查远程版本并更新状态（main/dev 用 git，release 用 PyPI）"},
+    {"name": "_build_install_args", "line": 123, "signature": "def _build_install_args(channel: str) -> list[str]", "description": "为指定 channel 构建 uv tool install 参数"},
+    {"name": "run_upgrade", "line": 134, "signature": "def run_upgrade(channel: str) -> bool", "description": "执行 uv tool install --force（原子操作，失败回滚）"},
+    {"name": "_background_check_main", "line": 160, "signature": "def _background_check_main() -> None", "description": "后台更新检查子进程入口"}
   ],
-  "dependencies": ["paths"],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_update.py -v",
-    "passed": 19,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "daily update check",
-      "entry": "update.py:87",
-      "steps": [
-        "record current timestamp as last_check",
-        "if channel is main/dev: git ls-remote for zchat + channel-server repos",
-        "if channel is release: query PyPI JSON API for both packages",
-        "set installed_ref to remote_ref if first check",
-        "set update_available flag if refs differ"
-      ]
-    },
-    {
-      "name": "run upgrade",
-      "entry": "update.py:134",
-      "steps": [
-        "build package specs based on channel",
-        "uv tool install --force for each spec",
-        "if any fails, roll back previously installed specs",
-        "return success boolean"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["json", "subprocess", "urllib.request", "datetime", "pathlib.Path", "paths"],
+  "test_file": "tests/unit/test_update.py",
+  "test_count": 20
 }

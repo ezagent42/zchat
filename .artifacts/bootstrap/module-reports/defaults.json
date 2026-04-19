@@ -1,30 +1,18 @@
 {
-  "module_name": "defaults",
-  "module_path": "zchat/cli/defaults.py",
-  "description": "Load built-in default configuration from data/defaults.toml (defaults.py:1)",
-  "key_interfaces": [
-    {"name": "load_defaults", "file": "defaults.py", "line": 11, "description": "Load and cache the defaults.toml file (module-level cache)"},
-    {"name": "default_channels", "file": "defaults.py", "line": 20, "description": "Return default IRC channels list from defaults.toml"},
-    {"name": "default_runner", "file": "defaults.py", "line": 24, "description": "Return default runner name from defaults.toml"},
-    {"name": "default_mcp_server_cmd", "file": "defaults.py", "line": 28, "description": "Return default MCP server command list from defaults.toml"},
-    {"name": "server_presets", "file": "defaults.py", "line": 32, "description": "Return server presets dict {name: {host, port, tls, label}} from defaults.toml"}
+  "module": "defaults",
+  "path": "zchat/cli/defaults.py",
+  "lines": 34,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "load_defaults", "line": 13, "signature": "def load_defaults() -> dict", "description": "加载并缓存 data/defaults.toml 文件"},
+    {"name": "default_channels", "line": 21, "signature": "def default_channels() -> list[str]", "description": "返回默认频道列表"},
+    {"name": "default_runner", "line": 24, "signature": "def default_runner() -> str", "description": "返回默认 runner 名称"},
+    {"name": "default_mcp_server_cmd", "line": 28, "signature": "def default_mcp_server_cmd() -> list[str]", "description": "返回默认 MCP server 命令"},
+    {"name": "server_presets", "line": 32, "signature": "def server_presets() -> dict[str, dict]", "description": "返回 server 预设配置"}
   ],
-  "dependencies": [],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_defaults.py -v",
-    "passed": 6,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "load defaults",
-      "entry": "defaults.py:11",
-      "steps": [
-        "read data/defaults.toml via tomllib",
-        "cache result in module-level _cache variable",
-        "return cached dict on subsequent calls"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["tomllib", "pathlib.Path"],
+  "test_file": "tests/unit/test_defaults.py",
+  "test_count": 6
 }

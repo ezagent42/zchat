@@ -1,0 +1,22 @@
+{
+  "module": "routing",
+  "path": "zchat/cli/routing.py",
+  "lines": 125,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "routing_path", "line": 20, "signature": "def routing_path(project_dir: str | Path) -> Path", "description": "返回 routing.toml 的路径"},
+    {"name": "load_routing", "line": 25, "signature": "def load_routing(project_dir: str | Path) -> dict", "description": "加载 routing.toml，不存在返回空 dict"},
+    {"name": "save_routing", "line": 37, "signature": "def save_routing(project_dir: str | Path, data: dict) -> None", "description": "原子写入 routing.toml"},
+    {"name": "init_routing", "line": 47, "signature": "def init_routing(project_dir: str | Path) -> None", "description": "初始化空 routing.toml（project create 时调用）"},
+    {"name": "add_channel", "line": 58, "signature": "def add_channel(project_dir: str | Path, channel_id: str, *, feishu_chat_id: str | None = None, squad_chat_id: str | None = None, squad_thread_root: str | None = None, default_agents: list[str] | None = None) -> None", "description": "添加 channel 条目到 routing.toml"},
+    {"name": "list_channels", "line": 86, "signature": "def list_channels(project_dir: str | Path) -> list[dict]", "description": "返回所有 channel 的列表"},
+    {"name": "channel_exists", "line": 95, "signature": "def channel_exists(project_dir: str | Path, channel_id: str) -> bool", "description": "检查 channel 是否已注册"},
+    {"name": "join_agent", "line": 101, "signature": "def join_agent(project_dir: str | Path, channel_id: str, role: str, nick: str) -> None", "description": "把 agent nick 登记为 channel 的某 role"},
+    {"name": "remove_channel", "line": 119, "signature": "def remove_channel(project_dir: str | Path, channel_id: str) -> None", "description": "从 routing.toml 移除 channel"}
+  ],
+  "classes": [],
+  "click_commands": [],
+  "imports": ["pathlib.Path", "tomllib", "tomli_w"],
+  "test_file": "tests/unit/test_routing_cli.py",
+  "test_count": 18
+}

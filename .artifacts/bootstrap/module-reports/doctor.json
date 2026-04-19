@@ -1,45 +1,18 @@
 {
-  "module_name": "doctor",
-  "module_path": "zchat/cli/doctor.py",
-  "description": "Environment diagnostics and component setup (doctor.py:2)",
-  "key_interfaces": [
-    {"name": "run_doctor", "file": "doctor.py", "line": 73, "description": "Check all dependencies (uv, python3, zellij, claude, zchat-channel, ergo, weechat, plugin) and report status with version info"},
-    {"name": "setup_weechat", "file": "doctor.py", "line": 148, "description": "Download and install WeeChat zchat plugin from GitHub to autoload directory"},
-    {"name": "_check_command", "file": "doctor.py", "line": 52, "description": "Check if command exists on PATH and return (found, version_string)"},
-    {"name": "_weechat_autoload_dir", "file": "doctor.py", "line": 23, "description": "Find WeeChat python autoload directory from known locations"},
-    {"name": "_weechat_plugin_installed", "file": "doctor.py", "line": 31, "description": "Return path to installed zchat.py WeeChat plugin or None"}
+  "module": "doctor",
+  "path": "zchat/cli/doctor.py",
+  "lines": 228,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "_weechat_autoload_dir", "line": 24, "signature": "def _weechat_autoload_dir() -> str | None", "description": "查找 WeeChat python autoload 目录"},
+    {"name": "_weechat_plugin_installed", "line": 32, "signature": "def _weechat_plugin_installed() -> str | None", "description": "返回已安装 zchat.py 插件路径"},
+    {"name": "_check_command", "line": 53, "signature": "def _check_command(name: str) -> tuple[bool, str]", "description": "检查命令是否存在并返回版本信息"},
+    {"name": "run_doctor", "line": 74, "signature": "def run_doctor()", "description": "检查所有依赖并报告状态（zellij/claude/ergo 等）"},
+    {"name": "setup_weechat", "line": 197, "signature": "def setup_weechat(force: bool = False)", "description": "下载安装 WeeChat zchat 插件"}
   ],
-  "dependencies": ["project", "update"],
-  "test_results": {
-    "command": null,
-    "passed": 0,
-    "failed": 0,
-    "skipped": 0,
-    "note": "No unit tests"
-  },
-  "user_flows": [
-    {
-      "name": "run diagnostics",
-      "entry": "doctor.py:73",
-      "steps": [
-        "iterate dependency list (uv, python3, zellij, claude, zchat-channel, ergo, weechat)",
-        "check each via shutil.which + version command",
-        "check weechat plugin installed",
-        "show project list and active project",
-        "show update status from update module",
-        "summarize required/optional counts, exit 1 if required missing"
-      ]
-    },
-    {
-      "name": "setup weechat plugin",
-      "entry": "doctor.py:148",
-      "steps": [
-        "verify weechat is installed",
-        "find or create autoload directory",
-        "prompt for overwrite if plugin exists (unless --force)",
-        "download zchat.py from GitHub raw URL",
-        "save to autoload directory"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["shutil", "socket", "subprocess", "urllib.request", "pathlib.Path", "typer", "project"],
+  "test_file": "tests/unit/test_doctor.py",
+  "test_count": 10
 }

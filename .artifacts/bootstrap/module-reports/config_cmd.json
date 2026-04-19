@@ -1,31 +1,19 @@
 {
-  "module_name": "config_cmd",
-  "module_path": "zchat/cli/config_cmd.py",
-  "description": "Global configuration management (~/.zchat/config.toml) (config_cmd.py:1)",
-  "key_interfaces": [
-    {"name": "load_global_config", "file": "config_cmd.py", "line": 19, "description": "Load global config from TOML, filling defaults for missing keys (update.channel, update.auto_upgrade)"},
-    {"name": "save_global_config", "file": "config_cmd.py", "line": 33, "description": "Write global config to TOML file, creating parent dirs"},
-    {"name": "resolve_server", "file": "config_cmd.py", "line": 41, "description": "Resolve server reference to {host, port, tls, password} dict from global config or presets"},
-    {"name": "ensure_server_in_global", "file": "config_cmd.py", "line": 68, "description": "Add a server entry to global config if it doesn't exist, save and return config"},
-    {"name": "get_config_value", "file": "config_cmd.py", "line": 82, "description": "Get value from config by dotted key (e.g. 'update.channel')"},
-    {"name": "set_config_value", "file": "config_cmd.py", "line": 94, "description": "Set value in config by dotted key with auto bool conversion"}
+  "module": "config_cmd",
+  "path": "zchat/cli/config_cmd.py",
+  "lines": 107,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "load_global_config", "line": 19, "signature": "def load_global_config(path: str | None = None) -> dict", "description": "加载全局 config.toml，填充缺失默认值"},
+    {"name": "save_global_config", "line": 33, "signature": "def save_global_config(config: dict, path: str | None = None) -> None", "description": "写入全局配置到 TOML 文件"},
+    {"name": "resolve_server", "line": 41, "signature": "def resolve_server(server_ref: str, global_config: dict | None = None) -> dict", "description": "将 server 引用解析为连接详情（host/port/tls/password）"},
+    {"name": "ensure_server_in_global", "line": 68, "signature": "def ensure_server_in_global(name: str, host: str, port: int, tls: bool, password: str = '', global_config: dict | None = None) -> dict", "description": "向全局配置添加 server 条目（如不存在）"},
+    {"name": "get_config_value", "line": 82, "signature": "def get_config_value(config: dict, dotted_key: str)", "description": "通过 dotted key 获取配置值"},
+    {"name": "set_config_value", "line": 94, "signature": "def set_config_value(config: dict, dotted_key: str, value: str | int | bool | list) -> None", "description": "通过 dotted key 设置配置值（自动转换 bool）"}
   ],
-  "dependencies": ["paths", "defaults"],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_config_cmd.py -v",
-    "passed": 11,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "resolve IRC server for project",
-      "entry": "config_cmd.py:41",
-      "steps": [
-        "check if server_ref is a named entry in global [servers]",
-        "check if it matches a hostname in server_presets (from defaults.toml)",
-        "fall back to raw hostname with default port 6667, no TLS"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["tomllib", "pathlib.Path", "tomli_w", "paths"],
+  "test_file": "tests/unit/test_config_cmd.py",
+  "test_count": 10
 }

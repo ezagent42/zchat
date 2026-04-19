@@ -1,17 +1,43 @@
 {
   "suite": "unit",
-  "command": "uv run pytest tests/unit/ -q --tb=short",
-  "exit_code": 1,
-  "passed": 236,
-  "failed": 1,
+  "command": "uv run pytest tests/unit/ -v",
+  "exit_code": 0,
+  "passed": 307,
+  "failed": 0,
   "skipped": 0,
-  "failures": [
-    {
-      "nodeid": "tests/unit/test_irc_check.py::test_unreachable_server_raises",
-      "reason": "pre-existing bug — check_irc_connectivity does not raise ConnectionError on unreachable server",
-      "type": "code_bug"
-    }
+  "errors": 0,
+  "duration_seconds": 14.62,
+  "failures": [],
+  "captured_at": "2026-04-17",
+  "test_files": [
+    {"file": "tests/unit/test_agent_focus_hide.py", "tests": 6},
+    {"file": "tests/unit/test_agent_manager.py", "tests": 19},
+    {"file": "tests/unit/test_auth.py", "tests": 15},
+    {"file": "tests/unit/test_channel_cmd.py", "tests": 21},
+    {"file": "tests/unit/test_config_channel_server.py", "tests": 5},
+    {"file": "tests/unit/test_config_cmd.py", "tests": 10},
+    {"file": "tests/unit/test_defaults.py", "tests": 6},
+    {"file": "tests/unit/test_doctor.py", "tests": 10},
+    {"file": "tests/unit/test_ergo_auth_script.py", "tests": 4},
+    {"file": "tests/unit/test_irc_check.py", "tests": 4},
+    {"file": "tests/unit/test_irc_manager_languages.py", "tests": 8},
+    {"file": "tests/unit/test_irc_manager_weechat_cmd.py", "tests": 7},
+    {"file": "tests/unit/test_layout.py", "tests": 9},
+    {"file": "tests/unit/test_list_commands.py", "tests": 6},
+    {"file": "tests/unit/test_migrate.py", "tests": 4},
+    {"file": "tests/unit/test_paths.py", "tests": 17},
+    {"file": "tests/unit/test_plugin_integration.py", "tests": 4},
+    {"file": "tests/unit/test_project.py", "tests": 12},
+    {"file": "tests/unit/test_project_cli_flow.py", "tests": 1},
+    {"file": "tests/unit/test_project_create_params.py", "tests": 5},
+    {"file": "tests/unit/test_project_use_command.py", "tests": 2},
+    {"file": "tests/unit/test_routing_cli.py", "tests": 18},
+    {"file": "tests/unit/test_runner.py", "tests": 18},
+    {"file": "tests/unit/test_start_sh.py", "tests": 3},
+    {"file": "tests/unit/test_template_loader.py", "tests": 7},
+    {"file": "tests/unit/test_update.py", "tests": 20},
+    {"file": "tests/unit/test_wsl2_proxy_rewrite.py", "tests": 10},
+    {"file": "tests/unit/test_zellij_helpers.py", "tests": 16}
   ],
-  "captured_at": "2026-04-14",
-  "notes": "Updated after adding 38 new unit tests for issues #40/#41/#42/ctrl-c (was 198 on 2026-04-10)"
+  "notes": "All 307 unit tests pass. Previous baseline had 236 passed / 1 failed (test_unreachable_server_raises). That bug is now fixed."
 }

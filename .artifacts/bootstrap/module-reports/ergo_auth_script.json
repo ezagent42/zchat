@@ -1,0 +1,16 @@
+{
+  "module": "ergo_auth_script",
+  "path": "zchat/cli/ergo_auth_script.py",
+  "lines": 108,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "validate_credentials", "line": 25, "signature": "def validate_credentials(account_name: str, passphrase: str, userinfo_url: str, http_client: httpx.Client | None = None) -> dict", "description": "通过 Keycloak userinfo 验证 SASL 凭据（支持 agent owner 校验）"},
+    {"name": "_read_config", "line": 76, "signature": "def _read_config() -> str", "description": "从 config 文件或 env 读取 userinfo URL"},
+    {"name": "main", "line": 86, "signature": "def main()", "description": "ergo auth-script 子进程入口（stdin/stdout JSON 协议）"}
+  ],
+  "classes": [],
+  "click_commands": [],
+  "imports": ["json", "os", "re", "sys", "httpx"],
+  "test_file": "tests/unit/test_ergo_auth_script.py",
+  "test_count": 4
+}

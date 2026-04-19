@@ -1,42 +1,16 @@
 {
-  "module_name": "migrate",
-  "module_path": "zchat/cli/migrate.py",
-  "description": "Config and state migration from tmux to Zellij format (migrate.py:1)",
-  "key_interfaces": [
-    {"name": "migrate_config_if_needed", "file": "migrate.py", "line": 12, "description": "Detect old config format ([tmux] section), backup, and migrate to new Zellij format. Returns True if migrated."},
-    {"name": "migrate_state_if_needed", "file": "migrate.py", "line": 59, "description": "Migrate state.json: window_name -> tab_name, remove legacy pane_id. Returns True if migrated."},
-    {"name": "_simplify_session_name", "file": "migrate.py", "line": 109, "description": "Convert zchat-{uuid}-{name} to zchat-{name}"}
+  "module": "migrate",
+  "path": "zchat/cli/migrate.py",
+  "lines": 114,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "migrate_config_if_needed", "line": 12, "signature": "def migrate_config_if_needed(project_dir: str) -> bool", "description": "检测旧配置格式（[tmux] 段）并迁移到新格式"},
+    {"name": "migrate_state_if_needed", "line": 59, "signature": "def migrate_state_if_needed(project_dir: str) -> bool", "description": "迁移 state.json：window_name -> tab_name，移除旧版 pane_id"},
+    {"name": "_simplify_session_name", "line": 109, "signature": "def _simplify_session_name(old_name: str, project_name: str) -> str", "description": "转换 zchat-{uuid}-{name} → zchat-{name}"}
   ],
-  "dependencies": [],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_migrate.py -v",
-    "passed": 4,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "migrate project config",
-      "entry": "migrate.py:12",
-      "steps": [
-        "check for [tmux] section in config.toml",
-        "backup original as config.toml.bak",
-        "extract [irc], [tmux], [agents] sections",
-        "build new config: server, default_runner, channels, username, env_file, mcp_server_cmd",
-        "simplify session name (strip UUID)",
-        "write new config.toml"
-      ]
-    },
-    {
-      "name": "migrate state.json",
-      "entry": "migrate.py:59",
-      "steps": [
-        "rename window_name -> tab_name in agent entries",
-        "remove legacy pane_id from agents",
-        "rename weechat_window -> weechat_tab in IRC state",
-        "remove weechat_pane_id",
-        "backup and write updated state.json"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["json", "shutil", "tomllib", "pathlib.Path", "tomli_w"],
+  "test_file": "tests/unit/test_migrate.py",
+  "test_count": 4
 }

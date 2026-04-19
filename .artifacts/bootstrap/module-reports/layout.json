@@ -1,31 +1,17 @@
 {
-  "module_name": "layout",
-  "module_path": "zchat/cli/layout.py",
-  "description": "KDL layout generation for Zellij sessions (layout.py:1)",
-  "key_interfaces": [
-    {"name": "generate_layout", "file": "layout.py", "line": 19, "description": "Generate KDL layout string with tab-bar, status-bar plugins, WeeChat tab, ctl tab, and agent tabs from state"},
-    {"name": "write_layout", "file": "layout.py", "line": 86, "description": "Generate and write layout.kdl to project directory, returns path"},
-    {"name": "_escape_kdl", "file": "layout.py", "line": 9, "description": "Escape string for KDL double quotes (backslash, double-quote)"},
-    {"name": "_plugins_dir", "file": "layout.py", "line": 14, "description": "Return absolute path to zchat plugins directory"}
+  "module": "layout",
+  "path": "zchat/cli/layout.py",
+  "lines": 100,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "_escape_kdl", "line": 10, "signature": "def _escape_kdl(s: str) -> str", "description": "转义 KDL 双引号内的字符串"},
+    {"name": "_plugins_dir", "line": 15, "signature": "def _plugins_dir() -> str", "description": "返回 zchat 插件目录绝对路径"},
+    {"name": "generate_layout", "line": 20, "signature": "def generate_layout(config: dict, state: dict, weechat_cmd: str = '', project_name: str = '') -> str", "description": "生成 KDL layout 字符串（tab-bar + WeeChat + ctl + agent tabs）"},
+    {"name": "write_layout", "line": 89, "signature": "def write_layout(project_dir: Path, config: dict, state: dict, weechat_cmd: str = '', project_name: str = '') -> Path", "description": "生成并写入 layout.kdl 到项目目录"}
   ],
-  "dependencies": ["paths"],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_layout.py -v",
-    "passed": 8,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "generate project session layout",
-      "entry": "layout.py:19",
-      "steps": [
-        "write default_tab_template with tab-bar + zchat-status.wasm + status-bar plugins",
-        "add WeeChat tab (first, focused) with optional command",
-        "add ctl tab for CLI",
-        "iterate state agents, add tab for each running/starting agent",
-        "return KDL string"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["os", "pathlib.Path", "paths"],
+  "test_file": "tests/unit/test_layout.py",
+  "test_count": 9
 }

@@ -1,45 +1,35 @@
 {
-  "module_name": "paths",
-  "module_path": "zchat/cli/paths.py",
-  "description": "Centralized path resolution for zchat with priority: env var > config.toml [paths] > defaults.toml [paths] (paths.py:1-6)",
-  "key_interfaces": [
-    {"name": "zchat_home", "file": "paths.py", "line": 14, "description": "Root zchat directory (~/.zchat), overridable via $ZCHAT_HOME"},
-    {"name": "plugins_dir", "file": "paths.py", "line": 59, "description": "Plugin WASM directory, overridable via $ZCHAT_PLUGINS_DIR"},
-    {"name": "templates_dir", "file": "paths.py", "line": 64, "description": "User template directory, overridable via $ZCHAT_TEMPLATES_DIR"},
-    {"name": "projects_dir", "file": "paths.py", "line": 69, "description": "Directory containing all projects"},
-    {"name": "global_config_path", "file": "paths.py", "line": 79, "description": "Global config.toml path"},
-    {"name": "auth_file", "file": "paths.py", "line": 84, "description": "Authentication token file path"},
-    {"name": "update_state", "file": "paths.py", "line": 89, "description": "Update check state file path"},
-    {"name": "default_project_file", "file": "paths.py", "line": 94, "description": "File storing the default project name"},
-    {"name": "project_dir", "file": "paths.py", "line": 103, "description": "Root directory for a project"},
-    {"name": "project_config", "file": "paths.py", "line": 108, "description": "Project config.toml path"},
-    {"name": "project_state", "file": "paths.py", "line": 113, "description": "Project runtime state.json path"},
-    {"name": "project_env_file", "file": "paths.py", "line": 118, "description": "Per-project Claude environment file path"},
-    {"name": "project_kdl_config", "file": "paths.py", "line": 123, "description": "Per-project Zellij KDL config path"},
-    {"name": "ergo_data_dir", "file": "paths.py", "line": 128, "description": "Per-project ergo IRC daemon data directory"},
-    {"name": "weechat_home", "file": "paths.py", "line": 133, "description": "Per-project WeeChat config directory"},
-    {"name": "zellij_layout_dir", "file": "paths.py", "line": 138, "description": "Directory for Zellij layout files (~/.zchat/main)"},
-    {"name": "agent_workspace", "file": "paths.py", "line": 147, "description": "Agent workspace directory within a project"},
-    {"name": "agent_ready_marker", "file": "paths.py", "line": 152, "description": "Agent startup ready marker file path"},
-    {"name": "legacy_agent_state", "file": "paths.py", "line": 157, "description": "Legacy agent state file path (~/.local/state/zchat/agents.json)"}
+  "module": "paths",
+  "path": "zchat/cli/paths.py",
+  "lines": 159,
+  "updated_at": "2026-04-17",
+  "functions": [
+    {"name": "zchat_home", "line": 14, "signature": "def zchat_home() -> Path", "description": "根 zchat 目录（~/.zchat），可通过 $ZCHAT_HOME 覆盖"},
+    {"name": "_resolve_subdir", "line": 19, "signature": "def _resolve_subdir(env_var: str, key: str) -> Path", "description": "通过 env var > config > defaults 解析子目录路径"},
+    {"name": "_load_config_paths", "line": 37, "signature": "def _load_config_paths() -> dict", "description": "加载全局 config.toml 的 [paths] 段"},
+    {"name": "_load_default_paths", "line": 48, "signature": "def _load_default_paths() -> dict", "description": "加载 defaults.toml 的 [paths] 段（缓存）"},
+    {"name": "plugins_dir", "line": 59, "signature": "def plugins_dir() -> Path", "description": "插件 WASM 目录"},
+    {"name": "templates_dir", "line": 64, "signature": "def templates_dir() -> Path", "description": "用户模板目录"},
+    {"name": "projects_dir", "line": 69, "signature": "def projects_dir() -> Path", "description": "所有项目的父目录"},
+    {"name": "global_config_path", "line": 79, "signature": "def global_config_path() -> Path", "description": "全局 config.toml 路径"},
+    {"name": "auth_file", "line": 84, "signature": "def auth_file() -> Path", "description": "认证 token 文件路径"},
+    {"name": "update_state", "line": 89, "signature": "def update_state() -> Path", "description": "更新检查状态文件路径"},
+    {"name": "default_project_file", "line": 94, "signature": "def default_project_file() -> Path", "description": "存储默认项目名的文件路径"},
+    {"name": "project_dir", "line": 103, "signature": "def project_dir(name: str) -> Path", "description": "项目根目录"},
+    {"name": "project_config", "line": 108, "signature": "def project_config(name: str) -> Path", "description": "项目 config.toml 路径"},
+    {"name": "project_state", "line": 113, "signature": "def project_state(name: str) -> Path", "description": "项目运行时 state.json 路径"},
+    {"name": "project_env_file", "line": 118, "signature": "def project_env_file(name: str) -> Path", "description": "项目 Claude 环境文件路径"},
+    {"name": "project_kdl_config", "line": 123, "signature": "def project_kdl_config(name: str) -> Path", "description": "项目 Zellij KDL 配置路径"},
+    {"name": "ergo_data_dir", "line": 128, "signature": "def ergo_data_dir(name: str) -> Path", "description": "项目 ergo IRC 数据目录"},
+    {"name": "weechat_home", "line": 133, "signature": "def weechat_home(name: str) -> Path", "description": "项目 WeeChat 配置目录"},
+    {"name": "zellij_layout_dir", "line": 138, "signature": "def zellij_layout_dir() -> Path", "description": "Zellij layout 文件目录（~/.zchat/main）"},
+    {"name": "agent_workspace", "line": 147, "signature": "def agent_workspace(project: str, agent: str) -> Path", "description": "agent 工作空间目录"},
+    {"name": "agent_ready_marker", "line": 152, "signature": "def agent_ready_marker(project: str, agent: str) -> Path", "description": "agent 启动就绪标记文件"},
+    {"name": "legacy_agent_state", "line": 157, "signature": "def legacy_agent_state() -> Path", "description": "旧版 agent 状态文件路径"}
   ],
-  "dependencies": ["defaults"],
-  "test_results": {
-    "command": "uv run pytest tests/unit/test_paths.py -v",
-    "passed": 24,
-    "failed": 0,
-    "skipped": 0
-  },
-  "user_flows": [
-    {
-      "name": "resolve subdirectory path",
-      "entry": "paths.py:19",
-      "steps": [
-        "check environment variable override",
-        "check global config.toml [paths] section",
-        "fall back to defaults.toml [paths] value",
-        "return absolute path relative to zchat_home()"
-      ]
-    }
-  ]
+  "classes": [],
+  "click_commands": [],
+  "imports": ["os", "functools.lru_cache", "pathlib.Path"],
+  "test_file": "tests/unit/test_paths.py",
+  "test_count": 17
 }

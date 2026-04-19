@@ -1,29 +1,63 @@
 {
-  "module_name": "tests",
-  "description": "Comprehensive test suite: 4 layers — unit (199 tests), integration (5 tests), E2E (15 tests), pre-release (41 tests). Shared fixtures: IrcProbe, CLI runner factory, Zellij session management.",
+  "module": "tests",
+  "path": "tests/",
+  "lines": 4438,
+  "updated_at": "2026-04-17",
+  "description": "三层测试体系：unit (307 tests, 28 files), E2E (pytest-driven), pre-release (asciinema walkthrough)",
   "test_pyramid": {
-    "unit": {"count": 199, "run_cmd": "uv run pytest tests/unit/ -v", "status": "198 passed, 1 failed"},
-    "integration": {"count": 5, "run_cmd": "uv run pytest tests/integration/ -v", "status": "all passed"},
-    "e2e": {"count": 15, "run_cmd": "uv run pytest tests/e2e/ -v -m e2e", "requires": ["ergo","zellij","weechat"]},
-    "pre_release": {"count": 41, "run_cmd": "uv run pytest tests/pre_release/ -v -m 'prerelease and not manual'", "requires": ["ergo","zellij","weechat","asciinema(soft)"]}
+    "unit": {
+      "count": 307,
+      "files": 28,
+      "run_cmd": "uv run pytest tests/unit/ -v",
+      "status": "307 passed, 0 failed, 0 skipped",
+      "duration_seconds": 14.62
+    },
+    "e2e": {
+      "count": 15,
+      "run_cmd": "uv run pytest tests/e2e/ -v -m e2e",
+      "requires": ["ergo", "zellij", "weechat"]
+    },
+    "pre_release": {
+      "count": 41,
+      "run_cmd": "uv run pytest tests/pre_release/ -v -m 'prerelease and not manual'",
+      "requires": ["ergo", "zellij", "weechat", "asciinema(soft)"]
+    }
   },
-  "e2e_conftest_path": "tests/e2e/conftest.py",
-  "fixture_list": {
-    "e2e": ["e2e_port:42", "zellij_session:27", "e2e_context:49 (decoupled from zellij)", "ergo_server:113", "zchat_cli:138", "zellij_send:160", "irc_probe:175", "bob_probe:187", "weechat_tab:199"],
-    "pre_release": ["zchat_cmd", "e2e_port", "e2e_home", "zellij_session", "cli", "project", "ergo_server", "bob_probe", "weechat_tab", "zellij_send", "irc_probe", "remote_irc_probe"],
-    "integration": ["repo_root", "integration_home", "irc_server_address"]
-  },
+  "unit_test_files": [
+    {"file": "tests/unit/test_agent_focus_hide.py", "tests": 6},
+    {"file": "tests/unit/test_agent_manager.py", "tests": 19},
+    {"file": "tests/unit/test_auth.py", "tests": 15},
+    {"file": "tests/unit/test_channel_cmd.py", "tests": 21},
+    {"file": "tests/unit/test_config_channel_server.py", "tests": 5},
+    {"file": "tests/unit/test_config_cmd.py", "tests": 10},
+    {"file": "tests/unit/test_defaults.py", "tests": 6},
+    {"file": "tests/unit/test_doctor.py", "tests": 10},
+    {"file": "tests/unit/test_ergo_auth_script.py", "tests": 4},
+    {"file": "tests/unit/test_irc_check.py", "tests": 4},
+    {"file": "tests/unit/test_irc_manager_languages.py", "tests": 8},
+    {"file": "tests/unit/test_irc_manager_weechat_cmd.py", "tests": 7},
+    {"file": "tests/unit/test_layout.py", "tests": 9},
+    {"file": "tests/unit/test_list_commands.py", "tests": 6},
+    {"file": "tests/unit/test_migrate.py", "tests": 4},
+    {"file": "tests/unit/test_paths.py", "tests": 17},
+    {"file": "tests/unit/test_plugin_integration.py", "tests": 4},
+    {"file": "tests/unit/test_project.py", "tests": 12},
+    {"file": "tests/unit/test_project_cli_flow.py", "tests": 1},
+    {"file": "tests/unit/test_project_create_params.py", "tests": 5},
+    {"file": "tests/unit/test_project_use_command.py", "tests": 2},
+    {"file": "tests/unit/test_routing_cli.py", "tests": 18},
+    {"file": "tests/unit/test_runner.py", "tests": 18},
+    {"file": "tests/unit/test_start_sh.py", "tests": 3},
+    {"file": "tests/unit/test_template_loader.py", "tests": 7},
+    {"file": "tests/unit/test_update.py", "tests": 20},
+    {"file": "tests/unit/test_wsl2_proxy_rewrite.py", "tests": 10},
+    {"file": "tests/unit/test_zellij_helpers.py", "tests": 16}
+  ],
   "shared_helpers": [
     "tests/shared/irc_probe.py: IrcProbe — thread-safe IRC client, message recording, WHOIS, pattern wait, TLS+SASL",
     "tests/shared/cli_runner.py: make_cli_runner() — factory for CLI runner with env injection",
     "tests/shared/zellij_helpers.py: ensure_session, new_tab, send_command, dump_screen, kill_session"
   ],
-  "pre_release_infrastructure": {
-    "reporting.py": "PreReleaseReportCollector — JSON+Markdown reports, 10 checklist categories, gate status PASS/PASS_WITH_RISKS/FAIL",
-    "verify_walkthrough.py": "Parses asciinema .cast, checks 8 required patterns (zchat doctor → zchat shutdown)"
-  },
   "markers": ["@pytest.mark.e2e", "@pytest.mark.order(N)", "@pytest.mark.prerelease", "@pytest.mark.manual", "@pytest.mark.remote"],
-  "conftest_chain": ["tests/conftest.py (agent_name)", "tests/e2e/conftest.py (E2E)", "tests/integration/conftest.py", "tests/pre_release/conftest.py (report collector)"],
-  "e2e_flow": "9-phase ordered: weechat_connects → agent_joins → agent_send → mention_reply → second_agent → agent_to_agent → alice_bob → agent_stop → shutdown",
-  "coverage_gaps": ["test_irc_check.py::test_unreachable_server_raises (pre-existing, 1 failing)", "No unit tests for zchat.cli.zellij module"]
+  "coverage_notes": "所有 CLI 模块都有对应测试文件。V4 新增 routing.py 有 18 个测试 (test_routing_cli.py)。之前失败的 test_unreachable_server_raises 已修复。"
 }
