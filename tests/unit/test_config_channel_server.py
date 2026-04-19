@@ -42,7 +42,7 @@ def test_channel_server_participants_defaults(_zchat_home):
     config = tomllib.loads(text)
     participants = config["channel_server"]["participants"]
     assert participants["operators"] == []
-    assert participants["bridge_prefixes"] == ["feishu-bridge", "web-bridge"]
+    assert participants["bridge_prefixes"] == []
     assert participants["max_operator_concurrent"] == 5
 
 

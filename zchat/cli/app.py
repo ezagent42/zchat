@@ -29,6 +29,7 @@ from zchat.cli.config_cmd import (
     get_config_value, set_config_value,
     resolve_server, ensure_server_in_global,
 )
+from zchat.cli.audit_cmd import audit_app
 
 app = typer.Typer(name="zchat", help="Claude Code agent lifecycle management")
 project_app = typer.Typer(help="Project configuration management")
@@ -50,6 +51,7 @@ app.add_typer(template_app, name="template")
 app.add_typer(auth_app, name="auth")
 app.add_typer(config_app, name="config")
 app.add_typer(channel_app, name="channel")
+app.add_typer(audit_app, name="audit")
 
 
 def _get_config(ctx: typer.Context) -> dict:
@@ -1259,10 +1261,12 @@ def cmd_agent_join(
 def cmd_channel_create(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Channel name (with or without #)"),
-    feishu_chat: Optional[str] = typer.Option(None, "--feishu-chat",
-                                               help="Feishu chat ID (e.g. oc_xxx)"),
-    squad_chat: Optional[str] = typer.Option(None, "--squad-chat",
-                                              help="Squad chat ID (e.g. oc_squad)"),
+    external_chat: Optional[str] = typer.Option(None, "--external-chat",
+                                                help="External chat ID (e.g. oc_xxx)"),
+    bot_id: Optional[str] = typer.Option(None, "--bot-id",
+                                         help="External platform app_id (for bridge filter)"),
+    entry_agent: Optional[str] = typer.Option(None, "--entry-agent",
+                                              help="Entry agent nick (router will @ this agent in copilot mode)"),
     default_agents: Optional[str] = typer.Option(None, "--default-agents",
                                                   help="Comma-separated default agent roles"),
 ):
@@ -1283,8 +1287,9 @@ def cmd_channel_create(
         routing_add_channel(
             pdir,
             channel_name,
-            feishu_chat_id=feishu_chat,
-            squad_chat_id=squad_chat,
+            external_chat_id=external_chat,
+            bot_id=bot_id,
+            entry_agent=entry_agent,
             default_agents=agents_list,
         )
     except ValueError as e:
@@ -1311,11 +1316,76 @@ def cmd_channel_list(ctx: typer.Context):
 
     for ch in channels:
         ch_id = ch["channel_id"]
-        feishu = ch.get("feishu_chat_id", "")
+        ext_chat = ch.get("external_chat_id", "")
+        bot_id = ch.get("bot_id", "")
+        entry = ch.get("entry_agent", "")
         agents_map = ch.get("agents", {})
         agent_roles = ", ".join(agents_map.keys()) if agents_map else ""
-        default_ag = ", ".join(ch.get("default_agents", []))
-        typer.echo(f"  {ch_id}\t{feishu}\t{default_ag}\t{agent_roles}")
+        typer.echo(f"  {ch_id}\tbot={bot_id}\text_chat={ext_chat}\tentry={entry}\tagents=[{agent_roles}]")
+
+
+@channel_app.command("remove")
+def cmd_channel_remove(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Channel name (with or without #)"),
+    stop_agents: bool = typer.Option(False, "--stop-agents",
+                                      help="Also stop all agent processes in this channel"),
+):
+    """Remove a channel from routing.toml (and optionally stop its agents)."""
+    from zchat.cli.routing import remove_channel as routing_remove_channel, load_routing
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected.", err=True)
+        raise typer.Exit(1)
+
+    channel_name = normalize_channel_name(name)
+    pdir = project_dir(project_name)
+
+    # 记录该 channel 的 agents（若要 stop-agents）
+    data = load_routing(pdir)
+    ch = (data.get("channels") or {}).get(channel_name, {})
+    agent_nicks = list((ch.get("agents") or {}).values())
+
+    routing_remove_channel(pdir, channel_name)
+    typer.echo(f"Channel '{channel_name}' removed from routing.toml.")
+
+    if stop_agents and agent_nicks:
+        mgr = _get_agent_manager(ctx)
+        all_agents = mgr.list_agents()
+        for nick in agent_nicks:
+            # scoped_name => username-<name>，实际 agent name 是去掉 username 前缀后的名字
+            for agent_name, info in all_agents.items():
+                if info.get("nick") == nick or agent_name.endswith(f"-{nick.split('-', 1)[-1]}"):
+                    try:
+                        mgr.stop_agent(agent_name)
+                        typer.echo(f"Stopped agent '{agent_name}' (nick={nick}).")
+                    except Exception as e:
+                        typer.echo(f"Warning: failed to stop agent '{agent_name}': {e}", err=True)
+                    break
+
+
+@channel_app.command("set-entry")
+def cmd_channel_set_entry(
+    ctx: typer.Context,
+    channel: str = typer.Argument(..., help="Channel name"),
+    nick: str = typer.Argument(..., help="Agent nick to set as entry_agent"),
+):
+    """Explicitly set the entry_agent for a channel."""
+    from zchat.cli.routing import set_entry_agent
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected.", err=True)
+        raise typer.Exit(1)
+
+    channel_name = normalize_channel_name(channel)
+    pdir = project_dir(project_name)
+    try:
+        set_entry_agent(pdir, channel_name, nick)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"entry_agent of '{channel_name}' set to '{nick}'.")
 
 
 # ============================================================

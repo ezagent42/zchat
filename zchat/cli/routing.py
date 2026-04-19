@@ -59,9 +59,9 @@ def add_channel(
     project_dir: str | Path,
     channel_id: str,
     *,
-    feishu_chat_id: str | None = None,
-    squad_chat_id: str | None = None,
-    squad_thread_root: str | None = None,
+    external_chat_id: str | None = None,
+    bot_id: str | None = None,
+    entry_agent: str | None = None,
     default_agents: list[str] | None = None,
 ) -> None:
     """添加一个 channel 条目到 routing.toml。已存在则抛 ValueError。"""
@@ -70,12 +70,12 @@ def add_channel(
     if channel_id in channels:
         raise ValueError(f"Channel '{channel_id}' already exists")
     entry: dict = {}
-    if feishu_chat_id:
-        entry["feishu_chat_id"] = feishu_chat_id
-    if squad_chat_id:
-        entry["squad_chat_id"] = squad_chat_id
-    if squad_thread_root:
-        entry["squad_thread_root"] = squad_thread_root
+    if external_chat_id:
+        entry["external_chat_id"] = external_chat_id
+    if bot_id:
+        entry["bot_id"] = bot_id
+    if entry_agent:
+        entry["entry_agent"] = entry_agent
     if default_agents:
         entry["default_agents"] = list(default_agents)
     entry["agents"] = {}
@@ -103,16 +103,41 @@ def join_agent(
     channel_id: str,
     role: str,
     nick: str,
+    *,
+    as_entry: bool = False,
 ) -> None:
-    """把某 agent nick 登记为某 channel 的某 role。若 channel 不存在抛 ValueError。"""
+    """把某 agent nick 登记为某 channel 的某 role。若 channel 不存在抛 ValueError。
+
+    如果是首个 agent（agents 为空）或 as_entry=True，自动设为 entry_agent。
+    """
     data = load_routing(project_dir)
     channels = data.setdefault("channels", {})
     if channel_id not in channels:
         raise ValueError(
             f"channel '{channel_id}' not registered, run `zchat channel create`"
         )
-    agents_map = channels[channel_id].setdefault("agents", {})
+    ch = channels[channel_id]
+    agents_map = ch.setdefault("agents", {})
+    is_first = len(agents_map) == 0
     agents_map[role] = nick
+    if as_entry or is_first:
+        ch["entry_agent"] = nick
+    save_routing(project_dir, data)
+
+
+def set_entry_agent(
+    project_dir: str | Path,
+    channel_id: str,
+    nick: str,
+) -> None:
+    """显式修改 channel 的 entry_agent。channel 不存在抛 ValueError。"""
+    data = load_routing(project_dir)
+    channels = data.setdefault("channels", {})
+    if channel_id not in channels:
+        raise ValueError(
+            f"channel '{channel_id}' not registered"
+        )
+    channels[channel_id]["entry_agent"] = nick
     save_routing(project_dir, data)
 
 

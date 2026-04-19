@@ -64,11 +64,10 @@ def test_routing_add_channel_writes_file(tmp_path):
     assert "#support" in data["channels"]
 
 
-def test_routing_add_channel_with_feishu(tmp_path):
-    routing_add_channel(tmp_path, "#ops", feishu_chat_id="oc_xxx", squad_chat_id="oc_squad")
+def test_routing_add_channel_with_external_chat(tmp_path):
+    routing_add_channel(tmp_path, "#ops", external_chat_id="oc_xxx")
     data = load_routing(tmp_path)
-    assert data["channels"]["#ops"]["feishu_chat_id"] == "oc_xxx"
-    assert data["channels"]["#ops"]["squad_chat_id"] == "oc_squad"
+    assert data["channels"]["#ops"]["external_chat_id"] == "oc_xxx"
 
 
 def test_routing_add_channel_with_default_agents(tmp_path):
@@ -89,7 +88,7 @@ def test_routing_list_channels_empty(tmp_path):
 
 
 def test_routing_list_channels_returns_all(tmp_path):
-    routing_add_channel(tmp_path, "#alpha", feishu_chat_id="oc_a")
+    routing_add_channel(tmp_path, "#alpha", external_chat_id="oc_a")
     routing_add_channel(tmp_path, "#beta")
     channels = routing_list_channels(tmp_path)
     ids = [c["channel_id"] for c in channels]
@@ -109,10 +108,10 @@ def test_routing_channel_exists_false(tmp_path):
 def test_routing_roundtrip(tmp_path):
     """add_channel + join_agent → save → reload → 结构一致。"""
     from zchat.cli.routing import join_agent as routing_join_agent
-    routing_add_channel(tmp_path, "#ch-1", feishu_chat_id="oc_xxx")
+    routing_add_channel(tmp_path, "#ch-1", external_chat_id="oc_xxx")
     routing_join_agent(tmp_path, "#ch-1", "fast-agent", "alice-fast-001")
     data = load_routing(tmp_path)
-    assert data["channels"]["#ch-1"]["feishu_chat_id"] == "oc_xxx"
+    assert data["channels"]["#ch-1"]["external_chat_id"] == "oc_xxx"
     assert data["channels"]["#ch-1"]["agents"]["fast-agent"] == "alice-fast-001"
 
 
@@ -170,12 +169,12 @@ def test_channel_create_normalizes_hash_prefix(project):
     assert "#foo" in data["channels"]
 
 
-def test_channel_create_with_feishu_chat(project):
-    result = runner.invoke(app, ["channel", "create", "#support", "--feishu-chat", "oc_abc123"])
+def test_channel_create_with_external_chat(project):
+    result = runner.invoke(app, ["channel", "create", "#support", "--external-chat", "oc_abc123"])
     assert result.exit_code == 0, result.output
     pdir = project / "projects" / "testproj"
     data = load_routing(pdir)
-    assert data["channels"]["#support"]["feishu_chat_id"] == "oc_abc123"
+    assert data["channels"]["#support"]["external_chat_id"] == "oc_abc123"
 
 
 def test_channel_create_with_default_agents(project):
@@ -215,7 +214,7 @@ def test_channel_list_empty(project):
 
 def test_channel_list_formats(project):
     pdir = project / "projects" / "testproj"
-    routing_add_channel(pdir, "#alpha", feishu_chat_id="oc_alpha", default_agents=["fast-agent"])
+    routing_add_channel(pdir, "#alpha", external_chat_id="oc_alpha", default_agents=["fast-agent"])
     routing_add_channel(pdir, "#beta")
     result = runner.invoke(app, ["channel", "list"])
     assert result.exit_code == 0
@@ -226,6 +225,80 @@ def test_channel_list_formats(project):
 def test_channel_list_no_project_fails(tmp_path, monkeypatch):
     monkeypatch.setenv("ZCHAT_HOME", str(tmp_path))
     result = runner.invoke(app, ["channel", "list"])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# CLI: channel create with --bot-id / --entry-agent
+# ---------------------------------------------------------------------------
+
+def test_channel_create_with_bot_id_and_entry_agent(project):
+    result = runner.invoke(
+        app,
+        ["channel", "create", "#conv-1",
+         "--external-chat", "oc_abc",
+         "--bot-id", "cli_app1",
+         "--entry-agent", "alice-fast"],
+    )
+    assert result.exit_code == 0, result.output
+    pdir = project / "projects" / "testproj"
+    data = load_routing(pdir)
+    ch = data["channels"]["#conv-1"]
+    assert ch["external_chat_id"] == "oc_abc"
+    assert ch["bot_id"] == "cli_app1"
+    assert ch["entry_agent"] == "alice-fast"
+
+
+def test_channel_list_shows_bot_id_and_entry(project):
+    pdir = project / "projects" / "testproj"
+    routing_add_channel(
+        pdir, "#mixed",
+        external_chat_id="oc_x",
+        bot_id="cli_b",
+        entry_agent="nick-a",
+    )
+    result = runner.invoke(app, ["channel", "list"])
+    assert result.exit_code == 0
+    assert "#mixed" in result.output
+    assert "cli_b" in result.output
+    assert "nick-a" in result.output
+
+
+# ---------------------------------------------------------------------------
+# CLI: channel remove
+# ---------------------------------------------------------------------------
+
+def test_channel_remove(project):
+    pdir = project / "projects" / "testproj"
+    routing_add_channel(pdir, "#tmp")
+    result = runner.invoke(app, ["channel", "remove", "#tmp"])
+    assert result.exit_code == 0, result.output
+    data = load_routing(pdir)
+    assert "#tmp" not in data.get("channels", {})
+
+
+def test_channel_remove_nonexistent(project):
+    """移除不存在的 channel 静默成功。"""
+    result = runner.invoke(app, ["channel", "remove", "#ghost"])
+    # CLI routing.remove_channel 静默，只有 typer.echo 不报错
+    assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# CLI: channel set-entry
+# ---------------------------------------------------------------------------
+
+def test_channel_set_entry(project):
+    pdir = project / "projects" / "testproj"
+    routing_add_channel(pdir, "#ch")
+    result = runner.invoke(app, ["channel", "set-entry", "#ch", "bob-fast-001"])
+    assert result.exit_code == 0, result.output
+    data = load_routing(pdir)
+    assert data["channels"]["#ch"]["entry_agent"] == "bob-fast-001"
+
+
+def test_channel_set_entry_unknown_channel_fails(project):
+    result = runner.invoke(app, ["channel", "set-entry", "#ghost", "nick"])
     assert result.exit_code != 0
 
 

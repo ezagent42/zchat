@@ -34,7 +34,7 @@ def _channel_server_defaults() -> dict:
         },
         "participants": {
             "operators": [],
-            "bridge_prefixes": ["feishu-bridge", "web-bridge"],
+            "bridge_prefixes": [],
             "max_operator_concurrent": 5,
         },
     }

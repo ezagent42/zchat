@@ -13,6 +13,7 @@ from zchat.cli.routing import (
     channel_exists,
     join_agent,
     remove_channel,
+    set_entry_agent,
 )
 
 
@@ -52,12 +53,12 @@ def test_load_routing_missing_file(tmp_path):
 
 def test_save_and_load_roundtrip(tmp_path):
     original = {
-        "channels": {"#ch-1": {"feishu_chat_id": "oc_abc", "agents": {}}},
+        "channels": {"#ch-1": {"external_chat_id": "oc_abc", "agents": {}}},
         "operators": {"ou_xyz": {"name": "alice"}},
     }
     save_routing(tmp_path, original)
     loaded = load_routing(tmp_path)
-    assert loaded["channels"]["#ch-1"]["feishu_chat_id"] == "oc_abc"
+    assert loaded["channels"]["#ch-1"]["external_chat_id"] == "oc_abc"
     assert loaded["operators"]["ou_xyz"]["name"] == "alice"
 
 
@@ -84,16 +85,12 @@ def test_add_channel_minimal(tmp_path):
 def test_add_channel_with_all_fields(tmp_path):
     add_channel(
         tmp_path, "#full",
-        feishu_chat_id="oc_111",
-        squad_chat_id="oc_222",
-        squad_thread_root="msg_root",
+        external_chat_id="oc_111",
         default_agents=["fast", "deep"],
     )
     data = load_routing(tmp_path)
     ch = data["channels"]["#full"]
-    assert ch["feishu_chat_id"] == "oc_111"
-    assert ch["squad_chat_id"] == "oc_222"
-    assert ch["squad_thread_root"] == "msg_root"
+    assert ch["external_chat_id"] == "oc_111"
     assert ch["default_agents"] == ["fast", "deep"]
 
 
@@ -126,10 +123,10 @@ def test_list_channels_returns_channel_id(tmp_path):
 
 
 def test_list_channels_includes_all_fields(tmp_path):
-    add_channel(tmp_path, "#beta", feishu_chat_id="oc_b", default_agents=["x"])
+    add_channel(tmp_path, "#beta", external_chat_id="oc_b", default_agents=["x"])
     result = list_channels(tmp_path)
     ch = result[0]
-    assert ch["feishu_chat_id"] == "oc_b"
+    assert ch["external_chat_id"] == "oc_b"
     assert ch["default_agents"] == ["x"]
 
 
@@ -204,3 +201,59 @@ def test_remove_channel_leaves_others(tmp_path):
     data = load_routing(tmp_path)
     assert "#keep" in data["channels"]
     assert "#remove" not in data["channels"]
+
+
+# ---------------------------------------------------------------------------
+# entry_agent / bot_id
+# ---------------------------------------------------------------------------
+
+def test_add_channel_with_entry_agent_and_bot_id(tmp_path):
+    add_channel(
+        tmp_path, "#ch",
+        external_chat_id="oc_xxx",
+        bot_id="cli_app1",
+        entry_agent="alice-fast",
+    )
+    data = load_routing(tmp_path)
+    ch = data["channels"]["#ch"]
+    assert ch["external_chat_id"] == "oc_xxx"
+    assert ch["bot_id"] == "cli_app1"
+    assert ch["entry_agent"] == "alice-fast"
+
+
+def test_first_join_auto_sets_entry(tmp_path):
+    """首个 agent join 时自动设为 entry_agent。"""
+    add_channel(tmp_path, "#ch")
+    join_agent(tmp_path, "#ch", "fast", "alice-fast-001")
+    data = load_routing(tmp_path)
+    assert data["channels"]["#ch"]["entry_agent"] == "alice-fast-001"
+
+
+def test_second_join_does_not_override_entry(tmp_path):
+    """后续 agent join 不改变已有 entry_agent，除非 as_entry=True。"""
+    add_channel(tmp_path, "#ch")
+    join_agent(tmp_path, "#ch", "fast", "alice-fast-001")
+    join_agent(tmp_path, "#ch", "deep", "alice-deep-001")
+    data = load_routing(tmp_path)
+    assert data["channels"]["#ch"]["entry_agent"] == "alice-fast-001"
+
+
+def test_join_as_entry_overrides(tmp_path):
+    """as_entry=True 强制改 entry_agent。"""
+    add_channel(tmp_path, "#ch", entry_agent="pre-existing")
+    join_agent(tmp_path, "#ch", "deep", "alice-deep-001", as_entry=True)
+    data = load_routing(tmp_path)
+    assert data["channels"]["#ch"]["entry_agent"] == "alice-deep-001"
+
+
+def test_set_entry_agent(tmp_path):
+    add_channel(tmp_path, "#ch")
+    join_agent(tmp_path, "#ch", "fast", "alice-fast-001")
+    set_entry_agent(tmp_path, "#ch", "alice-deep-999")
+    data = load_routing(tmp_path)
+    assert data["channels"]["#ch"]["entry_agent"] == "alice-deep-999"
+
+
+def test_set_entry_agent_unknown_channel(tmp_path):
+    with pytest.raises(ValueError, match="not registered"):
+        set_entry_agent(tmp_path, "#ghost", "nick")
