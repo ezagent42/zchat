@@ -1,4 +1,64 @@
 {
   "version": 1,
-  "artifacts": []
+  "artifacts": [
+    {
+      "id": "eval-doc-010",
+      "type": "eval-doc",
+      "path": ".artifacts/eval-docs/eval-v5-refactor-010.md",
+      "feature": "v5-channel-server-refactor",
+      "status": "confirmed",
+      "produces": ["test-plan-011"],
+      "spec": "docs/spec/channel-server-v5.md",
+      "plan": "docs/discuss/plan/v5-refactor-plan.md"
+    },
+    {
+      "id": "test-plan-011",
+      "type": "test-plan",
+      "path": ".artifacts/test-plans/plan-v5-refactor-011.md",
+      "trigger": "eval-doc-010",
+      "status": "confirmed",
+      "produces": [
+        "test-diff-v5-phase1", "test-diff-v5-phase2", "test-diff-v5-phase3",
+        "test-diff-v5-phase4", "test-diff-v5-phase5", "test-diff-v5-phase6",
+        "test-diff-v5-phase7", "test-diff-v5-phase8", "test-diff-v5-phase9",
+        "test-diff-v5-phase10", "test-diff-v5-phase11"
+      ]
+    },
+    { "id": "code-diff-v5-phase1",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase1.md",  "phase": 1,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase1",  "status": "completed" },
+    { "id": "code-diff-v5-phase2",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase2.md",  "phase": 2,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase2",  "status": "completed" },
+    { "id": "code-diff-v5-phase3",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase3.md",  "phase": 3,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase3",  "status": "completed" },
+    { "id": "code-diff-v5-phase4",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase4.md",  "phase": 4,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase4",  "status": "completed" },
+    { "id": "code-diff-v5-phase5",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase5.md",  "phase": 5,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase5",  "status": "completed" },
+    { "id": "code-diff-v5-phase6",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase6.md",  "phase": 6,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase6",  "status": "completed" },
+    { "id": "code-diff-v5-phase7",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase7.md",  "phase": 7,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase7",  "status": "completed" },
+    { "id": "code-diff-v5-phase8",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase8.md",  "phase": 8,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase8",  "status": "completed" },
+    { "id": "code-diff-v5-phase9",  "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase9.md",  "phase": 9,  "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase9",  "status": "completed" },
+    { "id": "code-diff-v5-phase10", "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase10.md", "phase": 10, "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase10", "status": "completed" },
+    { "id": "code-diff-v5-phase11", "type": "code-diff", "path": ".artifacts/code-diffs/diff-v5-phase11.md", "phase": 11, "trigger": "test-plan-011", "pairs_with": "test-diff-v5-phase11", "status": "completed" },
+    { "id": "test-diff-v5-phase1",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase1.md",  "phase": 1,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase1",  "status": "completed" },
+    { "id": "test-diff-v5-phase2",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase2.md",  "phase": 2,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase2",  "status": "completed" },
+    { "id": "test-diff-v5-phase3",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase3.md",  "phase": 3,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase3",  "status": "completed" },
+    { "id": "test-diff-v5-phase4",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase4.md",  "phase": 4,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase4",  "status": "completed" },
+    { "id": "test-diff-v5-phase5",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase5.md",  "phase": 5,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase5",  "status": "completed" },
+    { "id": "test-diff-v5-phase6",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase6.md",  "phase": 6,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase6",  "status": "completed" },
+    { "id": "test-diff-v5-phase7",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase7.md",  "phase": 7,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase7",  "status": "completed" },
+    { "id": "test-diff-v5-phase8",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase8.md",  "phase": 8,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase8",  "status": "completed" },
+    { "id": "test-diff-v5-phase9",  "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase9.md",  "phase": 9,  "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase9",  "status": "completed" },
+    { "id": "test-diff-v5-phase10", "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase10.md", "phase": 10, "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase10", "status": "completed" },
+    { "id": "test-diff-v5-phase11", "type": "test-diff", "path": ".artifacts/test-diffs/test-diff-v5-phase11.md", "phase": 11, "trigger": "test-plan-011", "pairs_with": "code-diff-v5-phase11", "status": "completed" },
+    {
+      "id": "e2e-report-v5-final-001",
+      "type": "e2e-report",
+      "path": ".artifacts/e2e-reports/report-v5-final-001/",
+      "trigger": "test-plan-011",
+      "covers": [
+        "code-diff-v5-phase1", "code-diff-v5-phase2", "code-diff-v5-phase3",
+        "code-diff-v5-phase4", "code-diff-v5-phase5", "code-diff-v5-phase6",
+        "code-diff-v5-phase7", "code-diff-v5-phase8", "code-diff-v5-phase9",
+        "code-diff-v5-phase10", "code-diff-v5-phase11"
+      ],
+      "summary": "394 passed / 0 failed / 0 skipped across CS, main, protocol",
+      "status": "completed"
+    }
+  ]
 }

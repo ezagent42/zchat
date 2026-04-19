@@ -1,0 +1,18 @@
+================== V5 Final Test Run — 2026-04-20 ==================
+
+== zchat-channel-server (tests/unit/ + tests/e2e/) ==
+183 passed, 4 warnings in 13.21s
+
+== zchat 主仓 (tests/unit/) ==
+171 passed, 4 warnings in 8.71s
+
+== zchat 主仓 (tests/e2e/ — V5 新增子集) ==
+tests/e2e/test_admin_commands_via_cli.py .....                          [ 62%]
+tests/e2e/test_audit_cli_integration.py ...                             [100%]
+8 passed in 0.94s
+
+== zchat-protocol (tests/) ==
+32 passed, 1 warning in 0.06s
+
+== 合计 ==
+394 passed, 0 failed, 0 skipped, 0 errors
