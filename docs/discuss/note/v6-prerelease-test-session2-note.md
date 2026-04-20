@@ -312,6 +312,27 @@ if not channel_id:
 - 同样需要检查 `_forward_operator / _forward_admin`（也可能有同 bug）
 - Ralph-loop 再加一条：grep bridge 代码里出现的 `channel=chat_id` —— 应只在 GroupManager 内部，不该在 WS 消息构造里
 
+### 2.15 真 BUG：bridge `_forward_to_bridge` 无 try/except 吞掉下游异常
+
+**症状**：customer 群发 "你好" → bridge log 出现：
+```
+[customer] ou_...: 你好
+[outbound] WARNING on_conversation_created: no squad chat for #conv-001
+(然后彻底静默，WSS ping/pong 停，40s 后 CS 报 bridge disconnected)
+```
+
+customer bridge 进程死掉。CS 路由器没收到消息（因为 build_message.send 从未被调用）。
+
+**根因**：`_forward_to_bridge` 调 `handler(chat_id, ...)` 没 try/except。handler 中任何一步的异常都会 bubble 到 lark_oapi 的事件 dispatcher，被 lark 内部静默吞或者让 dispatcher 线程死掉 → WSS 心跳停 → bridge 进程名存实亡。
+
+**当前修复**：加 try/except + log.exception，至少能看到 traceback。
+
+**仍待诊断**：为什么 customer bridge 在"no squad chat"warning 之后会挂？outbound 返回 None 正常，后续的 build_message.send 应该继续。等新 log 暴露实际 exception。
+
+**整改**：
+- `_forward_to_bridge` / `_handle_*_event` 都必须 `log.exception` 包裹 —— 入站事件处理器是最外层，不能让异常吞到 SDK
+- 单元测试补：mock `outbound.on_conversation_created` raise，验证 bridge 仍完成 build_message.send
+
 ## 3. 修改汇总（本 session 内）
 
 | 文件 | 改动 |
