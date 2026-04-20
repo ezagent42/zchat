@@ -77,8 +77,12 @@ def add_bot(
     credential_file: str | None = None,
     default_agent_template: str | None = None,
     lazy_create_enabled: bool = False,
+    supervises: list[str] | None = None,
 ) -> None:
-    """注册一个 bot 到 routing.toml [bots] 表。已存在抛 ValueError。"""
+    """注册一个 bot 到 routing.toml [bots] 表。已存在抛 ValueError。
+
+    supervises: 该 bot 监管哪些 bot 的 channels（V6 按 bot 名；V7+ 支持 tag:/pattern:）。
+    """
     data = load_routing(project_dir)
     bots = data.setdefault("bots", {})
     if name in bots:
@@ -88,6 +92,8 @@ def add_bot(
         entry["credential_file"] = credential_file
     if default_agent_template:
         entry["default_agent_template"] = default_agent_template
+    if supervises:
+        entry["supervises"] = list(supervises)
     bots[name] = entry
     save_routing(project_dir, data)
 

@@ -1420,6 +1420,8 @@ def cmd_bot_add(
                                             help="Default agent template for lazy-create"),
     lazy: bool = typer.Option(False, "--lazy",
                                help="Enable lazy-create on this bot"),
+    supervises: Optional[str] = typer.Option(None, "--supervises",
+                                              help="Comma-separated bot names this bot monitors (supervision). V7+ 支持 tag:/pattern: 前缀"),
 ):
     """Register a bot in routing.toml [bots]. Optionally write secret to credentials/."""
     from zchat.cli.routing import add_bot as routing_add_bot
@@ -1443,6 +1445,9 @@ def cmd_bot_add(
         cred_rel = f"credentials/{name}.json"
         typer.echo(f"Wrote secret to {cred_path}")
 
+    supervises_list: Optional[list[str]] = None
+    if supervises:
+        supervises_list = [s.strip() for s in supervises.split(",") if s.strip()]
     try:
         routing_add_bot(
             pdir, name,
@@ -1450,11 +1455,15 @@ def cmd_bot_add(
             credential_file=cred_rel,
             default_agent_template=template,
             lazy_create_enabled=lazy,
+            supervises=supervises_list,
         )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    typer.echo(f"Bot '{name}' registered (app_id={app_id}, lazy={lazy}).")
+    msg = f"Bot '{name}' registered (app_id={app_id}, lazy={lazy}"
+    if supervises_list:
+        msg += f", supervises={supervises_list}"
+    typer.echo(msg + ").")
 
 
 @bot_app.command("list")
@@ -1472,9 +1481,11 @@ def cmd_bot_list(ctx: typer.Context):
         typer.echo("No bots registered. Run 'zchat bot add <name> --app-id ... --app-secret ...'.")
         return
     for b in bots:
+        sup = b.get("supervises") or []
+        sup_str = f"\tsupervises={sup}" if sup else ""
         typer.echo(
             f"  {b['name']}\tapp_id={b.get('app_id','')}"
-            f"\ttemplate={b.get('default_agent_template','')}"
+            f"\ttemplate={b.get('default_agent_template','')}{sup_str}"
             f"\tlazy={b.get('lazy_create_enabled', False)}"
         )
 
