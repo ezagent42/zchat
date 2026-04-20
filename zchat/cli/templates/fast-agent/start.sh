@@ -104,8 +104,9 @@ fi
 # Write .mcp.json
 jq -n --argjson srv "$SERVER_JSON" '{"mcpServers": {"zchat-agent-mcp": $srv}}' > .mcp.json
 
-# fast-agent 用最便宜的 Haiku：简单对话 / 分类 / 占位响应足够
-# 复杂查询会委托给 deep-agent（由 admin 配成 sonnet/opus）
+# fast-agent 使用默认模型（Sonnet）
+# 测试过 Haiku：instruction-following 不足以可靠触发 MCP tool call，
+# 会把注入消息当普通对话回答（文字不到 IRC），实际无法工作。
+# 如未来 Haiku 升级到能可靠用 tool，再考虑切回以省成本。
 exec claude --permission-mode bypassPermissions \
-  --model claude-haiku-4-5 \
   --dangerously-load-development-channels server:zchat-agent-mcp
