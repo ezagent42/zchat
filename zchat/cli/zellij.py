@@ -117,14 +117,25 @@ def list_tabs(session: str) -> list[dict]:
 
 
 def list_panes(session: str | None = None) -> list[dict]:
-    """list-panes --all --json."""
+    """list-panes --all --json.
+
+    Zellij 版本间 schema 不统一：可能是 list[dict] 也可能是 {"panes": [...]}。
+    非预期 schema 一律返回 [] 以保证下游迭代安全。
+    """
     r = _run(["list-panes", "--all", "--json"], session=session)
     if r.returncode != 0:
         return []
     try:
-        return json.loads(r.stdout)
+        data = json.loads(r.stdout)
     except json.JSONDecodeError:
         return []
+    if isinstance(data, list):
+        return [p for p in data if isinstance(p, dict)]
+    if isinstance(data, dict):
+        inner = data.get("panes") or data.get("items") or []
+        if isinstance(inner, list):
+            return [p for p in inner if isinstance(p, dict)]
+    return []
 
 
 def send_command(session: str, pane_id: str, text: str) -> None:
