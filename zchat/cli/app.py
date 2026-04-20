@@ -41,6 +41,7 @@ template_app = typer.Typer(help="Agent template management")
 auth_app = typer.Typer(help="Authentication management")
 config_app = typer.Typer(help="Global configuration management")
 channel_app = typer.Typer(help="Channel registration and management")
+bot_app = typer.Typer(help="External bot registration and management")
 
 app.add_typer(project_app, name="project")
 app.add_typer(irc_app, name="irc")
@@ -51,6 +52,7 @@ app.add_typer(template_app, name="template")
 app.add_typer(auth_app, name="auth")
 app.add_typer(config_app, name="config")
 app.add_typer(channel_app, name="channel")
+app.add_typer(bot_app, name="bot")
 app.add_typer(audit_app, name="audit")
 
 
@@ -688,22 +690,27 @@ def cmd_project_list():
 @project_app.command("use")
 def cmd_project_use(
     name: str,
-    no_attach: bool = typer.Option(
+    attach: bool = typer.Option(
         False,
-        "--no-attach",
-        help="Only set default project, do not switch/attach Zellij session.",
+        "--attach",
+        help="Also start services + attach Zellij session (legacy V5 behavior). "
+             "V6 推荐: 用 'zchat up' 显式启服务。",
     ),
 ):
-    """Set default project and optionally launch/switch to its Zellij session."""
+    """Set default project. By default does NOT start any services (V6 behavior).
+
+    Use `zchat up` to start services declared in routing.toml.
+    Use `--attach` to keep V5 behavior (auto-start ergo + WeeChat + default agent).
+    """
     if not os.path.isdir(project_dir(name)):
         typer.echo(f"Project '{name}' does not exist.")
         raise typer.Exit(1)
     set_default_project(name)
     typer.echo(f"Default project set to '{name}'.")
-    if no_attach:
-        typer.echo("Skip attaching session.")
-        return
-    _launch_project_session(name)
+    if attach:
+        _launch_project_session(name)
+    else:
+        typer.echo("Run `zchat up` to start services.")
 
 @project_app.command("remove")
 def cmd_project_remove(name: str):
@@ -1049,6 +1056,10 @@ def cmd_agent_create(
     """
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
+    # 若指定 --channel 但未传 --channels，IRC_CHANNELS 应跟随 --channel
+    # （否则 agent 默认 JOIN #general，与 routing 注册的 channel 不一致）
+    if ch is None and channel_id:
+        ch = [channel_id.lstrip("#")]
     try:
         info = mgr.create(name, workspace=workspace, channels=ch, agent_type=agent_type)
     except ConnectionError as e:
@@ -1261,10 +1272,10 @@ def cmd_agent_join(
 def cmd_channel_create(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Channel name (with or without #)"),
+    bot: Optional[str] = typer.Option(None, "--bot",
+                                       help="Bot name (must be registered via `zchat bot add` first)"),
     external_chat: Optional[str] = typer.Option(None, "--external-chat",
-                                                help="External chat ID (e.g. oc_xxx)"),
-    bot_id: Optional[str] = typer.Option(None, "--bot-id",
-                                         help="External platform app_id (for bridge filter)"),
+                                                help="External platform chat ID (e.g. oc_xxx)"),
     entry_agent: Optional[str] = typer.Option(None, "--entry-agent",
                                               help="Entry agent nick (router will @ this agent in copilot mode)"),
     default_agents: Optional[str] = typer.Option(None, "--default-agents",
@@ -1287,8 +1298,8 @@ def cmd_channel_create(
         routing_add_channel(
             pdir,
             channel_name,
+            bot=bot,
             external_chat_id=external_chat,
-            bot_id=bot_id,
             entry_agent=entry_agent,
             default_agents=agents_list,
         )
@@ -1317,11 +1328,11 @@ def cmd_channel_list(ctx: typer.Context):
     for ch in channels:
         ch_id = ch["channel_id"]
         ext_chat = ch.get("external_chat_id", "")
-        bot_id = ch.get("bot_id", "")
+        bot = ch.get("bot", "")
         entry = ch.get("entry_agent", "")
         agents_map = ch.get("agents", {})
         agent_roles = ", ".join(agents_map.keys()) if agents_map else ""
-        typer.echo(f"  {ch_id}\tbot={bot_id}\text_chat={ext_chat}\tentry={entry}\tagents=[{agent_roles}]")
+        typer.echo(f"  {ch_id}\tbot={bot}\text_chat={ext_chat}\tentry={entry}\tagents=[{agent_roles}]")
 
 
 @channel_app.command("remove")
@@ -1357,7 +1368,7 @@ def cmd_channel_remove(
             for agent_name, info in all_agents.items():
                 if info.get("nick") == nick or agent_name.endswith(f"-{nick.split('-', 1)[-1]}"):
                     try:
-                        mgr.stop_agent(agent_name)
+                        mgr.stop(agent_name)
                         typer.echo(f"Stopped agent '{agent_name}' (nick={nick}).")
                     except Exception as e:
                         typer.echo(f"Warning: failed to stop agent '{agent_name}': {e}", err=True)
@@ -1389,8 +1400,218 @@ def cmd_channel_set_entry(
 
 
 # ============================================================
+# bot commands (V6: 注册外部平台 bot 到 routing.toml [bots])
+# ============================================================
+
+@bot_app.command("add")
+def cmd_bot_add(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Bot name (logical, e.g. 'customer')"),
+    app_id: str = typer.Option(..., "--app-id", help="External platform app id"),
+    app_secret: Optional[str] = typer.Option(None, "--app-secret",
+                                              help="App secret (written to credentials/<name>.json)"),
+    template: Optional[str] = typer.Option(None, "--template",
+                                            help="Default agent template for lazy-create"),
+    lazy: bool = typer.Option(False, "--lazy",
+                               help="Enable lazy-create on this bot"),
+):
+    """Register a bot in routing.toml [bots]. Optionally write secret to credentials/."""
+    from zchat.cli.routing import add_bot as routing_add_bot
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected.", err=True)
+        raise typer.Exit(1)
+
+    pdir = project_dir(project_name)
+    cred_rel: Optional[str] = None
+    if app_secret:
+        cred_dir = pdir / "credentials"
+        cred_dir.mkdir(parents=True, exist_ok=True)
+        cred_path = cred_dir / f"{name}.json"
+        import json as _json
+        cred_path.write_text(
+            _json.dumps({"app_id": app_id, "app_secret": app_secret}, indent=2),
+            encoding="utf-8",
+        )
+        cred_rel = f"credentials/{name}.json"
+        typer.echo(f"Wrote secret to {cred_path}")
+
+    try:
+        routing_add_bot(
+            pdir, name,
+            app_id=app_id,
+            credential_file=cred_rel,
+            default_agent_template=template,
+            lazy_create_enabled=lazy,
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Bot '{name}' registered (app_id={app_id}, lazy={lazy}).")
+
+
+@bot_app.command("list")
+def cmd_bot_list(ctx: typer.Context):
+    """List all registered bots in current project."""
+    from zchat.cli.routing import list_bots as routing_list_bots
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected.", err=True)
+        raise typer.Exit(1)
+
+    pdir = project_dir(project_name)
+    bots = routing_list_bots(pdir)
+    if not bots:
+        typer.echo("No bots registered. Run 'zchat bot add <name> --app-id ... --app-secret ...'.")
+        return
+    for b in bots:
+        typer.echo(
+            f"  {b['name']}\tapp_id={b.get('app_id','')}"
+            f"\ttemplate={b.get('default_agent_template','')}"
+            f"\tlazy={b.get('lazy_create_enabled', False)}"
+        )
+
+
+@bot_app.command("remove")
+def cmd_bot_remove(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Bot name"),
+    delete_secret: bool = typer.Option(False, "--delete-secret",
+                                        help="Also delete credentials/<name>.json"),
+):
+    """Remove a bot from routing.toml [bots] (does not touch channels referencing it)."""
+    from zchat.cli.routing import remove_bot as routing_remove_bot, list_channels
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected.", err=True)
+        raise typer.Exit(1)
+
+    pdir = project_dir(project_name)
+    refs = [c["channel_id"] for c in list_channels(pdir) if c.get("bot") == name]
+    if refs:
+        typer.echo(
+            f"Warning: bot '{name}' is referenced by channels: {', '.join(refs)}",
+            err=True,
+        )
+    routing_remove_bot(pdir, name)
+    if delete_secret:
+        cred_path = pdir / "credentials" / f"{name}.json"
+        if cred_path.exists():
+            cred_path.unlink()
+            typer.echo(f"Deleted {cred_path}")
+    typer.echo(f"Bot '{name}' removed from routing.toml.")
+
+
+# ============================================================
 # shutdown
 # ============================================================
+
+@app.command("up")
+def cmd_up(
+    ctx: typer.Context,
+    only: Optional[str] = typer.Option(None, "--only",
+                                        help="Comma-separated subset to start: irc,weechat,cs,bridges,agents"),
+):
+    """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents).
+
+    The set of bridges = unique bots in [bots]; the set of agents = unique entry_agent in [channels].
+    Idempotent: safe to re-run.
+    """
+    from zchat.cli.routing import load_routing as _load_routing
+    from zchat.cli import zellij as _zj
+    import os as _os
+    import time as _time
+
+    project_name = ctx.obj.get("project") if ctx.obj else None
+    if not project_name:
+        typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
+        raise typer.Exit(1)
+
+    parts = set((only or "irc,weechat,cs,bridges,agents").split(","))
+    pdir = project_dir(project_name)
+    routing = _load_routing(pdir)
+    bots = (routing.get("bots") or {})
+    channels = (routing.get("channels") or {})
+
+    # 1. ergo + WeeChat（zchat 已有命令）
+    if "irc" in parts:
+        irc = _get_irc_manager(ctx)
+        irc.daemon_start()
+        typer.echo("ergo: started")
+    if "weechat" in parts:
+        cfg = ctx.obj.get("config") or {}
+        nick = cfg.get("agents", {}).get("username") or _os.environ.get("USER")
+        irc = _get_irc_manager(ctx)
+        # WeeChat 启动会自动建 zellij session
+        try:
+            weechat_cmd = irc.build_weechat_cmd(nick=nick)
+            ctx_obj_session = ctx.obj.get("session")
+            _ = ctx_obj_session  # 触发 session 创建
+        except Exception:
+            pass
+
+    session = _get_zellij_session(ctx)
+    from zchat.cli.routing import routing_path as _routing_path
+    from pathlib import Path as _Path
+    cs_dir = str(_Path(__file__).resolve().parent.parent.parent / "zchat-channel-server")
+    routing_file = str(_routing_path(pdir))
+
+    # 2. channel-server tab
+    if "cs" in parts and not _zj.tab_exists(session, "cs"):
+        cs_log = pdir / "cs.log"
+        cmd = (
+            f"export IRC_SERVER=127.0.0.1 IRC_PORT=6667 "
+            f"WS_HOST=127.0.0.1 WS_PORT=9999 CS_NICK=cs-bot "
+            f"CS_ROUTING_CONFIG={routing_file}; "
+            f"cd {cs_dir} && uv run python -m channel_server 2>&1 | tee {cs_log}"
+        )
+        _zj.new_tab(session, "cs", command=f'bash -c "{cmd}"')
+        typer.echo("cs: started")
+        _time.sleep(2)
+
+    # 3. 每个 bot 一个 bridge tab
+    if "bridges" in parts:
+        for bot_name in bots:
+            tab = f"bridge-{bot_name}"
+            if _zj.tab_exists(session, tab):
+                continue
+            log_file = pdir / f"bridge-{bot_name}.log"
+            cmd = (
+                f"cd {cs_dir} && uv run python -u -m feishu_bridge "
+                f"--bot {bot_name} --routing {routing_file} 2>&1 | tee {log_file}"
+            )
+            _zj.new_tab(session, tab, command=f'bash -c "{cmd}"')
+            typer.echo(f"bridge-{bot_name}: started")
+
+    # 4. 每个 channel.entry_agent 缺失的 agent
+    if "agents" in parts:
+        mgr = _get_agent_manager(ctx)
+        existing = mgr.list_agents()
+        for ch_id, ch in channels.items():
+            entry = ch.get("entry_agent")
+            if not entry:
+                continue
+            # entry_agent 形如 "yaosh-fast-001"，剥前缀作 short name
+            short = entry.split("-", 1)[1] if "-" in entry else entry
+            if mgr.scoped(short) in existing:
+                continue
+            # 找 bot 拿默认 template
+            bot_name = ch.get("bot")
+            template = (bots.get(bot_name) or {}).get("default_agent_template", "claude")
+            try:
+                mgr.create(short, channels=[ch_id.lstrip("#")], agent_type=template)
+                typer.echo(f"agent {short}: started in #{ch_id} (type={template})")
+            except Exception as e:
+                typer.echo(f"agent {short}: failed ({e})", err=True)
+
+    typer.echo("up: complete")
+
+
+@app.command("down")
+def cmd_down(ctx: typer.Context):
+    """Alias for shutdown — stop all services + zellij session."""
+    cmd_shutdown(ctx)
+
 
 @app.command("shutdown")
 def cmd_shutdown(ctx: typer.Context):

@@ -1,8 +1,22 @@
-"""routing.toml 读写 API — CLI 视角。
+"""routing.toml 读写 API — CLI 视角（V6）。
 
-routing.toml 是动态频道↔agent 映射文件，与静态的 config.toml 分离。
-由 zchat channel create / agent create --channel / agent join 写入。
-由 channel-server 在运行时读取。
+routing.toml 是动态运行时配置（与静态 config.toml 分离）。
+由 zchat bot/channel/agent 命令写入，由 channel-server / bridge 读取。
+
+V6 schema：
+
+    [bots."customer"]                     # 由 zchat bot add 写入
+    app_id = "cli_..."
+    credential_file = "credentials/customer.json"
+    default_agent_template = "fast-agent"
+    lazy_create_enabled = true
+
+    [channels."conv-001"]                 # 由 zchat channel create 写入
+    bot = "customer"
+    external_chat_id = "oc_..."
+    entry_agent = "yaosh-fast-001"
+    [channels."conv-001".agents]          # 由 zchat agent create --channel 写入
+    fast-001 = "yaosh-fast-001"
 """
 
 from __future__ import annotations
@@ -26,11 +40,11 @@ def load_routing(project_dir: str | Path) -> dict:
     """加载 routing.toml，不存在返回空 dict。"""
     p = routing_path(project_dir)
     if not p.exists():
-        return {"channels": {}, "operators": {}}
+        return {"bots": {}, "channels": {}}
     with open(p, "rb") as f:
         data = tomllib.load(f)
+    data.setdefault("bots", {})
     data.setdefault("channels", {})
-    data.setdefault("operators", {})
     return data
 
 
@@ -48,32 +62,83 @@ def init_routing(project_dir: str | Path) -> None:
     """初始化一个空的 routing.toml（project create 时调用）。"""
     p = routing_path(project_dir)
     if not p.exists():
-        save_routing(project_dir, {"channels": {}, "operators": {}})
+        save_routing(project_dir, {"bots": {}, "channels": {}})
 
 
 # ---------------------------------------------------------------------------
-# 高层 API
+# Bots（V6 新增）
+# ---------------------------------------------------------------------------
+
+def add_bot(
+    project_dir: str | Path,
+    name: str,
+    *,
+    app_id: str,
+    credential_file: str | None = None,
+    default_agent_template: str | None = None,
+    lazy_create_enabled: bool = False,
+) -> None:
+    """注册一个 bot 到 routing.toml [bots] 表。已存在抛 ValueError。"""
+    data = load_routing(project_dir)
+    bots = data.setdefault("bots", {})
+    if name in bots:
+        raise ValueError(f"Bot '{name}' already exists")
+    entry: dict = {"app_id": app_id, "lazy_create_enabled": lazy_create_enabled}
+    if credential_file:
+        entry["credential_file"] = credential_file
+    if default_agent_template:
+        entry["default_agent_template"] = default_agent_template
+    bots[name] = entry
+    save_routing(project_dir, data)
+
+
+def list_bots(project_dir: str | Path) -> list[dict]:
+    """返回所有已注册 bot 列表，每项含 name + 其余字段。"""
+    data = load_routing(project_dir)
+    return [{"name": n, **b} for n, b in (data.get("bots") or {}).items()]
+
+
+def remove_bot(project_dir: str | Path, name: str) -> None:
+    """从 routing.toml 移除 bot；不存在静默忽略。"""
+    data = load_routing(project_dir)
+    bots = data.get("bots") or {}
+    if name in bots:
+        del bots[name]
+        save_routing(project_dir, data)
+
+
+def bot_exists(project_dir: str | Path, name: str) -> bool:
+    data = load_routing(project_dir)
+    return name in (data.get("bots") or {})
+
+
+# ---------------------------------------------------------------------------
+# Channels
 # ---------------------------------------------------------------------------
 
 def add_channel(
     project_dir: str | Path,
     channel_id: str,
     *,
+    bot: str | None = None,
     external_chat_id: str | None = None,
-    bot_id: str | None = None,
     entry_agent: str | None = None,
     default_agents: list[str] | None = None,
 ) -> None:
-    """添加一个 channel 条目到 routing.toml。已存在则抛 ValueError。"""
+    """添加 channel 到 routing.toml。已存在抛 ValueError。"""
     data = load_routing(project_dir)
     channels = data.setdefault("channels", {})
     if channel_id in channels:
         raise ValueError(f"Channel '{channel_id}' already exists")
+    if bot and bot not in (data.get("bots") or {}):
+        raise ValueError(
+            f"Bot '{bot}' not registered, run `zchat bot add {bot} ...` first"
+        )
     entry: dict = {}
+    if bot:
+        entry["bot"] = bot
     if external_chat_id:
         entry["external_chat_id"] = external_chat_id
-    if bot_id:
-        entry["bot_id"] = bot_id
     if entry_agent:
         entry["entry_agent"] = entry_agent
     if default_agents:
@@ -84,18 +149,14 @@ def add_channel(
 
 
 def list_channels(project_dir: str | Path) -> list[dict]:
-    """返回所有 channel 的列表，每项包含 channel_id 和配置字段。"""
+    """返回所有 channel 列表，每项含 channel_id + 配置字段。"""
     data = load_routing(project_dir)
-    out = []
-    for ch_id, ch in (data.get("channels") or {}).items():
-        out.append({"channel_id": ch_id, **ch})
-    return out
+    return [{"channel_id": ch_id, **ch} for ch_id, ch in (data.get("channels") or {}).items()]
 
 
 def channel_exists(project_dir: str | Path, channel_id: str) -> bool:
-    """检查 channel 是否已在 routing.toml 中注册。"""
     data = load_routing(project_dir)
-    return channel_id in data.get("channels", {})
+    return channel_id in (data.get("channels") or {})
 
 
 def join_agent(
@@ -106,7 +167,7 @@ def join_agent(
     *,
     as_entry: bool = False,
 ) -> None:
-    """把某 agent nick 登记为某 channel 的某 role。若 channel 不存在抛 ValueError。
+    """把某 agent nick 登记为某 channel 的某 role。channel 不存在抛 ValueError。
 
     如果是首个 agent（agents 为空）或 as_entry=True，自动设为 entry_agent。
     """
@@ -134,15 +195,13 @@ def set_entry_agent(
     data = load_routing(project_dir)
     channels = data.setdefault("channels", {})
     if channel_id not in channels:
-        raise ValueError(
-            f"channel '{channel_id}' not registered"
-        )
+        raise ValueError(f"channel '{channel_id}' not registered")
     channels[channel_id]["entry_agent"] = nick
     save_routing(project_dir, data)
 
 
 def remove_channel(project_dir: str | Path, channel_id: str) -> None:
-    """从 routing.toml 移除 channel。不存在时静默忽略。"""
+    """从 routing.toml 移除 channel；不存在静默忽略。"""
     data = load_routing(project_dir)
     channels = data.get("channels") or {}
     if channel_id in channels:

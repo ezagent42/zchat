@@ -52,9 +52,9 @@ def test_project_flow_non_interactive(tmp_path):
     show2 = _run_cli(tmp_path, "--project", project_name, "project", "show", project_name)
     assert "unit-user" in show2.stdout
 
-    use = _run_cli(tmp_path, "project", "use", project_name, "--no-attach")
+    use = _run_cli(tmp_path, "project", "use", project_name)
     assert use.returncode == 0, use.stderr or use.stdout
-    assert "Skip attaching session." in use.stdout
+    assert "Run `zchat up`" in use.stdout
     assert (tmp_path / "default").read_text().strip() == project_name
 
     remove = _run_cli(tmp_path, "project", "remove", project_name)

@@ -39,7 +39,7 @@ def test_init_routing_empty_structure(tmp_path):
     init_routing(tmp_path)
     data = load_routing(tmp_path)
     assert data["channels"] == {}
-    assert data["operators"] == {}
+    assert data["bots"] == {}
 
 
 # ---------------------------------------------------------------------------
@@ -48,23 +48,23 @@ def test_init_routing_empty_structure(tmp_path):
 
 def test_load_routing_missing_file(tmp_path):
     data = load_routing(tmp_path)
-    assert data == {"channels": {}, "operators": {}}
+    assert data == {"bots": {}, "channels": {}}
 
 
 def test_save_and_load_roundtrip(tmp_path):
     original = {
-        "channels": {"#ch-1": {"external_chat_id": "oc_abc", "agents": {}}},
-        "operators": {"ou_xyz": {"name": "alice"}},
+        "bots": {"customer": {"app_id": "cli_x", "lazy_create_enabled": True}},
+        "channels": {"#ch-1": {"bot": "customer", "external_chat_id": "oc_abc", "agents": {}}},
     }
     save_routing(tmp_path, original)
     loaded = load_routing(tmp_path)
     assert loaded["channels"]["#ch-1"]["external_chat_id"] == "oc_abc"
-    assert loaded["operators"]["ou_xyz"]["name"] == "alice"
+    assert loaded["bots"]["customer"]["app_id"] == "cli_x"
 
 
 def test_save_routing_atomic(tmp_path):
     """原子写入：写完后文件存在，临时文件不存在。"""
-    save_routing(tmp_path, {"channels": {}, "operators": {}})
+    save_routing(tmp_path, {"bots": {}, "channels": {}})
     p = routing_path(tmp_path)
     tmp = p.with_suffix(p.suffix + ".tmp")
     assert p.exists()
@@ -204,21 +204,64 @@ def test_remove_channel_leaves_others(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# entry_agent / bot_id
+# V6: entry_agent / bot
 # ---------------------------------------------------------------------------
 
-def test_add_channel_with_entry_agent_and_bot_id(tmp_path):
+def test_add_channel_with_entry_agent_and_bot(tmp_path):
+    from zchat.cli.routing import add_bot
+    add_bot(tmp_path, "customer", app_id="cli_app1")
     add_channel(
         tmp_path, "#ch",
         external_chat_id="oc_xxx",
-        bot_id="cli_app1",
+        bot="customer",
         entry_agent="alice-fast",
     )
     data = load_routing(tmp_path)
     ch = data["channels"]["#ch"]
     assert ch["external_chat_id"] == "oc_xxx"
-    assert ch["bot_id"] == "cli_app1"
+    assert ch["bot"] == "customer"
     assert ch["entry_agent"] == "alice-fast"
+
+
+def test_add_channel_unknown_bot_raises(tmp_path):
+    from zchat.cli.routing import add_channel
+    with pytest.raises(ValueError, match="not registered"):
+        add_channel(tmp_path, "#ch", bot="ghost")
+
+
+# ---------------------------------------------------------------------------
+# V6: bot CRUD
+# ---------------------------------------------------------------------------
+
+def test_add_bot_writes_routing(tmp_path):
+    from zchat.cli.routing import add_bot, list_bots
+    add_bot(
+        tmp_path, "customer",
+        app_id="cli_x",
+        credential_file="credentials/customer.json",
+        default_agent_template="fast-agent",
+        lazy_create_enabled=True,
+    )
+    bots = list_bots(tmp_path)
+    assert len(bots) == 1
+    assert bots[0]["name"] == "customer"
+    assert bots[0]["app_id"] == "cli_x"
+    assert bots[0]["lazy_create_enabled"] is True
+
+
+def test_add_bot_duplicate_raises(tmp_path):
+    from zchat.cli.routing import add_bot
+    add_bot(tmp_path, "customer", app_id="cli_x")
+    with pytest.raises(ValueError, match="already exists"):
+        add_bot(tmp_path, "customer", app_id="cli_y")
+
+
+def test_remove_bot_idempotent(tmp_path):
+    from zchat.cli.routing import add_bot, remove_bot, list_bots
+    add_bot(tmp_path, "customer", app_id="cli_x")
+    remove_bot(tmp_path, "customer")
+    remove_bot(tmp_path, "customer")  # 不存在不抛
+    assert list_bots(tmp_path) == []
 
 
 def test_first_join_auto_sets_entry(tmp_path):

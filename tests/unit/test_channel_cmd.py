@@ -126,7 +126,7 @@ def test_project_create_creates_empty_routing_toml(project, monkeypatch):
     assert rpath.exists(), "routing.toml should be created by project create"
     data = load_routing(rpath.parent)
     assert data["channels"] == {}
-    assert data["operators"] == {}
+    assert data["bots"] == {}
 
 
 def test_project_create_config_has_no_channels_section(project):
@@ -229,15 +229,17 @@ def test_channel_list_no_project_fails(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# CLI: channel create with --bot-id / --entry-agent
+# CLI: channel create with --bot / --entry-agent (V6)
 # ---------------------------------------------------------------------------
 
-def test_channel_create_with_bot_id_and_entry_agent(project):
+def test_channel_create_with_bot_and_entry_agent(project):
+    # 先注册 bot
+    runner.invoke(app, ["bot", "add", "customer", "--app-id", "cli_app1"])
     result = runner.invoke(
         app,
         ["channel", "create", "#conv-1",
          "--external-chat", "oc_abc",
-         "--bot-id", "cli_app1",
+         "--bot", "customer",
          "--entry-agent", "alice-fast"],
     )
     assert result.exit_code == 0, result.output
@@ -245,22 +247,24 @@ def test_channel_create_with_bot_id_and_entry_agent(project):
     data = load_routing(pdir)
     ch = data["channels"]["#conv-1"]
     assert ch["external_chat_id"] == "oc_abc"
-    assert ch["bot_id"] == "cli_app1"
+    assert ch["bot"] == "customer"
     assert ch["entry_agent"] == "alice-fast"
 
 
-def test_channel_list_shows_bot_id_and_entry(project):
+def test_channel_list_shows_bot_and_entry(project):
     pdir = project / "projects" / "testproj"
+    from zchat.cli.routing import add_bot
+    add_bot(pdir, "biz", app_id="cli_b")
     routing_add_channel(
         pdir, "#mixed",
         external_chat_id="oc_x",
-        bot_id="cli_b",
+        bot="biz",
         entry_agent="nick-a",
     )
     result = runner.invoke(app, ["channel", "list"])
     assert result.exit_code == 0
     assert "#mixed" in result.output
-    assert "cli_b" in result.output
+    assert "biz" in result.output
     assert "nick-a" in result.output
 
 
