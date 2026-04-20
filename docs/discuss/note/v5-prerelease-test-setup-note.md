@@ -454,6 +454,22 @@ if ch is None and channel_id:
 - 因为 99% 用例 agent 只 JOIN 一个 channel；多 channel 是边缘场景，可后续 `zchat agent join <agent> <channel>` 命令处理
 - 加 `tests/unit/test_channel_cmd.py::test_agent_create_channel_drives_irc_join`
 
+### 10.16 真 BUG：`zchat bot add` pdir 是 str 不是 Path
+
+**症状**：
+```
+TypeError: unsupported operand type(s) for /: 'str' and 'str'
+at  cred_dir = pdir / "credentials"
+```
+
+**根因**：`project_dir(name)` 返回 `str`，V6 新命令 `cmd_bot_add/cmd_bot_remove/cmd_up` 假设它是 `Path`。
+
+**修复**：三处 `pdir = project_dir(project_name)` 改为 `pdir = Path(project_dir(project_name))`。
+
+**整改**：
+- 让 `project_dir()` 直接返回 `Path`（更干净，但动一个常用函数要全仓 grep）
+- 或加 unit test 覆盖 V6 新命令的 smoke path
+
 ### → 临时缓解（pre-release 测试期间）
 
 把这段塞进 `~/.zchat/projects/prod/.env`，每次 `source` 即可：

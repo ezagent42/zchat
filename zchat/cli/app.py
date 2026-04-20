@@ -101,10 +101,16 @@ def _prompt_new_server(global_cfg: dict) -> str:
 def _get_irc_config(cfg: dict) -> dict:
     """Resolve IRC connection details from project config + global config.
 
-    For new-format configs, resolves the server reference via global config.
-    For old-format configs (with [irc] section), returns directly.
+    Idempotent: if cfg already has an injected irc dict (with host/port),
+    returns it. Only treats cfg as "old format" if [irc] section lacks
+    new-format fields (host/port = injected keys).
     """
-    if "irc" in cfg:
+    existing = cfg.get("irc")
+    if isinstance(existing, dict):
+        if "host" in existing or "port" in existing:
+            # Already injected by an earlier call in this ctx; return as-is
+            return existing
+        # Legacy [irc] section (no host/port) — reject
         raise SystemExit(
             f"Error: Project uses old config format ([irc] section).\n"
             f"Please delete the project and recreate it:\n"
@@ -1422,7 +1428,8 @@ def cmd_bot_add(
         typer.echo("Error: No project selected.", err=True)
         raise typer.Exit(1)
 
-    pdir = project_dir(project_name)
+    from pathlib import Path as _Path
+    pdir = _Path(project_dir(project_name))
     cred_rel: Optional[str] = None
     if app_secret:
         cred_dir = pdir / "credentials"
@@ -1486,7 +1493,8 @@ def cmd_bot_remove(
         typer.echo("Error: No project selected.", err=True)
         raise typer.Exit(1)
 
-    pdir = project_dir(project_name)
+    from pathlib import Path as _Path
+    pdir = _Path(project_dir(project_name))
     refs = [c["channel_id"] for c in list_channels(pdir) if c.get("bot") == name]
     if refs:
         typer.echo(
@@ -1528,7 +1536,8 @@ def cmd_up(
         raise typer.Exit(1)
 
     parts = set((only or "irc,weechat,cs,bridges,agents").split(","))
-    pdir = project_dir(project_name)
+    from pathlib import Path as _P
+    pdir = _P(project_dir(project_name))
     routing = _load_routing(pdir)
     bots = (routing.get("bots") or {})
     channels = (routing.get("channels") or {})
@@ -1538,50 +1547,63 @@ def cmd_up(
         irc = _get_irc_manager(ctx)
         irc.daemon_start()
         typer.echo("ergo: started")
+
+    # 2. 确保 zellij session 存在（cs/bridge/agent tab 都需要）
+    session = _get_zellij_session(ctx)
+    if not _zj.session_exists(session):
+        _zj.ensure_session(session)
+        typer.echo(f"zellij session: {session}")
+
     if "weechat" in parts:
         cfg = ctx.obj.get("config") or {}
         nick = cfg.get("agents", {}).get("username") or _os.environ.get("USER")
         irc = _get_irc_manager(ctx)
-        # WeeChat 启动会自动建 zellij session
-        try:
-            weechat_cmd = irc.build_weechat_cmd(nick=nick)
-            ctx_obj_session = ctx.obj.get("session")
-            _ = ctx_obj_session  # 触发 session 创建
-        except Exception:
-            pass
+        if not _zj.tab_exists(session, "chat"):
+            try:
+                weechat_cmd = irc.build_weechat_cmd(nick_override=nick)
+                _zj.new_tab(session, "chat", command=weechat_cmd)
+                typer.echo("weechat: started")
+            except Exception as e:
+                typer.echo(f"weechat: skip ({e})", err=True)
 
-    session = _get_zellij_session(ctx)
     from zchat.cli.routing import routing_path as _routing_path
     from pathlib import Path as _Path
     cs_dir = str(_Path(__file__).resolve().parent.parent.parent / "zchat-channel-server")
     routing_file = str(_routing_path(pdir))
 
+    def _ensure_tab(tab: str, cmd: str, label: str) -> None:
+        """创建 tab；若 tab 已存在（可能 shell 已死）先关再重建，避免 stale tab 阻塞。"""
+        if _zj.tab_exists(session, tab):
+            try:
+                _zj.close_tab(session, tab)
+                _time.sleep(0.3)
+            except Exception:
+                pass
+        _zj.new_tab(session, tab, command=cmd)
+        typer.echo(f"{label}: started")
+
     # 2. channel-server tab
-    if "cs" in parts and not _zj.tab_exists(session, "cs"):
+    if "cs" in parts:
         cs_log = pdir / "cs.log"
-        cmd = (
+        cs_cmd = (
             f"export IRC_SERVER=127.0.0.1 IRC_PORT=6667 "
             f"WS_HOST=127.0.0.1 WS_PORT=9999 CS_NICK=cs-bot "
             f"CS_ROUTING_CONFIG={routing_file}; "
             f"cd {cs_dir} && uv run python -m channel_server 2>&1 | tee {cs_log}"
         )
-        _zj.new_tab(session, "cs", command=f'bash -c "{cmd}"')
-        typer.echo("cs: started")
+        _ensure_tab("cs", cs_cmd, "cs")
         _time.sleep(2)
 
     # 3. 每个 bot 一个 bridge tab
     if "bridges" in parts:
         for bot_name in bots:
             tab = f"bridge-{bot_name}"
-            if _zj.tab_exists(session, tab):
-                continue
             log_file = pdir / f"bridge-{bot_name}.log"
-            cmd = (
+            br_cmd = (
                 f"cd {cs_dir} && uv run python -u -m feishu_bridge "
                 f"--bot {bot_name} --routing {routing_file} 2>&1 | tee {log_file}"
             )
-            _zj.new_tab(session, tab, command=f'bash -c "{cmd}"')
-            typer.echo(f"bridge-{bot_name}: started")
+            _ensure_tab(tab, br_cmd, f"bridge-{bot_name}")
 
     # 4. 每个 channel.entry_agent 缺失的 agent
     if "agents" in parts:
@@ -1593,14 +1615,25 @@ def cmd_up(
                 continue
             # entry_agent 形如 "yaosh-fast-001"，剥前缀作 short name
             short = entry.split("-", 1)[1] if "-" in entry else entry
-            if mgr.scoped(short) in existing:
+            scoped = mgr.scoped(short)
+            # 只跳过真正 running 的；offline / dangling 条目要重建
+            if scoped in existing and existing[scoped].get("status") == "running":
                 continue
+            # 清理 stale state 条目以避免 mgr.create 抛 "already exists"
+            if scoped in existing:
+                try:
+                    mgr.stop(scoped, force=True)
+                except Exception:
+                    pass
+                mgr._agents.pop(scoped, None)
+                mgr._save_state()
             # 找 bot 拿默认 template
             bot_name = ch.get("bot")
             template = (bots.get(bot_name) or {}).get("default_agent_template", "claude")
             try:
-                mgr.create(short, channels=[ch_id.lstrip("#")], agent_type=template)
-                typer.echo(f"agent {short}: started in #{ch_id} (type={template})")
+                clean_ch = ch_id.lstrip("#")
+                mgr.create(short, channels=[clean_ch], agent_type=template)
+                typer.echo(f"agent {short}: started in #{clean_ch} (type={template})")
             except Exception as e:
                 typer.echo(f"agent {short}: failed ({e})", err=True)
 
