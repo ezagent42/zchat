@@ -70,10 +70,10 @@ def test_routing_add_channel_with_external_chat(tmp_path):
     assert data["channels"]["#ops"]["external_chat_id"] == "oc_xxx"
 
 
-def test_routing_add_channel_with_default_agents(tmp_path):
-    routing_add_channel(tmp_path, "#ops", default_agents=["fast-agent", "deep-agent"])
+def test_routing_add_channel_with_entry_agent(tmp_path):
+    routing_add_channel(tmp_path, "#ops", entry_agent="alice-fast-001")
     data = load_routing(tmp_path)
-    assert data["channels"]["#ops"]["default_agents"] == ["fast-agent", "deep-agent"]
+    assert data["channels"]["#ops"]["entry_agent"] == "alice-fast-001"
 
 
 def test_routing_add_channel_duplicate_raises(tmp_path):
@@ -109,10 +109,10 @@ def test_routing_roundtrip(tmp_path):
     """add_channel + join_agent → save → reload → 结构一致。"""
     from zchat.cli.routing import join_agent as routing_join_agent
     routing_add_channel(tmp_path, "#ch-1", external_chat_id="oc_xxx")
-    routing_join_agent(tmp_path, "#ch-1", "fast-agent", "alice-fast-001")
+    routing_join_agent(tmp_path, "#ch-1", "alice-fast-001")
     data = load_routing(tmp_path)
     assert data["channels"]["#ch-1"]["external_chat_id"] == "oc_xxx"
-    assert data["channels"]["#ch-1"]["agents"]["fast-agent"] == "alice-fast-001"
+    assert data["channels"]["#ch-1"]["entry_agent"] == "alice-fast-001"
 
 
 # ---------------------------------------------------------------------------
@@ -177,15 +177,15 @@ def test_channel_create_with_external_chat(project):
     assert data["channels"]["#support"]["external_chat_id"] == "oc_abc123"
 
 
-def test_channel_create_with_default_agents(project):
+def test_channel_create_with_entry_agent(project):
     result = runner.invoke(
         app,
-        ["channel", "create", "#team", "--default-agents", "fast-agent,deep-agent"],
+        ["channel", "create", "#team", "--entry-agent", "alice-fast-001"],
     )
     assert result.exit_code == 0, result.output
     pdir = project / "projects" / "testproj"
     data = load_routing(pdir)
-    assert data["channels"]["#team"]["default_agents"] == ["fast-agent", "deep-agent"]
+    assert data["channels"]["#team"]["entry_agent"] == "alice-fast-001"
 
 
 def test_channel_create_duplicate_fails(project):
@@ -214,7 +214,7 @@ def test_channel_list_empty(project):
 
 def test_channel_list_formats(project):
     pdir = project / "projects" / "testproj"
-    routing_add_channel(pdir, "#alpha", external_chat_id="oc_alpha", default_agents=["fast-agent"])
+    routing_add_channel(pdir, "#alpha", external_chat_id="oc_alpha", entry_agent="alice-fast")
     routing_add_channel(pdir, "#beta")
     result = runner.invoke(app, ["channel", "list"])
     assert result.exit_code == 0
@@ -354,29 +354,28 @@ def test_agent_join_adds_channel_to_state(project_with_channel, monkeypatch):
     assert "#support" in channels
 
 
-def test_agent_join_updates_routing(project_with_channel, monkeypatch):
-    """agent join 后 routing.toml 中 channel 的 agents 表应有条目。"""
+def test_agent_join_sets_entry(project_with_channel, monkeypatch):
+    """首个 agent join 自动设为 entry_agent（V6 收尾后 routing.toml 不存 agents 列表）。"""
     monkeypatch.setenv("ZCHAT_HOME", str(project_with_channel))
     monkeypatch.setattr("zchat.cli.auth.get_username", lambda: "alice")
     result = runner.invoke(app, ["agent", "join", "helper", "#support"])
     assert result.exit_code == 0, result.output
     pdir = project_with_channel / "projects" / "testproj"
     data = load_routing(pdir)
-    agents_map = data["channels"]["#support"]["agents"]
-    # role 默认为 short name "helper"，nick 为 scoped "alice-helper"
-    assert "helper" in agents_map
-    assert agents_map["helper"] == "alice-helper"
+    assert data["channels"]["#support"]["entry_agent"] == "alice-helper"
 
 
-def test_agent_join_with_explicit_role(project_with_channel, monkeypatch):
-    """--role 参数能指定 routing.toml 中的角色名。"""
+def test_agent_join_as_entry_overrides(project_with_channel, monkeypatch):
+    """--as-entry 强制覆盖 entry_agent。"""
     monkeypatch.setenv("ZCHAT_HOME", str(project_with_channel))
     monkeypatch.setattr("zchat.cli.auth.get_username", lambda: "alice")
-    result = runner.invoke(app, ["agent", "join", "helper", "#support", "--role", "fast-agent"])
-    assert result.exit_code == 0, result.output
+    runner.invoke(app, ["agent", "join", "helper", "#support"])
     pdir = project_with_channel / "projects" / "testproj"
-    data = load_routing(pdir)
-    assert data["channels"]["#support"]["agents"].get("fast-agent") == "alice-helper"
+    routing_join_agent_orig_entry = load_routing(pdir)["channels"]["#support"].get("entry_agent")
+    assert routing_join_agent_orig_entry == "alice-helper"
+    # 用 --as-entry 重新 join (这里 helper 还是同一个，所以 entry 不变)
+    result = runner.invoke(app, ["agent", "join", "helper", "#support", "--as-entry"])
+    assert result.exit_code == 0, result.output
 
 
 def test_agent_join_dedupes(project_with_channel, monkeypatch):

@@ -21,25 +21,6 @@ def _generate_session_name(project_name: str) -> str:
     return f"zchat-{project_name}"
 
 
-def _channel_server_defaults() -> dict:
-    """Return default [channel_server] config section."""
-    return {
-        "bridge_port": 9999,
-        "plugins_dir": "plugins",
-        "db_path": "conversations.db",
-        "timers": {
-            "takeover_wait": 180,
-            "idle_timeout": 300,
-            "close_timeout": 3600,
-        },
-        "participants": {
-            "operators": [],
-            "bridge_prefixes": [],
-            "max_operator_concurrent": 5,
-        },
-    }
-
-
 def generate_default_config(name: str, server: str = "127.0.0.1",
                             port: int = 6667, nick: str = "",
                             channels: str | None = None,
@@ -67,7 +48,6 @@ def generate_default_config(name: str, server: str = "127.0.0.1",
         "zellij": {
             "session": session,
         },
-        "channel_server": _channel_server_defaults(),
     }
     return tomli_w.dumps(config)
 
@@ -152,7 +132,6 @@ def load_project_config(name: str) -> dict:
     cfg.setdefault("mcp_server_cmd", default_mcp_server_cmd())
     cfg.setdefault("zellij", {})
     cfg["zellij"].setdefault("session", _generate_session_name(name))
-    cfg.setdefault("channel_server", _channel_server_defaults())
     return cfg
 
 

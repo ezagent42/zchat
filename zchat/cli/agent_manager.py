@@ -326,11 +326,15 @@ class AgentManager:
 
             deadline = time.time() + timeout
             # Patterns that appear in Claude Code startup prompts
+            # （新版措辞含 "I am using this for local development" / --dangerously-load-... 提示）
             confirm_patterns = [
                 "i trust this folder",
                 "local development",
                 "enter to confirm",
                 "development channels",
+                "development-channels",   # --dangerously-load-development-channels 提示
+                "dangerously-load",        # 兜底通用
+                "i am using this",         # 新版 claude 主选项措辞
                 "experimental",
             ]
             confirmed: set[str] = set()

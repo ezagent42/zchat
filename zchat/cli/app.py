@@ -1052,13 +1052,11 @@ def cmd_agent_create(
     agent_type: Optional[str] = typer.Option(None, "--type", "-t", help="Template type (default: from config)"),
     channel_id: Optional[str] = typer.Option(None, "--channel", "-c",
                                               help="Register agent into this channel in routing.toml"),
-    role: Optional[str] = typer.Option(None, "--role", "-r",
-                                        help="Role name in routing.toml (defaults to agent short name)"),
 ):
     """Create and launch a new agent.
 
-    If --channel is given, automatically registers the agent nick in routing.toml
-    under the specified (or inferred) role after creation.
+    If --channel is given, the agent's nick is set as entry_agent for that channel
+    in routing.toml when no entry_agent exists yet (first-agent-wins).
     """
     mgr = _get_agent_manager(ctx)
     ch = [c.strip() for c in channels.split(",")] if channels else None
@@ -1077,13 +1075,12 @@ def cmd_agent_create(
     typer.echo(f"  tab: {info.get('tab_name', info.get('window_name', '—'))}")
     typer.echo(f"  workspace: {info.get('workspace', '—')}")
 
-    # 若指定 --channel，自动登记到 routing.toml
+    # 若指定 --channel，自动登记到 routing.toml（仅写 entry_agent，没 agents 列表）
     if channel_id:
         from zchat.cli.routing import join_agent as routing_join_agent, channel_exists as routing_channel_exists
         project_name = ctx.obj.get("project") if ctx.obj else None
         pdir = project_dir(project_name)
         channel_normalized = normalize_channel_name(channel_id)
-        _role = role or name
         if not routing_channel_exists(pdir, channel_normalized):
             typer.echo(
                 f"Warning: Channel '{channel_normalized}' not registered in routing.toml. "
@@ -1092,8 +1089,8 @@ def cmd_agent_create(
             )
         else:
             try:
-                routing_join_agent(pdir, channel_normalized, _role, scoped)
-                typer.echo(f"  routing: registered as '{_role}' in '{channel_normalized}'")
+                routing_join_agent(pdir, channel_normalized, scoped)
+                typer.echo(f"  routing: '{scoped}' joined '{channel_normalized}'")
             except ValueError as e:
                 typer.echo(f"Warning: routing registration failed: {e}", err=True)
 
@@ -1209,13 +1206,14 @@ def cmd_agent_join(
     ctx: typer.Context,
     agent: str = typer.Argument(..., help="Agent name (short name or scoped nick)"),
     channel: str = typer.Argument(..., help="Channel name (with or without #)"),
-    role: Optional[str] = typer.Option(None, "--role", "-r",
-                                        help="Role name in routing.toml (defaults to agent short name)"),
+    as_entry: bool = typer.Option(False, "--as-entry",
+                                   help="Set this agent as channel's entry_agent (overrides existing)"),
 ):
     """Add agent to a registered channel.
 
-    Updates agent state (channels list) and registers the agent nick in
-    routing.toml under the given role.  Restart agent for IRC JOIN to take effect.
+    Updates agent state (channels list). Sets entry_agent in routing.toml when
+    no entry_agent yet, or when --as-entry is given. Restart agent for IRC JOIN
+    to take effect.
     """
     from zchat.cli.routing import channel_exists as routing_channel_exists, join_agent as routing_join_agent
     project_name = ctx.obj.get("project") if ctx.obj else None
@@ -1251,10 +1249,9 @@ def cmd_agent_join(
         agents[scoped]["channels"] = current_channels
         mgr._save_state()
 
-    # 2. 在 routing.toml 注册 agent nick → role
-    _role = role or agent
+    # 2. routing.toml 设 entry_agent（首个 / --as-entry）；roster 由 IRC NAMES 反映
     try:
-        routing_join_agent(pdir, channel, _role, scoped)
+        routing_join_agent(pdir, channel, scoped, as_entry=as_entry)
     except ValueError as e:
         # channel_exists 已验证，此路径理论上不会触发
         typer.echo(f"Error: {e}", err=True)
@@ -1284,8 +1281,6 @@ def cmd_channel_create(
                                                 help="External platform chat ID (e.g. oc_xxx)"),
     entry_agent: Optional[str] = typer.Option(None, "--entry-agent",
                                               help="Entry agent nick (router will @ this agent in copilot mode)"),
-    default_agents: Optional[str] = typer.Option(None, "--default-agents",
-                                                  help="Comma-separated default agent roles"),
 ):
     """Register a channel in routing.toml.
 
@@ -1299,7 +1294,6 @@ def cmd_channel_create(
 
     channel_name = normalize_channel_name(name)
     pdir = project_dir(project_name)
-    agents_list = [a.strip() for a in default_agents.split(",")] if default_agents else None
     try:
         routing_add_channel(
             pdir,
@@ -1307,7 +1301,6 @@ def cmd_channel_create(
             bot=bot,
             external_chat_id=external_chat,
             entry_agent=entry_agent,
-            default_agents=agents_list,
         )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1336,9 +1329,7 @@ def cmd_channel_list(ctx: typer.Context):
         ext_chat = ch.get("external_chat_id", "")
         bot = ch.get("bot", "")
         entry = ch.get("entry_agent", "")
-        agents_map = ch.get("agents", {})
-        agent_roles = ", ".join(agents_map.keys()) if agents_map else ""
-        typer.echo(f"  {ch_id}\tbot={bot}\text_chat={ext_chat}\tentry={entry}\tagents=[{agent_roles}]")
+        typer.echo(f"  {ch_id}\tbot={bot}\text_chat={ext_chat}\tentry={entry}")
 
 
 @channel_app.command("remove")

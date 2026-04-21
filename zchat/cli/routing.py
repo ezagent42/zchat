@@ -5,18 +5,19 @@ routing.toml 是动态运行时配置（与静态 config.toml 分离）。
 
 V6 schema：
 
-    [bots."customer"]                     # 由 zchat bot add 写入
+    [bots."<bot_name>"]                   # 由 zchat bot add 写入
     app_id = "cli_..."
-    credential_file = "credentials/customer.json"
+    credential_file = "credentials/<bot_name>.json"
     default_agent_template = "fast-agent"
     lazy_create_enabled = true
 
     [channels."conv-001"]                 # 由 zchat channel create 写入
-    bot = "customer"
+    bot = "<bot_name>"
     external_chat_id = "oc_..."
-    entry_agent = "yaosh-fast-001"
-    [channels."conv-001".agents]          # 由 zchat agent create --channel 写入
-    fast-001 = "yaosh-fast-001"
+    entry_agent = "yaosh-fast-001"        # 由 zchat agent create --channel 写入（首个 agent 自动）
+
+注：channel 内有哪些 agent 不在 routing.toml 维护。运行时 roster 由 IRC NAMES 反映；
+agent 之间发现 peer 用 `list_peers(channel)` MCP tool。
 """
 
 from __future__ import annotations
@@ -129,7 +130,6 @@ def add_channel(
     bot: str | None = None,
     external_chat_id: str | None = None,
     entry_agent: str | None = None,
-    default_agents: list[str] | None = None,
 ) -> None:
     """添加 channel 到 routing.toml。已存在抛 ValueError。"""
     data = load_routing(project_dir)
@@ -147,9 +147,6 @@ def add_channel(
         entry["external_chat_id"] = external_chat_id
     if entry_agent:
         entry["entry_agent"] = entry_agent
-    if default_agents:
-        entry["default_agents"] = list(default_agents)
-    entry["agents"] = {}
     channels[channel_id] = entry
     save_routing(project_dir, data)
 
@@ -168,14 +165,16 @@ def channel_exists(project_dir: str | Path, channel_id: str) -> bool:
 def join_agent(
     project_dir: str | Path,
     channel_id: str,
-    role: str,
     nick: str,
     *,
     as_entry: bool = False,
 ) -> None:
-    """把某 agent nick 登记为某 channel 的某 role。channel 不存在抛 ValueError。
+    """把某 agent nick 登记到 channel。channel 不存在抛 ValueError。
 
-    如果是首个 agent（agents 为空）或 as_entry=True，自动设为 entry_agent。
+    routing.toml 不存 channel→agents 列表（运行时由 IRC NAMES 反映）。
+    本函数仅在以下两种情况写入 entry_agent：
+      - as_entry=True：显式声明
+      - channel 还没有 entry_agent：把当前 nick 设为 entry（首个 agent）
     """
     data = load_routing(project_dir)
     channels = data.setdefault("channels", {})
@@ -184,12 +183,9 @@ def join_agent(
             f"channel '{channel_id}' not registered, run `zchat channel create`"
         )
     ch = channels[channel_id]
-    agents_map = ch.setdefault("agents", {})
-    is_first = len(agents_map) == 0
-    agents_map[role] = nick
-    if as_entry or is_first:
+    if as_entry or not ch.get("entry_agent"):
         ch["entry_agent"] = nick
-    save_routing(project_dir, data)
+        save_routing(project_dir, data)
 
 
 def set_entry_agent(
