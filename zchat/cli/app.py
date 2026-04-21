@@ -124,12 +124,7 @@ def _get_irc_config(cfg: dict) -> dict:
 def _get_zellij_session(ctx: typer.Context) -> str:
     """Get Zellij session name from project config."""
     cfg = _get_config(ctx)
-    # New format
     session = cfg.get("zellij", {}).get("session")
-    if session:
-        return session
-    # Legacy fallback
-    session = cfg.get("tmux", {}).get("session")
     if session:
         return session
     project_name = ctx.obj["project"]
@@ -775,7 +770,7 @@ def cmd_project_show(name: Optional[str] = typer.Argument(None)):
 @app.command("set")
 def cmd_set(
     ctx: typer.Context,
-    key: str = typer.Argument(..., help="Config key (dotted, e.g. agents.default_type)"),
+    key: str = typer.Argument(..., help="Config key (dotted, e.g. 'default_runner' or 'zellij.session')"),
     value: str = typer.Argument(..., help="Value to set"),
 ):
     """Set a project config value."""
@@ -1072,7 +1067,7 @@ def cmd_agent_create(
         raise typer.Exit(1)
     scoped = mgr.scoped(name)
     typer.echo(f"Created {scoped} (type: {info['type']})")
-    typer.echo(f"  tab: {info.get('tab_name', info.get('window_name', '—'))}")
+    typer.echo(f"  tab: {info.get('tab_name', '—')}")
     typer.echo(f"  workspace: {info.get('workspace', '—')}")
 
     # 若指定 --channel，自动登记到 routing.toml（仅写 entry_agent，没 agents 列表）
@@ -1187,7 +1182,7 @@ def cmd_agent_focus(
     if agent["status"] == "offline":
         typer.echo(f"{scoped} is offline")
         raise typer.Exit(1)
-    _zellij_switch(mgr.session_name, agent.get("tab_name") or agent.get("window_name"))
+    _zellij_switch(mgr.session_name, agent.get("tab_name"))
 
 @agent_app.command("hide")
 def cmd_agent_hide(
@@ -1349,27 +1344,26 @@ def cmd_channel_remove(
     channel_name = normalize_channel_name(name)
     pdir = project_dir(project_name)
 
-    # 记录该 channel 的 agents（若要 stop-agents）
-    data = load_routing(pdir)
-    ch = (data.get("channels") or {}).get(channel_name, {})
-    agent_nicks = list((ch.get("agents") or {}).values())
-
+    # V6+: routing.toml 不存 agents 列表；agent 归属要 stop 需先从 IRC NAMES /
+    # agent state 里查，这里先 remove channel，由 caller 自己 `zchat agent stop
+    # <nick>` 清理（或未来接 list_peers）。
     routing_remove_channel(pdir, channel_name)
     typer.echo(f"Channel '{channel_name}' removed from routing.toml.")
 
-    if stop_agents and agent_nicks:
+    if stop_agents:
         mgr = _get_agent_manager(ctx)
-        all_agents = mgr.list_agents()
-        for nick in agent_nicks:
-            # scoped_name => username-<name>，实际 agent name 是去掉 username 前缀后的名字
-            for agent_name, info in all_agents.items():
-                if info.get("nick") == nick or agent_name.endswith(f"-{nick.split('-', 1)[-1]}"):
-                    try:
-                        mgr.stop(agent_name)
-                        typer.echo(f"Stopped agent '{agent_name}' (nick={nick}).")
-                    except Exception as e:
-                        typer.echo(f"Warning: failed to stop agent '{agent_name}': {e}", err=True)
-                    break
+        channel_bare = channel_name.lstrip("#")
+        stopped = 0
+        for agent_name, info in mgr.list_agents().items():
+            if channel_bare in (info.get("channels") or []):
+                try:
+                    mgr.stop(agent_name)
+                    typer.echo(f"Stopped agent '{agent_name}'.")
+                    stopped += 1
+                except Exception as e:
+                    typer.echo(f"Warning: failed to stop '{agent_name}': {e}", err=True)
+        if stopped == 0:
+            typer.echo(f"No running agents in '{channel_name}' found.")
 
 
 @channel_app.command("set-entry")
@@ -1558,7 +1552,7 @@ def cmd_up(
 
     if "weechat" in parts:
         cfg = ctx.obj.get("config") or {}
-        nick = cfg.get("agents", {}).get("username") or _os.environ.get("USER")
+        nick = cfg.get("username") or _os.environ.get("USER")
         irc = _get_irc_manager(ctx)
         if not _zj.tab_exists(session, "chat"):
             try:

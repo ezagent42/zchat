@@ -41,12 +41,12 @@ def _weechat_plugin_installed() -> str | None:
 _VERSION_CMDS = {
     "uv": ["--version"],       # "uv 0.6.x"
     "python3": ["--version"],  # "Python 3.11.x"
-    "tmux": ["-V"],            # "tmux 3.6a"
-    "tmuxp": ["--version"],    # "tmuxp, version 1.x.x"
     "claude": ["--version"],   # "2.1.86 (Claude Code)"
     "zchat-channel": None,     # MCP server, no --version
+    "zellij": ["--version"],   # "zellij 0.42.x"
     "ergo": ["--version"],     # "ergo-2.18.0"
     "weechat": ["--version"],  # "4.8.2"
+    "jq": ["--version"],       # "jq-1.7"
 }
 
 
@@ -137,8 +137,10 @@ def run_doctor():
     irc_port = 6667
     if current:
         try:
+            from zchat.cli.app import resolve_server
             cfg = load_project_config(current)
-            irc_port = cfg.get("irc", {}).get("port", 6667)
+            server_spec = resolve_server(cfg.get("server", "local"))
+            irc_port = int(server_spec.get("port", 6667))
         except Exception:
             pass
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

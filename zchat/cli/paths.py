@@ -81,11 +81,6 @@ def global_config_path() -> Path:
     return zchat_home() / "config.toml"
 
 
-def auth_file() -> Path:
-    """Authentication token file."""
-    return zchat_home() / "auth.json"
-
-
 def update_state() -> Path:
     """Update check state file."""
     return zchat_home() / "update.json"
@@ -120,11 +115,6 @@ def project_env_file(name: str) -> Path:
     return project_dir(name) / "claude.local.env"
 
 
-def project_kdl_config(name: str) -> Path:
-    """Per-project Zellij KDL config."""
-    return project_dir(name) / "config.kdl"
-
-
 def ergo_data_dir(name: str) -> Path:
     """Per-project ergo IRC daemon data directory."""
     return project_dir(name) / "ergo"
@@ -154,6 +144,3 @@ def agent_ready_marker(project: str, agent: str) -> Path:
     return project_dir(project) / "agents" / f"{agent}.ready"
 
 
-def legacy_agent_state() -> Path:
-    """Legacy agent state file (outside ZCHAT_HOME)."""
-    return Path("~/.local/state/zchat/agents.json").expanduser()

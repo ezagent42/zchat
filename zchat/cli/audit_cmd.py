@@ -52,7 +52,6 @@ def _compute_aggregates(state: dict[str, Any]) -> dict[str, Any]:
     total_resolved = 0
     takeover_then_resolve = 0
     csat_scores: list[int] = []
-    first_reply_seconds: list[float] = []
     for ch in channels:
         takeovers = ch.get("takeovers") or []
         total_takeovers += len(takeovers)

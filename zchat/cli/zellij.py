@@ -158,15 +158,6 @@ def dump_screen(session: str, pane_id: str, full: bool = False) -> str:
     return r.stdout if r.returncode == 0 else ""
 
 
-def subscribe_pane(session: str, pane_id: str) -> subprocess.Popen:
-    """Start subscribe process, return Popen for streaming reads."""
-    return subprocess.Popen(
-        ["zellij", "--session", session, "subscribe",
-         "--pane-id", pane_id, "--format", "json"],
-        stdout=subprocess.PIPE, text=True,
-    )
-
-
 def tab_exists(session: str, tab_name: str) -> bool:
     """Check if tab exists via list-panes."""
     panes = list_panes(session)

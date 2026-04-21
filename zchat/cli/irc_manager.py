@@ -217,11 +217,7 @@ class IrcManager:
 
         cmd = self.build_weechat_cmd(nick_override=nick_override)
         zellij.new_tab(self._session_name, "weechat", command=cmd)
-        pane_id = zellij.get_pane_id(self._session_name, "weechat")
-
         self._state.setdefault("irc", {})["weechat_tab"] = "weechat"
-        if pane_id:
-            self._state["irc"]["weechat_pane_id"] = pane_id
         self._save_state()
         from zchat.cli.auth import get_username
         nick = nick_override or get_username()
@@ -235,7 +231,7 @@ class IrcManager:
 
         from zchat.cli.auth import get_username
         nick = nick_override or get_username()
-        channels = self.config.get("default_channels") or self.config.get("agents", {}).get("default_channels", [])
+        channels = self.config.get("default_channels", [])
         tls_flag = "" if tls else " -notls"
 
         project_dir = os.path.dirname(self._state_file)
@@ -287,15 +283,11 @@ class IrcManager:
     def stop_weechat(self):
         """Stop WeeChat by sending /quit."""
         wname = self._state.get("irc", {}).get("weechat_tab")
-        if not wname:
-            # Legacy: try pane_id
-            wname = self._state.get("irc", {}).get("weechat_pane_id")
         if wname and zellij.tab_exists(self._session_name, wname):
             pane_id = zellij.get_pane_id(self._session_name, wname)
             if pane_id:
                 zellij.send_command(self._session_name, pane_id, "/quit")
             self._state.get("irc", {}).pop("weechat_tab", None)
-            self._state.get("irc", {}).pop("weechat_pane_id", None)
             self._save_state()
             print("WeeChat stopped.")
         else:

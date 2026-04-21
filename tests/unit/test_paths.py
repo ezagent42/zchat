@@ -117,10 +117,6 @@ class TestGlobalFiles:
         monkeypatch.setenv("ZCHAT_HOME", str(tmp_path))
         assert paths.global_config_path() == tmp_path / "config.toml"
 
-    def test_auth_file(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("ZCHAT_HOME", str(tmp_path))
-        assert paths.auth_file() == tmp_path / "auth.json"
-
     def test_update_state(self, monkeypatch, tmp_path):
         monkeypatch.setenv("ZCHAT_HOME", str(tmp_path))
         assert paths.update_state() == tmp_path / "update.json"

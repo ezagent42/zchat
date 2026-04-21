@@ -13,7 +13,7 @@ import time
 
 from zchat.cli import zellij
 from zchat.cli.irc_manager import check_irc_connectivity
-from zchat.cli.runner import resolve_runner, render_env, _parse_env_file, _resolve_template_dir, _load_template_toml
+from zchat.cli.runner import render_env, _parse_env_file, _resolve_template_dir, _load_template_toml
 from zchat_protocol.naming import scoped_name, AGENT_SEPARATOR
 
 
@@ -249,7 +249,7 @@ class AgentManager:
         agent = self._agents.get(name)
         if not agent:
             return
-        wname = agent.get("tab_name") or agent.get("window_name")
+        wname = agent.get("tab_name")
         if not wname:
             return
         if not zellij.tab_exists(self._session_name, wname):
@@ -335,7 +335,6 @@ class AgentManager:
                 "development-channels",   # --dangerously-load-development-channels 提示
                 "dangerously-load",        # 兜底通用
                 "i am using this",         # 新版 claude 主选项措辞
-                "experimental",
             ]
             confirmed: set[str] = set()
             while time.time() < deadline:
@@ -361,8 +360,8 @@ class AgentManager:
         agent = self._agents.get(name)
         if not agent:
             return "offline"
-        # Support both new (tab_name) and legacy (window_name) state
-        tab_name = agent.get("tab_name") or agent.get("window_name")
+        # tab_name in state
+        tab_name = agent.get("tab_name")
         if tab_name:
             return "running" if zellij.tab_exists(self._session_name, tab_name) else "offline"
         return "offline"
@@ -379,7 +378,7 @@ class AgentManager:
             ready_path = os.path.join(self.project_dir, "agents", f"{name}.ready")
             if not os.path.isfile(ready_path):
                 raise ValueError(f"{name} is not ready (still starting up)")
-        tab_name = agent.get("tab_name") or agent.get("window_name")
+        tab_name = agent.get("tab_name")
         pane_id = zellij.get_pane_id(self._session_name, tab_name)
         if not pane_id:
             raise ValueError(f"tab not found for {name}")

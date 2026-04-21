@@ -71,7 +71,7 @@ def generate_layout(
         if agent.get("status") not in ("running", "starting"):
             continue
         ws = agent.get("workspace", "")
-        tab_name = agent.get("tab_name") or agent.get("window_name") or name
+        tab_name = agent.get("tab_name") or name
         lines.append(f'    tab name="{tab_name}" {{')
         if ws:
             cmd = f"cd {ws} && source .zchat-env && bash start.sh"

@@ -73,15 +73,6 @@ def render_env(name: str, context: dict) -> dict[str, str]:
     return rendered
 
 
-def get_start_script(name: str) -> str:
-    """Return absolute path to template's start.sh."""
-    tpl_dir = resolve_template_dir(name)
-    script = Path(tpl_dir) / "start.sh"
-    if not script.is_file():
-        raise FileNotFoundError(f"start.sh not found in template '{name}'")
-    return str(script)
-
-
 def list_templates() -> list[dict]:
     """List all available templates (user + built-in, deduplicated)."""
     seen = set()
