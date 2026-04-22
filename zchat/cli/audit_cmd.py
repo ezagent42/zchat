@@ -1,40 +1,36 @@
-"""audit CLI — 读 audit.json 输出状态和报告。
+"""audit CLI — 读 audit plugin 的 state.json 输出状态和报告。
 
 管理型 agent 通过 run_zchat_cli(["audit", "status"]) 或 ["audit", "report"] 取数。
 
-audit.json 由 CS 的 AuditPlugin 持久化。CLI 只读，不写。
+V7 (2026-04-22) 起：audit plugin state 路径改为
+    <project_dir>/plugins/audit/state.json
+(V6 的 <project_dir>/audit.json 已废弃。如果 plugins.toml 显式 override 了
+audit.data_dir，本 CLI 仍读默认路径——生产环境 operator 不应手动 override。)
 """
 
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any, Optional
 
 import typer
 
 
-audit_app = typer.Typer(name="audit", help="Read audit.json for channel statistics.")
+audit_app = typer.Typer(name="audit", help="Read audit plugin state for channel statistics.")
 
 
 def _resolve_audit_path(ctx: typer.Context) -> Path:
-    """定位 audit.json。
-    优先顺序：
-      1. $CS_DATA_DIR/audit.json
-      2. project_dir 里的 audit.json
-      3. ./audit.json
-    """
-    env_path = os.environ.get("CS_DATA_DIR")
-    if env_path:
-        return Path(env_path) / "audit.json"
+    """定位 audit plugin state.json。
 
+    V7 路径：<project_dir>/plugins/audit/state.json
+    """
     project_name = ctx.obj.get("project") if ctx.obj else None
     if project_name:
         from zchat.cli.paths import project_dir
-        return Path(project_dir(project_name)) / "audit.json"
+        return Path(project_dir(project_name)) / "plugins" / "audit" / "state.json"
 
-    return Path("audit.json")
+    return Path("plugins/audit/state.json")
 
 
 def _load_state(path: Path) -> dict[str, Any]:
