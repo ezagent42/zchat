@@ -60,7 +60,7 @@
 
 ## doctor_update
 
-**职责**：3 个命令合并——环境诊断 (`doctor`)、自升级 (`update`)、audit.json 只读 CLI (`audit_cmd`)。`audit_cmd` 是 admin-agent 面向的只读接口，读 CS 产出的 audit artifact。
+**职责**：3 个命令合并——环境诊断 (`doctor`)、自升级 (`update`)、audit 只读 CLI (`audit_cmd`)。`audit_cmd` 是 admin-agent 面向的只读接口，读 CS 产出的 audit artifact。V7 (2026-04-22) 起路径为 `<project>/plugins/audit/state.json`（V6 的 `<project>/audit.json` 已废弃）。
 
 **关键接口**：
 - doctor.py: `run_doctor`、`setup_weechat`
