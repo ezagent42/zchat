@@ -117,6 +117,18 @@
       ],
       "summary": "540 passed / 0 failed; PRD TC-PR-2.x/3.x/CSAT/RoutingDynamic/LazyCreate A-D 全部真机过",
       "status": "completed"
+    },
+    {
+      "id": "eval-doc-014",
+      "type": "eval-doc",
+      "path": ".artifacts/eval-docs/eval-cs-plugin-config-autonomy-014.md",
+      "feature": "cs-plugin-config-autonomy",
+      "status": "confirmed",
+      "mode": "simulate",
+      "target_repo": "zchat-channel-server",
+      "produces": [],
+      "spec": "docs/guide/007-plugin-guide.md",
+      "summary": "Plugin 完整版重构: config-driven + 目录 discovery + signature-driven DI + enabled flag。12 testcase，5 决策点待 confirm。~1.5-2 人日。"
     }
   ]
 }

@@ -28,7 +28,7 @@
 
 ## channel_server
 
-**职责**：V4 核心路由引擎。纯基础设施层：routing.toml 加载 + 热更新 + IRC 长连接 + WebSocket bridge 接入 + Plugin 框架 + WS↔IRC 双向翻译。**不含业务语义**，所有业务扩展通过 plugin 挂载。进程入口 `__main__._main()`，启动顺序：load_routing → PluginRegistry → WSServer → IRCConnection → Router → 注册 6 个官方 plugin → wire callbacks → auto-join channels → routing_watcher。
+**职责**：V4 核心路由引擎。纯基础设施层：routing.toml 加载 + 热更新 + IRC 长连接 + WebSocket bridge 接入 + Plugin 框架 + WS↔IRC 双向翻译。**不含业务语义**，所有业务扩展通过 plugin 挂载。进程入口 `__main__._main()`，启动顺序：load_routing → PluginRegistry → WSServer → IRCConnection → Router → **`plugin_loader.load_plugins`**（V7，config-driven 自动发现 + register 6 个官方 plugin） → wire callbacks → auto-join channels → routing_watcher。
 
 **关键接口**：
 - `channel_server.__main__.main` — 进程入口（setuptools entry: `zchat-channel-server`）
@@ -36,6 +36,7 @@
 - `channel_server.routing.RoutingTable / Bot / ChannelRoute`
 - `channel_server.router.Router`（emit_event + forward_inbound_ws/irc）
 - `channel_server.plugin.BasePlugin / Plugin / PluginRegistry`
+- `channel_server.plugin_loader.load_plugins / load_plugins_toml / default_plugin_data_dir`（V7）
 - `channel_server.ws_server.WSServer`
 - `channel_server.irc_connection.IRCConnection`
 - `channel_server.routing_watcher.watch_routing`
