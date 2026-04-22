@@ -227,12 +227,86 @@ zchat audit report --json | jq
 
 | 现象 | 看哪里 |
 |---|---|
+| `zchat up` 输出全绿但进程没起（**假阳性**）| 多半是 zellij session 残留 EXITED。`zellij list-sessions` 若看到 EXITED → `zellij delete-session <name> --force` 清掉，然后 `zchat up` 重跑。详见下方"残留进程排查" |
 | `zchat up` 部分服务没起 | `zellij attach zchat-prod` 进对应 tab 看红字 |
 | agent 不回复客户 | 1) `zchat agent list` 状态  2) `~/.zchat/projects/prod/cs.log` 找 router 日志  3) `bridge-customer.log` 看消息是否进 CS |
+| `zchat agent list` 显示 running 但实际不通 | state.json 残留上次异常退出状态。逐个 `zchat agent restart <name>` 重启即可；或 `zchat down && zchat up` 全量 |
 | cs-squad 无卡片 | `bridge-squad.log` 看是否收到 message + 是否有 `[supervise] card created` |
 | @operator 求助没通知 | `cs.log` grep `help_requested`，应触发 sla plugin emit |
 | zellij session 进 EXITED | `zellij delete-session zchat-prod --force` 后重 `zchat up` |
+| `zchat audit status` 返回空但历史有数据 | 如果从 V6 升级来，老 `audit.json` 需迁移到 V7 路径：见下方"V6→V7 迁移" |
 | Claude Code 启动卡确认 | `agent_manager._auto_confirm_startup` 自动按 Enter；如新 prompt 措辞未覆盖手动按一次即可 |
+
+### 残留进程彻底清理
+
+`zchat shutdown` / `zchat down` 只做三件事：停 agent → 停 WeeChat+ergo → kill zellij session。遇到以下场景会有残留：
+
+- **异常退出**（Ctrl-Q 关 zellij / SSH 断 / 机器休眠）→ shutdown 根本没跑，`state.json` 里 agent 仍标 "running"
+- **zellij session EXITED 但没 delete** → `zchat up` 误以为 session 活着，`new_tab` 静默失败
+- **bridge 进程** 不在 zellij tab 里跑时 → `kill_session` 杀不到
+
+手动彻底清理：
+
+```bash
+# 1. 停 CLI 管的东西
+uv run zchat down 2>/dev/null
+
+# 2. 兜底杀残留进程
+pkill -f "feishu_bridge" 2>/dev/null
+pkill -f "python.*-m channel_server" 2>/dev/null
+pkill -f "ergo run" 2>/dev/null
+fuser -k 6667/tcp 9999/tcp 2>/dev/null
+
+# 3. 强删所有 EXITED zellij session
+for s in $(zellij list-sessions 2>&1 | grep EXITED | awk '{print $1}'); do
+  zellij delete-session "$s" --force
+done
+
+# 4. （可选）state.json 强置 offline
+# 如果还看到 zchat agent list 有 stale "running"，down + 编辑 state.json 改 status
+```
+
+### V6→V7 数据迁移（从 pre-2026-04-22 版本升级来）
+
+V7 起 plugin state 路径从 `<project>/audit.json` + `activation-state.json` 改为 `<project>/plugins/<name>/state.json`。老数据**不会自动迁移**。
+
+```bash
+cd ~/.zchat/projects/<proj>
+[ -f audit.json ] && mkdir -p plugins/audit && mv audit.json plugins/audit/state.json
+[ -f activation-state.json ] && mkdir -p plugins/activation && mv activation-state.json plugins/activation/state.json
+```
+
+完事后 `zchat audit status --json` 应能看到历史 channel 数据。
+
+### CLI 命令 cheatsheet
+
+所有命令通过 `uv run zchat <cmd>` 调用（或 alias `zchat='uv --project ~/projects/zchat run zchat'`）。
+
+**日常生产**（最常用）：
+- `zchat up / down / shutdown` — 生命周期
+- `zchat agent list / restart <n> / stop <n>` — agent 管控
+- `zchat audit status / report [--json]` — 运营数据（V7: 读 `plugins/audit/state.json`）
+- `zchat doctor` — 环境诊断
+- `zchat project create / use / list` — 项目管理
+- `zchat bot add / channel create` — routing.toml 配置
+- `zchat channel list / bot list` — 配置查询
+
+**偶尔用**：
+- `zchat template list / show` — 查看内置 agent template（5 个）
+- `zchat config get / set / list` — 全局 config.toml 管理
+- `zchat setup weechat` — 安装 WeeChat plugin
+- `zchat update / upgrade` — 自升级（Homebrew 用户走 `brew upgrade zchat`）
+
+**不常用**（代码在但生产环境很少走到）：
+- `zchat auth login/status/refresh/logout` — OIDC device-code flow，本地 ergo 无密码时用不上
+- `zchat template create` — 仅 scaffold（复制 claude 模板），真写 agent 还要手改 soul.md + skills/
+- `zchat template set` — 改 template .env override
+
+**特殊**：
+- `zchat agent send / focus / hide` — 调试用，直接和 agent tab 交互
+- `zchat irc daemon start / stop / status` — 单独起停 ergo 而非跟随 up/down
+
+若 `zchat --help` 显示 "No such command 'up'"，说明用到的是老版本全局 binary（`/home/*/.local/bin/zchat`）。用 `uv run zchat` 或重装 `uv tool install --reinstall zchat`。
 
 ## 关联
 
