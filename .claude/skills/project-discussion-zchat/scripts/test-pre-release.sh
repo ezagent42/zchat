@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# 运行 defaults 模块的单元测试。
+# Run the pre-release CLI walkthrough (asciinema recording).
+# Manual review: read the produced .cast / .gif files.
 
 PROJECT="/home/yaosh/projects/zchat"
 DRY_RUN=false
@@ -10,10 +11,11 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [--dry-run] [--help]
 
-Run defaults module unit tests (test_defaults).
+Run the pre-release walkthrough (tests/pre_release/walkthrough.sh).
+Needs asciinema + agg installed. Products: .cast + auto-generated .gif.
 
 Options:
-  --dry-run   Show the test command without executing
+  --dry-run   Show the command without executing
   --help      Show this help message
 EOF
     exit 0
@@ -27,11 +29,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-CMD="cd $PROJECT && uv run pytest tests/unit/test_defaults.py -v"
+CMD="cd $PROJECT && ./tests/pre_release/walkthrough.sh"
 
 if $DRY_RUN; then
     echo "[dry-run] $CMD"
     exit 0
 fi
 
-cd "$PROJECT" && uv run pytest tests/unit/test_defaults.py -v
+cd "$PROJECT" && ./tests/pre_release/walkthrough.sh
