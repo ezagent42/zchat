@@ -189,6 +189,20 @@ V6 时代的 `CS_DATA_DIR` 环境变量兜底在 V7 **删除**（eval-doc-014 D-
 | routing.toml 热加载 | `channel_server/routing_watcher.py` |
 | bot / channel CRUD | `zchat/cli/` |
 
+### 5.1 临时禁用某 plugin
+
+运营场景：某 plugin 出 bug，或想观察 plugin 不在时的行为，不重启 CS 不修改代码：
+
+```toml
+# ~/.zchat/projects/<proj>/plugins.toml
+[plugins.activation]
+enabled = false
+```
+
+Loader 启动时 log `plugin 'activation' disabled via plugins.toml; skip`，该 plugin **完全不实例化** —— 事件广播自然不触发它。restart CS 生效。
+
+**彻底卸载**：直接删 plugin 目录（`rm -rf src/plugins/activation/`），loader discovery 扫不到即自动跳过。不改任何代码。
+
 ## 6. Plugin 开发指南（V7 · 3 步）
 
 ### Step 1 — 新建目录
