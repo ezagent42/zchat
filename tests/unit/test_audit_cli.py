@@ -16,7 +16,10 @@ runner = CliRunner()
 
 @pytest.fixture
 def audit_json(tmp_path, monkeypatch):
-    """构造一个 audit.json 并通过 CS_DATA_DIR 环境变量让 CLI 找到。"""
+    """构造一个 audit plugin state.json 并 monkeypatch project_dir 让 CLI 找到。
+
+    V7 路径：<project_dir>/plugins/audit/state.json（V6 的 audit.json 已废弃）。
+    """
     data = {
         "channels": {
             "conv-a": {
@@ -45,9 +48,23 @@ def audit_json(tmp_path, monkeypatch):
             },
         }
     }
-    p = tmp_path / "audit.json"
+    # V7: state 落在 <project_dir>/plugins/audit/state.json
+    project_path = tmp_path / "audit-test"
+    audit_dir = project_path / "plugins" / "audit"
+    audit_dir.mkdir(parents=True)
+    p = audit_dir / "state.json"
     p.write_text(json.dumps(data), encoding="utf-8")
-    monkeypatch.setenv("CS_DATA_DIR", str(tmp_path))
+    # 构造最小合法 project（main callback 会 load_project_config）
+    (project_path / "config.toml").write_text("", encoding="utf-8")
+
+    # Patch app.py 级别的 resolve/load（module-level import）
+    from zchat.cli import app as _app
+    monkeypatch.setattr(_app, "resolve_project", lambda explicit=None: "audit-test")
+    monkeypatch.setattr(_app, "load_project_config", lambda name: {})
+    # Patch paths.project_dir（audit_cmd 函数内 import，monkeypatch 生效）
+    from zchat.cli import paths as _paths
+    monkeypatch.setattr(_paths, "project_dir",
+                        lambda name: project_path if name == "audit-test" else Path("/nonexistent"))
     return p
 
 
@@ -116,8 +133,16 @@ def test_audit_export_to_file(audit_json, tmp_path):
 
 
 def test_audit_status_missing_file(tmp_path, monkeypatch):
-    """audit.json 不存在 → 返回空聚合。"""
-    monkeypatch.setenv("CS_DATA_DIR", str(tmp_path))
+    """state.json 不存在 → 返回空聚合。"""
+    project_path = tmp_path / "empty-proj"
+    project_path.mkdir()
+    (project_path / "config.toml").write_text("", encoding="utf-8")
+    from zchat.cli import app as _app
+    monkeypatch.setattr(_app, "resolve_project", lambda explicit=None: "empty-proj")
+    monkeypatch.setattr(_app, "load_project_config", lambda name: {})
+    from zchat.cli import paths as _paths
+    monkeypatch.setattr(_paths, "project_dir",
+                        lambda name: project_path if name == "empty-proj" else Path("/nonexistent"))
     result = runner.invoke(app, ["audit", "status"])
     assert result.exit_code == 0
     assert "total channels: 0" in result.output
