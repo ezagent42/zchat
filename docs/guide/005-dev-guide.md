@@ -85,14 +85,19 @@ zchat agent restart <name>
 
 ## Q4 · 想加新 plugin（如"自动翻译"）
 
+V7 config-driven 后只需 2 步：
+
 **改哪里**:
 - 新建 `zchat-channel-server/src/plugins/translate/{__init__.py,plugin.py}`
-- `plugin.py` 继承 `channel_server.plugin.BasePlugin`，实现 `on_ws_message(msg)` / `on_ws_event(event)` / `handles_commands()`
-- 在 `channel_server/__main__.py:80+` 一行 `registry.register(TranslatePlugin(...))`
+- `plugin.py` 继承 `channel_server.plugin.BasePlugin`，`__init__(config, emit_event, ...)` 签名，实现 `on_ws_message` / `on_ws_event` / `handles_commands`
+- （可选）在 `~/.zchat/projects/<proj>/plugins.toml` 加 `[plugins.translate]` 配置
 
 **不改哪里**:
-- ❌ `router.py` —— plugin registry 已通过 `broadcast_message/broadcast_event` 接所有 plugin，新 plugin 自动接入
-- ❌ 其它 plugin —— plugin 之间不互相 import，只通过 emit_event 事件总线通信
+- ❌ `channel_server/__main__.py` —— V7 loader 扫目录自动 register，改 main 的时代过去了
+- ❌ `router.py` —— plugin registry 已通过 `broadcast_message/broadcast_event` 接所有 plugin
+- ❌ 其它 plugin —— plugin 之间不 import，通过 emit_event 事件总线或 loader 签名驱动 DI 通信
+
+详见 `007-plugin-guide.md`。
 
 **约束**：
 - plugin 不能 import `feishu_bridge` 或具体业务模块

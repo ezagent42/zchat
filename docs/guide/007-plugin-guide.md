@@ -8,10 +8,10 @@ CS (`channel-server`) 本身只做三件事：**IRC ↔ WS 协议翻译 + NAMES 
 
 这样做的收益（由代码结构反推）：
 
-1. **横向扩展**：加一种新业务语义 = 加一个新 plugin 文件，不碰 router/irc_connection
+1. **横向扩展**：加一种新业务语义 = 加一个新 plugin 目录，不碰 router/irc_connection
 2. **关注点隔离**：router 不需要知道 "takeover 3 分钟超时自动 /release" 这种业务规则
 3. **可独立测试**：每个 plugin 直接 mock `emit_event` + 喂入 msg/event 即可（参见 `tests/unit/test_*_plugin.py`）
-4. **运行时可组合**：`__main__.py` 按需 register，要不要 CSAT 功能就看要不要注册 `CsatPlugin`
+4. **运行时可组合**：V7 起 `plugin_loader` 扫目录 + 读 `plugins.toml` 自动 register。禁用某 plugin 只需删目录或在 toml 里标 `enabled = false`
 
 ## 2. 机制：三个接口 + 一条事件总线
 
@@ -69,32 +69,53 @@ bridge 发 content="/hijack" → router:
 
 IRC 侧 agent 发 `/hijack` 也走同分派（`forward_inbound_irc` L187-200）。命令**对称**。
 
+### 2.5 V7 Plugin Loader —— config 驱动 + 目录 discovery
+
+`channel_server/plugin_loader.py`（~200 行）在 CS 启动时自动发现和注册 plugin：
+
+1. **扫目录**：`plugins/` namespace package（builtin）+ 可选用户目录 `~/.zchat/plugins/`
+2. **动态 import**：每个子目录的 `plugin.py`，找 `name` 属性等于目录名的 `BasePlugin` 子类
+3. **读 config**：从 routing.toml 同目录下的 `plugins.toml` 的 `[plugins.<name>]` section
+4. **签名驱动 DI**：inspect `__init__` kw 名自动注入：
+   - `emit_event` / `emit_command` 来自 `__main__` 的 `injections` dict
+   - 其它 kw（如 csat 的 `audit`）按名从 `registry.get_plugin(name)` 自动取已注册的 peer plugin
+5. **两阶段加载**：先 register 无 peer 依赖的；再补齐有依赖的（csat 依赖 audit 时）
+
+结果：加 plugin 等于加目录 + `[plugins.<name>]` 一段 TOML。`__main__.py` 里无需任何改动。
+
 ## 3. 6 个官方 plugin 速查
 
-| Plugin | 源码行数 | 命令 | emit event | 持久化 | 内存状态 |
-|---|---|---|---|---|---|
-| mode | 49 | `/hijack` `/release` `/copilot` | `mode_changed` | ❌ | `dict[channel, "copilot"\|"takeover"]` |
-| sla | 214 | — | `sla_breach` / `help_requested` / `help_timeout` | ❌ | 两张 `dict[channel, asyncio.Task]` |
-| resolve | 38 | `/resolve` | `channel_resolved` | ❌ | 无 |
-| audit | 207 | — | — (只订阅) | ✅ `audit.json` | 全部由 JSON 恢复 |
-| activation | 123 | — | `customer_returned` | ✅ `activation-state.json` | 全部由 JSON 恢复 |
-| csat | 74 | — | `csat_request` / `csat_recorded` | ❌ (转调 audit) | 持有 audit 引用 |
+| Plugin | 命令 | emit event | 持久化 | 内存状态 |
+|---|---|---|---|---|
+| mode | `/hijack` `/release` `/copilot` | `mode_changed` | ❌ | `dict[channel, "copilot"\|"takeover"]` |
+| sla | — | `sla_breach` / `help_requested` / `help_timeout` | ❌ | 两张 `dict[channel, asyncio.Task]` |
+| resolve | `/resolve` | `channel_resolved` | ❌ | 无 |
+| audit | — | — (只订阅) | ✅ `state.json` | 全部由 JSON 恢复 |
+| activation | — | `customer_returned` | ✅ `state.json` | 全部由 JSON 恢复 |
+| csat | — | `csat_request` / `csat_recorded` | ❌ (转调 audit) | loader 注入 audit 引用 |
 
-**行数验证**：`wc -l src/plugins/*/plugin.py` = 123/207/74/49/38/214 共 705 行实现 6 种运营语义。resolve 是**最小可运行 plugin 模板**。
+`resolve` 是**最小可运行 plugin 模板**（继承 BasePlugin 后只实现 `handles_commands` + `on_command` 两个方法即可）。
 
 ## 4. 持久化机制：路径、schema、恢复语义
 
-### 4.1 存储路径（`channel_server/__main__.py:85-92`）
+### 4.1 存储路径（V7 — plugin 自治）
 
-```python
-data_dir = Path(_env("CS_DATA_DIR") or Path(routing_path).parent)
-AuditPlugin(persist_path=data_dir / "audit.json")
-ActivationPlugin(state_file=data_dir / "activation-state.json", ...)
+每个 plugin 从自己的 config 读 `data_dir` 组装落盘路径，**loader 自动注入默认值**：
+
+```toml
+# ~/.zchat/projects/<proj>/plugins.toml
+[plugins.audit]
+data_dir = "./audit"   # 可选；未填 loader 注入 <project>/plugins/audit/
+
+[plugins.activation]
+data_dir = "./activation"
 ```
 
-默认落 `~/.zchat/projects/<proj>/audit.json` 和 `activation-state.json`（与 `routing.toml` 同目录）。`CS_DATA_DIR` env 可覆盖（E2E 测试用 tmpdir）。
+默认路径（`plugin_loader.default_plugin_data_dir`）：`<routing.toml 所在目录>/plugins/<name>/`，即 `~/.zchat/projects/<proj>/plugins/audit/state.json` 等。
 
-### 4.2 audit.json schema（`plugins/audit/plugin.py:69-83`）
+V6 时代的 `CS_DATA_DIR` 环境变量兜底在 V7 **删除**（eval-doc-014 D-2）。测试 fixture 通过 plugins.toml 或直接传 config dict 控制路径。
+
+### 4.2 audit state.json schema（`plugins/audit/plugin.py`）
 
 ```json
 {
@@ -146,7 +167,7 @@ ActivationPlugin(state_file=data_dir / "activation-state.json", ...)
 
 **关键红线**：plugin **不读** `routing.toml` / `credentials/` / `config.toml`。路由是 router 的职责，凭证是 bridge 的职责。plugin 只碰自己的 JSON。
 
-**CLI 查 audit 数据** 走 `zchat audit status/report`，实现在 `zchat/cli/audit_cmd.py`——直接读 `audit.json` 文件，不走 plugin query API。所以 audit plugin 和 CLI 实际上**都只认这一份文件**，通过文件解耦。
+**CLI 查 audit 数据** 走 `zchat audit status/report`，实现在 `zchat/cli/audit_cmd.py`——直接读 audit plugin 的 state.json 文件，不走 plugin query API。所以 audit plugin 和 CLI 实际上**都只认这一份文件**，通过文件解耦。
 
 ## 5. 什么时候该加 plugin？
 
@@ -168,7 +189,7 @@ ActivationPlugin(state_file=data_dir / "activation-state.json", ...)
 | routing.toml 热加载 | `channel_server/routing_watcher.py` |
 | bot / channel CRUD | `zchat/cli/` |
 
-## 6. Plugin 开发指南（从空到上线）
+## 6. Plugin 开发指南（V7 · 3 步）
 
 ### Step 1 — 新建目录
 
@@ -177,6 +198,8 @@ zchat-channel-server/src/plugins/myname/
 ├── __init__.py      # 可空
 └── plugin.py        # 本体
 ```
+
+或放在用户目录 `~/.zchat/plugins/myname/`（loader 自动发现，不需要进 CS repo）。
 
 ### Step 2 — 最小骨架（仿 `resolve/plugin.py`）
 
@@ -187,13 +210,16 @@ from channel_server.plugin import BasePlugin
 
 
 class MynamePlugin(BasePlugin):
-    name = "myname"
+    name = "myname"   # 必须和目录名一致
 
     def __init__(
         self,
+        config: dict,
         emit_event: Callable[[str, str, dict], Awaitable[None]],
     ) -> None:
         self._emit_event = emit_event
+        # 如需业务参数：self._threshold = config.get("threshold", 5)
+        # 如需落盘：self._path = Path(config["data_dir"]) / "state.json"
 
     def handles_commands(self) -> list[str]:
         return ["mycmd"]  # 或 [] 如果只订阅事件
@@ -209,21 +235,26 @@ class MynamePlugin(BasePlugin):
     # def query(self, key, args=None): ...
 ```
 
-`emit_event` 签名严格是 `(event_name, channel, data)` — 参见 ResolvePlugin (`resolve/plugin.py:34-38`)。
+**契约**：
+- `__init__` 第一位参数必须是 `config: dict`
+- 其余 kw 参数按名由 loader 注入：
+  - `emit_event` / `emit_command` 来自 CS main 的 injections dict
+  - 其它 kw 名（如 `audit`）会被 loader 尝试从 `registry.get_plugin(name)` 注入（签名驱动 DI）
+- `emit_event` 调用签名严格是 `(event_name, channel, data)` — 参见 ResolvePlugin
 
-### Step 3 — 在 `__main__.py` 注册（改 `channel_server/__main__.py:81-93` 那一段）
+### Step 3 — （可选）加配置
 
-```python
-from plugins.myname.plugin import MynamePlugin
-...
-registry.register(MynamePlugin(emit_event=emit_event))
+在 `~/.zchat/projects/<proj>/plugins.toml`：
+
+```toml
+[plugins.myname]
+# 不填任何内容也能加载；填了按 config dict 传给 __init__
+threshold = 10
+data_dir = "./myname"   # 相对 routing.toml 目录；loader 自动推算默认
+enabled = true           # 显式 enabled = false 可临时禁用
 ```
 
-注册顺序不影响正确性（事件广播走 dict 迭代，每个 plugin 独立），但影响同 event 多个 plugin 的**订阅响应顺序**。
-
-### Step 4 — 持久化（如需要，仿 `activation/plugin.py`）
-
-复制 `_load()` / `_save()` pattern：
+**持久化（如需要）**：仿 `activation/plugin.py` 的 `_load/_save` pattern：
 
 ```python
 def _load(self):
@@ -238,16 +269,9 @@ def _save(self):
     tmp.replace(self._path)   # atomic
 ```
 
-注册时带路径：
+**零改动 `__main__.py`** —— loader 启动时扫目录自动 register。
 
-```python
-registry.register(MynamePlugin(
-    emit_event=emit_event,
-    state_file=data_dir / "myname-state.json",
-))
-```
-
-### Step 5 — 单元测试（仿 `tests/unit/test_resolve_plugin.py`）
+### 测试（仿 `tests/unit/test_resolve_plugin.py`）
 
 ```python
 from unittest.mock import AsyncMock
@@ -260,22 +284,33 @@ def emit_event():
 
 @pytest.mark.asyncio
 async def test_command_emits_event(emit_event):
-    p = MynamePlugin(emit_event=emit_event)
+    p = MynamePlugin(config={}, emit_event=emit_event)
     await p.on_command("mycmd", {"channel": "#c", "source": "alice"})
     emit_event.assert_awaited_once()
     ev_name, channel, data = emit_event.call_args[0]
     assert ev_name == "myevent" and data["by"] == "alice"
 ```
 
-### Step 6 — 外部依赖
+### 外部依赖
 
-如需新库（如 `aiohttp`），加到 `zchat-channel-server/pyproject.toml` 的 `dependencies`（参见已有 6 个依赖声明位置）。然后 `uv sync` + 重启 CS。
+如需新库（如 `aiohttp`），加到 `zchat-channel-server/pyproject.toml` 的 `dependencies`，`uv sync` + 重启 CS。
 
-## 7. 外部系统对接：用 plugin 把达标客户推到另一个系统
+## 7. 外部系统对接：统一抽象
 
-**场景**：客户在 zchat 里达到某些条件（如结案 + CSAT ≥4 + takeover=0），需要把该客户的对话数据 POST 到外部 CRM。
+**场景**：客户在 zchat 里达到某些条件（如结案 + CSAT ≥4 + takeover=0），需要把该客户的对话数据 POST 到外部 CRM（如 Shopify）。
 
-### 7.1 拆成两个 plugin 而不是一个
+### 7.1 统一抽象
+
+**Plugin 是一个抽象**，不分 "Forwarder" 和 "Internal collector"。二者代码路径完全对称：
+- 都继承 `BasePlugin`
+- `__init__(config, emit_event, ...)` 统一签名
+- 订阅 event → 处理逻辑 → 可选落盘 / 可选 HTTP 外发
+
+区别只是 config schema 饱满度：
+- 纯统计 plugin（如 audit）：config 只有 `data_dir`
+- 外部转发 plugin（如 Shopify exporter）：config 有 `endpoint` / `token_env` / `min_csat` / 可选 `data_dir`
+
+### 7.2 拆成两个 plugin 而不是一个
 
 **设计原则**：qualification 规则和 export 通道是两件事，拆开方便换规则/换目的地。
 
@@ -287,7 +322,7 @@ plugins/
 
 这样**换一家 CRM** 只改 exporter；**改一版规则**（比如加"结案前至少 10 条消息"）只改 qualifier。两个 plugin 通过 `customer_qualified` event 解耦。
 
-### 7.2 Qualifier plugin 实现
+### 7.3 Qualifier plugin 实现
 
 ```python
 # src/plugins/qualifier/plugin.py
@@ -299,13 +334,14 @@ class QualifierPlugin(BasePlugin):
 
     def __init__(
         self,
+        config: dict,
         emit_event: Callable[[str, str, dict], Awaitable[None]],
-        audit_plugin: Any,        # 通过 DI 拿到 AuditPlugin 引用（见 csat 模式）
-        min_csat: int = 4,
+        *,
+        audit: Any = None,   # kw-only，loader 按名从 registry 自动注入
     ) -> None:
         self._emit_event = emit_event
-        self._audit = audit_plugin
-        self._min_csat = min_csat
+        self._audit = audit
+        self._min_csat = config.get("min_csat", 4)
 
     async def on_ws_event(self, event: dict) -> None:
         if event.get("event") != "csat_recorded":
@@ -314,7 +350,9 @@ class QualifierPlugin(BasePlugin):
         score = (event.get("data") or {}).get("score", 0)
         if score < self._min_csat:
             return
-        # 读 audit 状态做规则判断（query("status") 见 audit/plugin.py:156-159）
+        if self._audit is None:
+            return  # audit plugin 未启用
+        # 读 audit 状态做规则判断
         status = self._audit.query("status", {"channel": channel}) or {}
         if status.get("state") != "resolved":
             return
@@ -328,9 +366,9 @@ class QualifierPlugin(BasePlugin):
 
 **关键技术点 — plugin 读其他 plugin 的状态**：
 - Plugin 模块之间**禁止 import**（红线）
-- 但 `__main__.py` 可以用 DI 注入引用，**csat plugin 就是这么拿到 audit 引用的**（`plugins/csat/plugin.py:28-31`，字段名 `_audit`，直接调 `self._audit.record_csat(...)`）
-- qualifier 复用这个 pattern：`__main__.py` 注册时把 `audit_plugin` 实例传进来
-- qualifier 调 `audit.query("status", {"channel": ch})` 得到该 channel 的完整 dict（audit 的 `query` 实现在 `plugins/audit/plugin.py:154-167`）
+- Loader 按 `__init__` kw 名签名驱动 DI —— qualifier 只要在 `__init__` 里写 kw-only `audit`，loader 自动从 `registry.get_plugin("audit")` 取到实例注入
+- csat plugin 就是这么拿到 audit 引用的（`plugins/csat/plugin.py` `__init__` 里 `audit=None`）
+- qualifier 调 `self._audit.query("status", {"channel": ch})` 得到该 channel 的完整 dict
 
 ### 7.3 Exporter plugin 实现
 
@@ -343,10 +381,12 @@ from channel_server.plugin import BasePlugin
 class ExporterPlugin(BasePlugin):
     name = "exporter"
 
-    def __init__(self, state_file, endpoint, api_token):
-        self._path = Path(state_file)
-        self._endpoint = endpoint
-        self._token = api_token
+    def __init__(self, config: dict, emit_event=None):
+        import os
+        self._endpoint = config["endpoint"]
+        self._token = os.environ.get(config.get("token_env", "EXPORT_TOKEN"), "")
+        data_dir = Path(config.get("data_dir") or ".")
+        self._path = data_dir / "state.json"
         self._state = self._load()   # {"exported": [channel_id, ...]}
 
     def _load(self):
@@ -380,26 +420,26 @@ class ExporterPlugin(BasePlugin):
                 # 非 2xx 不加入 exported，下次还会重试
 ```
 
-### 7.4 两个 plugin 在 `__main__.py` 接线
+### 7.4 两个 plugin 的配置 —— **零改动 `__main__.py`**
 
-```python
-from plugins.qualifier.plugin import QualifierPlugin
-from plugins.exporter.plugin import ExporterPlugin
-...
-audit_plugin = AuditPlugin(persist_path=data_dir / "audit.json")
-registry.register(audit_plugin)
-# ...先 register 完其它 plugin 后...
-registry.register(QualifierPlugin(
-    emit_event=emit_event,
-    audit_plugin=audit_plugin,       # ← DI 注入
-    min_csat=4,
-))
-registry.register(ExporterPlugin(
-    state_file=data_dir / "exporter-state.json",
-    endpoint=_env("EXPORT_ENDPOINT", "https://crm.example.com/api/customers"),
-    api_token=_env("EXPORT_TOKEN", ""),
-))
+在 `plugins.toml` 加两段：
+
+```toml
+[plugins.qualifier]
+min_csat = 4
+
+[plugins.exporter]
+endpoint = "https://crm.example.com/api/customers"
+token_env = "EXPORT_TOKEN"
 ```
+
+Loader 在启动时：
+1. 扫到 `plugins/qualifier/` 和 `plugins/exporter/` 目录
+2. 发现 qualifier `__init__` 有 kw `audit` → 注册完 audit 后从 registry 注入
+3. 发现 exporter `__init__` 只要 `config`（本 plugin 不依赖 peer）→ 直接注册
+4. 运行时 qualifier emit `customer_qualified` → exporter 订阅消费
+
+CS 主进程对此**毫不知情**，`__main__.py` 一行不改。
 
 ### 7.5 事件流示意
 
@@ -449,7 +489,7 @@ registry.register(ExporterPlugin(
 | `from zchat_protocol import irc_encoding, ws_messages` | `from feishu_bridge...` |
 | 标准库 / 第三方 (aiohttp, asyncio, json) | 其它业务 plugin 直接 import |
 
-**唯一的跨 plugin 引用方式**：`__main__.py` 实例化时 DI 注入，不是 import。参见 csat 拿 audit 的实现（`plugins/csat/plugin.py:25-31`）。
+**唯一的跨 plugin 引用方式**：`plugin_loader` 签名驱动 DI —— 在 `__init__` 里声明 kw 参数名等于 peer plugin 名，loader 自动从 `registry.get_plugin(name)` 注入。参见 csat 的 `audit=None` kw（`plugins/csat/plugin.py`）。
 
 ### 8.2 业务术语
 
@@ -461,7 +501,7 @@ registry.register(ExporterPlugin(
 
 - ❌ `routing.toml` —— 路由是 router 的职责
 - ❌ `credentials/*.json` —— bridge 的凭证
-- ❌ 其它 plugin 的持久化文件（`audit.json` 等）—— 走 DI + query API
+- ❌ 其它 plugin 的持久化 state 文件 —— 走 DI + query API
 - ❌ 直接调 IRC / WS（要调走 `emit_event` 总线）
 
 ## 9. 测试套路
@@ -479,10 +519,12 @@ def emit_event():
 
 @pytest.mark.asyncio
 async def test_event_triggers_emit(emit_event):
-    p = MynamePlugin(emit_event=emit_event)
+    p = MynamePlugin(config={}, emit_event=emit_event)
     await p.on_ws_event({"event": "some_event", "channel": "#c", "data": {...}})
     emit_event.assert_awaited_once_with("myevent", "#c", {...})
 ```
+
+Loader 层面的测试参见 `tests/unit/test_plugin_loader.py`（discovery / enabled=false / DI / 冲突检测）。
 
 跑测试：
 
@@ -495,12 +537,14 @@ E2E 测试放 `zchat-channel-server/tests/e2e/`，走起一个 CS 进程 + fake 
 
 ## 10. 常见坑
 
-- **忘了在 `__main__.py` register** → plugin 代码写好但完全不触发（启动日志不报错）。check `registry.all_plugins()` 是否包含自己。
+- **`name` 属性和目录名不一致** → loader 扫到目录但找不到符合 `name == dirname` 的 `BasePlugin` 子类，log warning 跳过。plugin 完全不加载。
+- **`__init__` 没有 `config: dict` 第一位参数** → loader log "legacy signature not supported" 后跳过。V7 签名契约硬要求。
 - **handles_commands 返回了已有命令** → CS 启动就崩（`ValueError: command 'resolve' claimed by X but already registered by resolve`，`plugin.py:74-76`）。
 - **on_ws_event 里长时间 I/O 阻塞** → 所有后续 plugin 的 event 都被卡住（broadcast_event 是串行 await）。长操作用 `asyncio.create_task()` fire-and-forget。
-- **持久化 JSON 忘了 atomic rename** → CS 崩的时候可能留下半截 JSON，重启 `_load` 抛异常然后**悄悄返回空状态**（`audit/plugin.py:56-58`）。永远走 write-to-tmp + rename。
-- **Plugin 里 `import` 其它 plugin 模块** → 红线违例。需要引用走 `__main__.py` DI。
+- **持久化 JSON 忘了 atomic rename** → CS 崩的时候可能留下半截 JSON，重启 `_load` 抛异常然后**悄悄返回空状态**。永远走 write-to-tmp + rename。
+- **Plugin 里 `import` 其它 plugin 模块** → 红线违例。需要引用走 signature-driven DI（kw 参数名 = peer plugin name）。
 - **emit_event 的第一个参数搞反** → `emit_event(channel, event_name, data)` 是错的；正确是 `emit_event(event_name, channel, data)`（参见所有现有 plugin 的调用）。
+- **peer plugin 的 DI 预期它总在** → 如果 peer 被 `enabled = false` 禁用，loader 注入 None。plugin 需要 `if self._audit is not None:` 分支处理（csat 已做）。
 
 ## 关联
 
