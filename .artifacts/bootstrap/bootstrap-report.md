@@ -42,3 +42,37 @@
 
 - Stage 4: 修 CS 4 个 E2E（CSAT + help_request lifecycle V6 refactor 后未同步）
 - Stage 5: 3 遍 ralph-loop 稳定态
+
+---
+
+## 2026-04-22 补录：Skill 1 regeneration (Step 7+8)
+
+**触发**：发现 `ff0c8d7` 只执行了 Step 1-6（.artifacts/ 重生），**未执行 Step 7**（SKILL.md 未刷新，仍为 2026-04-10 pre-V6 版本，列 15 modules + V5 模块名 paths/runner/template_loader/migrate/update）。
+
+**本次补录**执行 Step 7+8：
+
+- `.claude/skills/project-discussion-zchat/SKILL.md` → 基于 `.artifacts/bootstrap/module-reports/` 11 个 V6 模块重写
+- `.claude/skills/project-discussion-zchat/references/module-details.md` → 从 module-reports 聚合生成
+- `.claude/skills/project-discussion-zchat/scripts/` 整理：
+  - 删除 10 个 V5 残余 (test-agent/config/defaults/ergo-auth/irc/layout/migrate/paths/template/update)
+  - 新增 6 个 V6 per-module (test-agent_manager/doctor_update/irc_manager/routing/templates/pre-release)
+  - 修正 4 个 (test-app/runner/project/zellij 扩展至完整 V6 文件集，test-auth 补 test_ergo_auth_script.py)
+  - 保留 5 个 aggregate (test-e2e/channel-server/protocol/unit-all + self-test/refresh-index/close-issue)
+
+**Step 8 自验证基线比对**（11/11 ✅）：
+
+| test-runner | 基线 | 验证 | 匹配 |
+|---|---|---|---|
+| test-agent_manager.sh | 25 | 25 passed | ✅ |
+| test-app.sh | 52 | 52 passed | ✅ |
+| test-auth.sh | 19 | 19 passed | ✅ |
+| test-doctor_update.sh | 43 | 43 passed | ✅ |
+| test-irc_manager.sh | 32 | 32 passed | ✅ |
+| test-project.sh | 65 | 65 passed | ✅ |
+| test-routing.sh | 67 | 67 passed | ✅ |
+| test-runner.sh | 11 | 11 passed | ✅ |
+| test-templates.sh | 11 | 11 passed | ✅ |
+| test-zellij.sh | 31 | 31 passed | ✅ |
+| test-unit-all.sh | 304 | 304 passed | ✅ |
+
+**覆盖矩阵**：`.artifacts/coverage/coverage-matrix.md` 加 YAML frontmatter 以通过 verify-bootstrap.sh。

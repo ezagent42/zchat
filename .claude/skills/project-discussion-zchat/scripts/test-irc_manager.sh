@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# 运行 migrate 模块的单元测试。
+# Run unit tests for the irc_manager module.
+# Baseline: 32 passed (2026-04-22)
 
 PROJECT="/home/yaosh/projects/zchat"
 DRY_RUN=false
@@ -10,7 +11,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [--dry-run] [--help]
 
-Run migrate module unit tests (test_migrate).
+Run irc_manager module unit tests (ergo daemon + WeeChat zellij tab + WSL2 proxy).
 
 Options:
   --dry-run   Show the test command without executing
@@ -27,11 +28,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-CMD="cd $PROJECT && uv run pytest tests/unit/test_migrate.py -v"
+CMD="cd $PROJECT && uv run pytest tests/unit/test_irc_manager_languages.py tests/unit/test_irc_manager_weechat_cmd.py tests/unit/test_irc_check.py tests/unit/test_wsl2_proxy_rewrite.py -v"
 
 if $DRY_RUN; then
     echo "[dry-run] $CMD"
     exit 0
 fi
 
-cd "$PROJECT" && uv run pytest tests/unit/test_migrate.py -v
+cd "$PROJECT" && uv run pytest tests/unit/test_irc_manager_languages.py tests/unit/test_irc_manager_weechat_cmd.py tests/unit/test_irc_check.py tests/unit/test_wsl2_proxy_rewrite.py -v

@@ -1,3 +1,11 @@
+---
+type: coverage-matrix
+producer: skill-0-project-builder
+project: zchat
+generated_at: "2026-04-21"
+status: current
+---
+
 # Coverage Matrix · zchat (main repo)
 
 > Bootstrap 于 2026-04-21，基于 Skill 0 (project-builder) 产出。

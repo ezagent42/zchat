@@ -1,21 +1,22 @@
 ---
 name: "project-discussion-zchat"
-description: "Project knowledge Q&A skill for zchat. Provides evidence-backed answers about code structure, module relationships, feature internals, test status, CLI commands, E2E pipeline info (for Skill 3), and bug triage (Phase 8 feedback routing). Trigger this skill for any zchat project question — even simple ones — as well as when discussing eval-docs, debugging module interactions, or querying test coverage gaps."
+description: "Project knowledge Q&A skill for zchat (multi-agent IRC-based CS system). Provides evidence-backed answers about code structure, module relationships, feature internals, test status, CLI commands, E2E pipeline info (for Skill 3), and bug triage (Phase 8 feedback routing). Trigger this skill for any zchat project question — even simple ones — as well as when discussing eval-docs, debugging module interactions, or querying test coverage gaps."
 ---
 
 # zchat 项目知识库
 
-> 由 Skill 0 (project-builder) 于 2026-04-10 自动生成。
+> 由 Skill 0 (project-builder) 于 2026-04-22 规范化生成（V6 finalize 后）。
 > 这是一个**行为引擎**——指导如何查询和回答，数据存储在 `.artifacts/` 中。
 
 ## 项目概览
 
 - **项目根目录**：/home/yaosh/projects/zchat
-- **语言/框架**：Python 3.14 + Typer CLI + asyncio
-- **测试框架**：pytest 9.0.2 + pytest-order 1.3.0 + pytest-asyncio
-- **模块数**：15 (13 核心 + channel-server + protocol)
+- **语言/框架**：Python 3.12+ (requires-python ≥3.12) + Typer CLI + asyncio + MCP
+- **测试框架**：pytest + pytest-asyncio + pytest-order
+- **模块数**：11 (主库) + 2 submodules (zchat-channel-server, zchat-protocol)
 - **Artifact 空间**：/home/yaosh/projects/zchat/.artifacts/
-- **Skill 6 可用**：是（/home/yaosh/.claude/skills/artifact-registry）
+- **Skill 6 可用**：是（artifact-registry 路径见用户 ~/.claude/skills/artifact-registry 或 plugin cache）
+- **当前 dev 分支**：69f4f78（V6 finalize 合入）
 
 ## 问答流程
 
@@ -23,266 +24,235 @@ description: "Project knowledge Q&A skill for zchat. Provides evidence-backed an
 
 ### Step 0: 检测更新（自动刷新）
 
-每次回答前，检查是否有新的代码变更需要刷新索引：
+每次回答前，检查 `.artifacts/` 中的新 artifact：
 
-1. 查询 `.artifacts/` 中的 `code-diff` 和 `e2e-report`，找出比 Skill 1 生成时间（2026-04-10）更新的条目
-2. 如果有新的 code-diff：
-   - 读取 diff 内容，识别受影响的模块
-   - 对受影响的模块：**重新读取源文件**（更新 file:line 引用）
-   - 对受影响的模块：**重新运行测试命令**（更新基线结果）
-   - 用新数据回答，而不是依赖过时的索引
-3. 如果有新的 e2e-report（说明 bug 修复周期完成）：
-   - 读取 report 了解哪些测试新增/修复
-   - 更新覆盖认知（之前标记为 ❌ 的用户流程可能已变为 ✅）
+1. 查询 `.artifacts/code-diffs/` + `.artifacts/e2e-reports/`，找出比 Skill 1 生成时间（2026-04-22）更新的条目
+2. 有新 code-diff → 读 diff → 识别受影响模块 → 重新读源文件 + 重跑对应 test-runner
+3. 有新 e2e-report → 读 report → 更新覆盖认知
+4. 无新增 → 跳过
 
-如果没有新 artifact，跳过此步骤直接进入 Step 1。
-
-**异常处理**：如果索引中的文件路径不存在（文件已移动/重命名），重新扫描受影响模块的文件。如果测试命令执行失败（命令过时），检查 coverage-matrix 和 module-details 获取最新路径。
+**异常处理**：若索引中的路径不存在（文件被移动/重命名），运行 `scripts/refresh-index.sh`。
 
 ### Step 1: 解析问题 → 定位模块
 
-查阅下方"模块索引"，找到问题涉及的模块。如果不确定涉及哪个模块，查"用户流程→模块映射"表。
+查下方"模块索引"或"用户流程→模块映射"。新增模块（不在索引）：运行 `scripts/refresh-index.sh --module <name>`。
 
-如果问题涉及的模块不在索引中（可能是新增模块），扫描项目根目录 `zchat/cli/` 下的 `.py` 文件查找。
+### Step 2: 读代码
 
-### Step 2: 读取代码
-
-根据索引中的文件路径，用 Read 工具读取**当前**代码（不是 bootstrap 时的快照）。引用具体的 file:line。
-
-如果 Step 0 已刷新了该模块，使用刷新后的路径。
+Read 当前源文件（不是 bootstrap 时的快照），引用 file:line。
 
 ### Step 3: 跑测试验证
 
-运行对应的测试命令，捕获**当前**输出作为证据。测试命令见下方"模块索引"的测试命令列。
-
-结果可能与索引中记录的基线不同（代码已变更），以实际运行结果为准。
-
-### Step 4: 查询已有知识
-
-查询 `.artifacts/` 中的相关 artifact，特别是：
-- 被驳回的 eval-doc（status=archived）——已知边界/FAQ
-- e2e-report——了解最近的测试结果和修复历史
-- code-diff——了解最近的代码变更
-- coverage-matrix——测试覆盖现状
-
-使用 Skill 6 (artifact-registry) 查询：
 ```bash
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/query.sh --project-root /home/yaosh/projects/zchat --type eval-doc --status archived
+bash scripts/test-<module>.sh
+```
+以实际运行结果为准。
+
+### Step 4: 查已有知识
+
+查 `.artifacts/`：
+- 被驳回 eval-doc（`status: archived`）—— 已知边界/FAQ
+- e2e-report —— 最近测试历史
+- code-diff —— 最近代码变更
+- coverage-matrix —— 覆盖现状
+
+**有 Skill 6**：
+```bash
+bash ~/.claude/skills/artifact-registry/scripts/query.sh \
+  --project-root /home/yaosh/projects/zchat \
+  --type eval-doc --status archived
 ```
 
 ### Step 5: 组织回答
 
-回答格式：
-1. 直接回答问题
-2. 附上证据：file:line 引用 + 测试输出
-3. 如果在 `.artifacts/` 中找到相关的被驳回 eval-doc，引用它作为已知边界
+1. 直接回答
+2. 附证据：file:line + 测试输出
+3. 相关已驳回 eval-doc 作为已知边界
 
-如果无法确认某个断言，标注为 `[unverified]` 而不是猜测。
+无法确认的断言标 `[unverified]`，不猜。
 
-### Step 6: 分流判断（自然延伸，非独立模式）
+### Step 6: 分流判断（仅当涉及 eval-doc/issue）
 
-如果本次讨论涉及 `.artifacts/` 中的 eval-doc 或 issue（比如用户带着一个问题报告来讨论"这是不是 bug"），在 Step 5 回答后继续：
+基于代码证据给出 bug / 非 bug / 信息不足判断 → 询问人确认。
 
-1. **明确提出分析结论**：基于代码证据和测试结果，给出判断（确认 bug / 不是 bug / 需要更多信息）
-2. **询问人是否确认**结论
-3. **人确认后执行对应操作**：
-
-**结论是 bug**：
-- Issue 保持 open
-- 告知用户：eval-doc 将进入 Phase 3（Skill 2 生成 test-plan）
+**结论是 bug**：保留 issue open，告知用户将进 Phase 3（Skill 2 生成 test-plan）。
 
 **结论不是 bug**：
 ```bash
-# 更新 eval-doc 状态
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/update-status.sh \
+bash scripts/close-issue.sh --issue-url <url> --reason "<说明>"
+bash ~/.claude/skills/artifact-registry/scripts/update-status.sh \
   --project-root /home/yaosh/projects/zchat --id <eval-doc-id> --status archived
 ```
-同时在 eval-doc 文件的 frontmatter 中追加：
-```yaml
-rejection_reason: "<具体原因，引用代码证据>"
-rejected_at: "2026-04-10"
-```
-Git commit 追踪变更。
-
-如果讨论**不涉及**任何 eval-doc/issue（只是普通的项目问题），则 Step 5 回答完即结束，不执行 Step 6。
+eval-doc frontmatter 追加 `rejection_reason` + `rejected_at`。Git commit 追踪。
 
 ---
 
 ## 自我演进
 
-Skill 1 通过两层机制保持知识最新：
-
 ### 动态层：自动刷新（Step 0）
+- 新 code-diff → 重读源 + 重跑 test-runner
+- 新 e2e-report → 更新覆盖认知
+- 路径失效 → `scripts/refresh-index.sh`
 
-每次回答前，Step 0 检查 `.artifacts/` 中的新 artifact：
-- **新 code-diff** → 重新读取受影响模块的源文件 + 重新跑测试 → 更新 file:line 引用和测试基线
-- **新 e2e-report** → 更新覆盖认知（哪些用户流程已有 E2E 测试）
-- **文件路径失效** → 扫描 `zchat/cli/` 重建索引
-
-这确保 bug 修复后 Skill 1 自动获取最新代码状态和测试结果，不需要重新 bootstrap。
+不重新 bootstrap 也能获取最新状态。
 
 ### 知识层：artifact 积累
+- 驳回结论：eval-doc archived + rejection_reason
+- Bug 修复历史：eval-doc → test-plan → e2e-report 链路
+- 覆盖变化：新 e2e-report 更新 coverage-matrix
 
-- **驳回结论** → eval-doc archived + rejection_reason → Step 4 查询时自动获取
-- **Bug 修复历史** → eval-doc → test-plan → e2e-report 链条 → Step 4 查询时可追溯完整修复过程
-- **覆盖变化** → 新 e2e-report 更新 coverage-matrix → 覆盖缺口逐步缩小
-
-### 何时需要重新 bootstrap
-
-以下情况 Step 0 的刷新不够，需要重跑 Skill 0：
+### 何时需要重跑 Skill 0
 - 大规模重构（多模块重命名/合并/拆分）
-- 新增了完全独立的模块（不在任何已有模块路径下）
+- 新增独立模块（不在现有路径下）
 - 测试框架更换
-
-知识增长发生在 `.artifacts/` + 实时代码读取，Skill 1 的 SKILL.md 保持轻量。
 
 ---
 
 ## 模块索引
 
-| 模块 | 路径 | 职责 | 测试命令 | 基线结果 | 用户流程 |
-|------|------|------|---------|---------|---------|
-| agent_manager | `zchat/cli/agent_manager.py` | Agent 生命周期管理 (create/stop/restart/list/send) | `uv run pytest tests/unit/test_agent_manager.py tests/unit/test_agent_focus_hide.py -v` | 19/19 passed | 创建agent, 停止agent, 重启agent, focus/hide |
-| irc_manager | `zchat/cli/irc_manager.py` | Ergo IRC daemon + WeeChat 管理 | `uv run pytest tests/unit/test_irc_check.py -v` | 3/4 (1 WSL2 bug) | IRC daemon 启停, WeeChat 连接 |
-| auth | `zchat/cli/auth.py` | OIDC device code flow, token cache, credentials | `uv run pytest tests/unit/test_auth.py -v` | 15/15 passed | OIDC 登录, 本地登录 |
-| ergo_auth | `zchat/cli/ergo_auth_script.py` | Ergo SASL auth-script (Keycloak userinfo) | `uv run pytest tests/unit/test_ergo_auth_script.py -v` | 4/4 passed | OIDC 登录 |
-| project | `zchat/cli/project.py` | Project CRUD, config.toml, resolve | `uv run pytest tests/unit/test_project.py tests/unit/test_project_create_params.py -v` | 22/22 passed | 创建/列出/删除/切换项目 |
-| layout | `zchat/cli/layout.py` | KDL layout 生成 (Zellij sessions) | `uv run pytest tests/unit/test_layout.py -v` | 8/8 passed | Zellij tab 创建 |
-| zellij | `zchat/cli/zellij.py` | Zellij CLI helpers (session/tab/pane) | `uv run pytest tests/unit/test_zellij_helpers.py -v` | 22/22 passed | Zellij tab 创建/关闭 |
-| config_cmd | `zchat/cli/config_cmd.py` | 全局 config (~/.zchat/config.toml) | `uv run pytest tests/unit/test_config_cmd.py -v` | 11/11 passed | 配置管理 |
-| defaults | `zchat/cli/defaults.py` | 内置默认值 (data/defaults.toml) | `uv run pytest tests/unit/test_defaults.py -v` | 6/6 passed | 配置管理 |
-| paths | `zchat/cli/paths.py` | 集中路径解析 (env > config > defaults) | `uv run pytest tests/unit/test_paths.py -v` | 24/24 passed | (基础设施, 全模块依赖) |
-| runner | `zchat/cli/runner.py` | Runner 解析: global config + template 合并 | `uv run pytest tests/unit/test_runner.py -v` | 16/16 passed | 模板管理 |
-| template_loader | `zchat/cli/template_loader.py` | Template 发现、加载、env 渲染 | `uv run pytest tests/unit/test_template_loader.py -v` | 8/8 passed | 模板管理 |
-| migrate | `zchat/cli/migrate.py` | Config/state migration (tmux → Zellij) | `uv run pytest tests/unit/test_migrate.py -v` | 4/4 passed | (内部迁移) |
-| update | `zchat/cli/update.py` | 版本检查 (git/PyPI) + 原子升级 | `uv run pytest tests/unit/test_update.py -v` | 19/19 passed | 版本更新 |
-| doctor | `zchat/cli/doctor.py` | 环境诊断, WeeChat plugin setup | - | 无测试 | 环境诊断 |
-| app | `zchat/cli/app.py` | Main Typer CLI app, 命令树, session 管理 | `uv run pytest tests/unit/test_list_commands.py tests/unit/test_plugin_integration.py -v` | 11/11 passed | (CLI 入口) |
-| channel-server | `zchat-channel-server/` | MCP server 桥接 IRC ↔ Claude Code | `cd zchat-channel-server && uv run pytest tests/ -v` | 12/12 passed | Agent MCP 消息, @mention 回复 |
-| protocol | `zchat-protocol/` | 协议规范 (naming, sys_messages) | `cd zchat-protocol && uv run pytest tests/ -v` | 7/9 (2 scoped_name bugs) | Agent 命名 |
+| 模块 | 路径 | 职责 | 测试命令 | 基线 | 用户流程 |
+|------|------|------|---------|------|---------|
+| agent_manager | `zchat/cli/agent_manager.py` | Agent lifecycle (create/stop/restart/list) + zellij tab 绑定 + ready marker | `bash scripts/test-agent_manager.sh` | 25 passed | 创建/停止/重启 agent |
+| app | `zchat/cli/app.py` | Typer 根 + 所有子命令 (project/irc/agent/bot/channel/audit/template/...) | `bash scripts/test-app.sh` | 52 passed | 全部 CLI 入口 |
+| auth | `zchat/cli/auth.py` + `ergo_auth_script.py` | OIDC device-code + SASL + ergo auth-script (stdin/stdout JSON 子进程) | `bash scripts/test-auth.sh` | 19 passed | 登录/凭证刷新 |
+| doctor_update | `zchat/cli/doctor.py` + `update.py` + `audit_cmd.py` | 环境诊断 + 自动升级 + audit.json 只读 CLI (admin-agent 使用) | `bash scripts/test-doctor_update.sh` | 43 passed | `zchat doctor`, `zchat audit status/report`, 自升级 |
+| irc_manager | `zchat/cli/irc_manager.py` | ergo daemon 生命周期 + WeeChat zellij tab + SASL auth 注入 | `bash scripts/test-irc_manager.sh` | 32 passed | `zchat irc daemon start`, `zchat irc start` |
+| project | `zchat/cli/project.py` + `paths.py` + `defaults.py` + `config_cmd.py` + `migrate.py` | project CRUD + 全局 paths + 默认值 + tmux→zellij migrator | `bash scripts/test-project.sh` | 65 passed | `zchat project create/use/list/remove` |
+| routing | `zchat/cli/routing.py` | routing.toml CRUD (V6 schema `[bots.*]` + `[channels.*]`) | `bash scripts/test-routing.sh` | 67 passed | `zchat bot add`, `zchat channel create`, 路由热加载 |
+| runner | `zchat/cli/runner.py` + `template_loader.py` | template 解析 + .env 渲染 (runner.py 是 V6 API；template_loader.py 是 legacy) | `bash scripts/test-runner.sh` | 11 passed | agent 启动时自动调用 |
+| templates | `zchat/cli/templates/` | 5 个内置 agent 模板（claude/fast-agent/deep-agent/admin-agent/squad-agent）soul.md + skills/ + start.sh + template.toml + .env.example | `bash scripts/test-templates.sh` | 11 passed | `zchat template list/show/set/create` |
+| tests | `tests/` | 三层测试套件 (unit 29 文件 + e2e 31 tests + pre_release walkthrough) | `bash scripts/test-unit-all.sh` / `test-e2e.sh` / `test-pre-release.sh` | 304 unit passed / 31 e2e collected | 所有测试执行 |
+| zellij | `zchat/cli/zellij.py` + `layout.py` | `zellij action` subprocess 封装 + KDL layout 生成 | `bash scripts/test-zellij.sh` | 31 passed | agent/weechat tab 管理 |
+
+**Submodules**（独立 repo，tests 单独跑）：
+- `zchat-channel-server/`：channel-server + plugins + feishu_bridge + agent_mcp（`bash scripts/test-channel-server.sh`）
+- `zchat-protocol/`：`irc_encoding.py` + `ws_messages.py` + `naming.py`（`bash scripts/test-protocol.sh`）
 
 ## 详细模块描述
 
 详见 `references/module-details.md`（从 `.artifacts/bootstrap/module-reports/*.json` 汇总生成）。
 
-该文件包含每个模块的：
-- 职责（一句话，含 file:line 引用）
-- 关键接口表（接口名、位置、说明）
-- 依赖关系（模块间调用方向）
-- 对应用户流程（CLI 命令映射）
-- 模块依赖图（全局视图）
-
 ## 用户流程 → 模块映射
 
-| 用户流程 | 操作步骤 | 涉及模块 | E2E 覆盖 |
-|---------|---------|---------|---------|
-| WeeChat 连接到 IRC | `zchat irc start` | irc_manager, zellij, auth | ✅ test_weechat_connects |
-| 创建 agent 并加入 IRC | `zchat agent create helper` | agent_manager, irc_manager, zellij, runner | ✅ test_agent_joins_irc |
-| Agent 向频道发消息 | Agent MCP reply tool | channel-server | ⚠️ test_agent_send_to_channel (30s 超时) |
-| @mention 触发 agent 回复 | `@alice-agent0 question` | channel-server | ⚠️ test_mention_triggers_reply (30s 超时) |
-| 创建第二个 agent | `zchat agent create agent1` | agent_manager, zellij, runner | ⚠️ test_second_agent (30s 超时) |
-| Agent 间通信 | `@alice-agent1 from agent0` | channel-server | ⚠️ test_agent_to_agent (30s 超时) |
-| 用户间对话 | alice ↔ bob IRC PRIVMSG | (IRC 原生) | ✅ test_alice_bob_conversation |
-| 停止 agent | `zchat agent stop helper` | agent_manager, zellij | ✅ test_agent_stop |
-| 全局 shutdown | `zchat shutdown` | agent_manager, irc_manager, zellij | ✅ test_shutdown |
-| Zellij tab 创建/关闭 | (内部) | zellij | ✅ test_tab_create_exists_close |
-| Zellij pane 发送/读取 | (内部) | zellij | ✅ test_send_and_read |
-| 创建项目 | `zchat project create local` | project, paths, defaults | ❌ |
-| 列出/删除/切换项目 | `zchat project list/remove/use` | project | ❌ |
-| IRC daemon 启停 | `zchat irc daemon start/stop` | irc_manager, zellij | ❌ |
-| OIDC 登录 | `zchat auth login` | auth, ergo_auth | ❌ |
-| 本地模式登录 | `zchat auth login --method local` | auth | ❌ |
-| 环境诊断 | `zchat doctor` | doctor | ❌ |
-| 模板管理 | `zchat template list/show/set/create` | template_loader, runner | ❌ |
-| 配置管理 | `zchat config get/set/list` | config_cmd, defaults | ❌ |
-| 版本更新 | `zchat update/upgrade` | update | ❌ |
-| Agent 重启 | `zchat agent restart helper` | agent_manager, zellij | ❌ |
-| Agent focus/hide | `zchat agent focus/hide helper` | agent_manager, zellij | ❌ |
-| Agent 发送文本 | `zchat agent send agent0 "..."` | agent_manager | ❌ |
+| 用户流程 | 操作步骤 | 涉及模块 | 入口 file:line | E2E 覆盖 | test-runner |
+|---------|---------|---------|---------------|---------|------------|
+| 创建 project | `zchat project create prod` | project, routing | `project.py::create_project_config` | ❌ | test-project.sh |
+| 注册 bot | `zchat bot add customer --app-id ... --template fast-agent [--supervises X] [--lazy]` | app, routing | `app.py::bot_add` | ❌ | test-routing.sh |
+| 注册 channel | `zchat channel create conv-001 --bot customer --external-chat oc_xxx --entry-agent ...` | app, routing | `app.py::channel_create` | ❌ | test-routing.sh |
+| 一键启动 | `zchat up` → ergo + zellij session + cs tab + bridge-* tabs + agent tabs | app, irc_manager, agent_manager, zellij, layout | `app.py::cmd_up` | ⚠️ 手动 walkthrough | test-e2e.sh |
+| 启动单 agent | `zchat agent create fast-001 --type fast-agent --channel conv-001` | agent_manager, runner, zellij | `agent_manager.py::AgentManager.create` | ⚠️ e2e fixture 起 | test-agent_manager.sh |
+| 飞书客户发问 → agent 回复 | 完整消息生命周期（bridge→CS→IRC→agent→回路）| 主库 + CS/protocol submodule | CS router.py + agent_mcp.py | ⚠️ pre_release 脚本 | test-pre-release.sh |
+| /hijack / /release 接管 | squad 点接管 → mode plugin → agent 切副驾驶 | CS plugins/mode + bridge | CS `plugins/mode/plugin.py` | ❌ 主库未覆盖 | (CS 单元测试) |
+| CSAT 评分 | 客户评分 → csat plugin → audit.record_csat → recall+resend | CS plugins/csat + audit | CS `plugins/csat/plugin.py` | ❌ | (CS 单元测试) |
+| /review admin 查报告 | admin 发 /review → run_zchat_cli audit report | doctor_update, templates | `audit_cmd.py::audit_report` | ❌ | test-doctor_update.sh |
+| OIDC 登录 | `zchat auth login` device-code flow | auth | `auth.py::device_code_flow` | ❌ | test-auth.sh |
+| 环境诊断 | `zchat doctor` | doctor_update | `doctor.py::run_doctor` | ❌ | test-doctor_update.sh |
+| 自动升级 | `zchat update run` | doctor_update | `update.py::run_upgrade` | ❌ | test-doctor_update.sh |
 
 ## 测试 Pipeline 信息
 
-供 Skill 3 (test-code-writer) 查询，了解如何在此项目中追加 E2E 测试用例。
+供 Skill 3 (test-code-writer) 参考：
 
-- **测试框架**：pytest 9.0.2 + pytest-order 1.3.0 + pytest-asyncio
-- **E2E 测试目录**：tests/e2e/
-- **E2E conftest 位置**：tests/e2e/conftest.py
-- **已有 fixture 列表**：e2e_port, zellij_session, e2e_context, ergo_server, zchat_cli, zellij_send, irc_probe, bob_probe, weechat_tab
-- **fixture 模式**：session-scoped 共享基础设施——所有 fixture 使用 `scope="session"` 避免重复启动 ergo/zellij。e2e_context 提供临时 ZCHAT_HOME 和项目配置。
-- **测试命名规范**：`test_{action}_{target}`（如 test_agent_joins_irc, test_weechat_connects）
-- **证据采集工具**：IrcProbe (tests/shared/irc_probe.py) + zellij helpers (tests/shared/zellij_helpers.py)
-- **证据采集方式**：IrcProbe 通过 IRC WHOIS/PRIVMSG 验证 nick 存在和消息到达；zellij dump_screen 验证终端输出
-- **E2E 标记/marker**：`@pytest.mark.e2e`
-- **运行 E2E 的命令**：`uv run pytest tests/e2e/ -v -m e2e`
-- **Shared helpers**：tests/shared/ 目录，包含 irc_probe.py, cli_runner.py, zellij_helpers.py, tmux_helpers.py（遗留）
+- **测试框架**：pytest + pytest-asyncio + pytest-order
+- **E2E 测试目录**：`tests/e2e/`（31 tests collected）
+- **E2E conftest 位置**：`tests/conftest.py`（若无特定 conftest），shared helper 在 `tests/shared/`
+- **E2E marker**：`@pytest.mark.e2e`（默认不跑，`-m e2e` 显式开启）
+- **E2E 运行命令**：`uv run pytest tests/e2e/ -v -m e2e`
+- **已有 fixture 模式**：
+  - 子进程调用：`uv run python -m zchat.cli` 包装（不直接 import CLI 函数）
+  - 临时 workspace：`tmp_path` + `ZCHAT_PROJECT_DIR` env 覆盖
+  - tmux/zellij 生命周期：setup-teardown 显式清理 session
+- **测试命名规范**：`tests/unit/test_<module>.py::test_<behavior>`；E2E 用 `test_<flow>_lifecycle.py`
+- **证据采集工具**：pre_release 用 asciinema + agg；unit/e2e 仅 pytest -v stdout
+- **证据采集方式**：`.cast` 文件 + 自动生成 `.gif`（见 `tests/pre_release/walkthrough.sh`）
+
+## Test Runners
+
+每个模块对应一个 test-runner 脚本，所有脚本 `--help` / `--dry-run` 支持。
+
+| 脚本 | 模块 | 命令 | 基线结果 |
+|------|------|------|---------|
+| `scripts/test-agent_manager.sh` | agent_manager | `uv run pytest tests/unit/test_agent_manager.py tests/unit/test_agent_focus_hide.py -v` | 25 passed |
+| `scripts/test-app.sh` | app | `uv run pytest tests/unit/test_channel_cmd.py test_list_commands.py test_project_cli_flow.py test_project_create_params.py test_project_use_command.py -v` | 52 passed |
+| `scripts/test-auth.sh` | auth | `uv run pytest tests/unit/test_auth.py tests/unit/test_ergo_auth_script.py -v` | 19 passed |
+| `scripts/test-doctor_update.sh` | doctor_update | `uv run pytest tests/unit/test_doctor.py tests/unit/test_update.py tests/unit/test_audit_cli.py -v` | 43 passed |
+| `scripts/test-irc_manager.sh` | irc_manager | `uv run pytest tests/unit/test_irc_manager_*.py tests/unit/test_irc_check.py tests/unit/test_wsl2_proxy_rewrite.py -v` | 32 passed |
+| `scripts/test-project.sh` | project | `uv run pytest tests/unit/test_project*.py test_paths.py test_defaults.py test_config_cmd.py -v` | 65 passed |
+| `scripts/test-routing.sh` | routing | `uv run pytest tests/unit/test_routing_cli.py tests/unit/test_channel_cmd.py -v` | 67 passed |
+| `scripts/test-runner.sh` | runner | `uv run pytest tests/unit/test_template_loader.py tests/unit/test_start_sh.py -v` | 11 passed |
+| `scripts/test-templates.sh` | templates | `uv run pytest tests/unit/test_template_loader.py tests/unit/test_start_sh.py -v` | 11 passed |
+| `scripts/test-zellij.sh` | zellij | `uv run pytest tests/unit/test_zellij_helpers.py tests/unit/test_layout.py -v` | 31 passed |
+| `scripts/test-unit-all.sh` | (全量 unit) | `uv run pytest tests/unit/ -v` | **304 passed** |
+| `scripts/test-e2e.sh` | (E2E) | `uv run pytest tests/e2e/ -v -m e2e` | 31 collected (需 ergo+zellij) |
+| `scripts/test-pre-release.sh` | (pre_release) | `./tests/pre_release/walkthrough.sh` | 手动 review `.cast` |
+| `scripts/test-channel-server.sh` | submodule CS | `cd zchat-channel-server && uv run pytest tests/ -v` | ~540 passed (V6 finalize) |
+| `scripts/test-protocol.sh` | submodule protocol | `cd zchat-protocol && uv run pytest tests/ -v` | passes |
 
 ## Artifact 交互
 
-查询 artifact：
+### 有 Skill 6 时（推荐）
+
 ```bash
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/query.sh \
+# 查询被驳回的 eval-doc
+bash ~/.claude/skills/artifact-registry/scripts/query.sh \
   --project-root /home/yaosh/projects/zchat --type eval-doc --status archived
+
+# 注册新 artifact（如新 eval-doc）
+bash ~/.claude/skills/artifact-registry/scripts/register.sh \
+  --project-root /home/yaosh/projects/zchat \
+  --type eval-doc --name "新 bug 分流" --producer skill-1 \
+  --path .artifacts/eval-docs/eval-xyz.md --status draft
+
+# 更新状态
+bash ~/.claude/skills/artifact-registry/scripts/update-status.sh \
+  --project-root /home/yaosh/projects/zchat --id eval-doc-xyz --status archived
 ```
 
-注册新 artifact：
-```bash
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/register.sh \
-  --project-root /home/yaosh/projects/zchat --type eval-doc --id <id> --status open
-```
+### 无 Skill 6 时（fallback）
 
-更新状态：
-```bash
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/update-status.sh \
-  --project-root /home/yaosh/projects/zchat --id <id> --status archived
-```
-
-关联 artifact：
-```bash
-bash /home/yaosh/.claude/skills/artifact-registry/scripts/link.sh \
-  --project-root /home/yaosh/projects/zchat --from <id-a> --to <id-b>
-```
+- 查询：`ls .artifacts/eval-docs/` 并读 frontmatter
+- 创建：直接写入对应子目录，带 YAML frontmatter (`type / producer / status / created_at`)
+- 更新：编辑 frontmatter
 
 ## 自验证记录
 
-Skill 1 生成后，所有测试命令已运行并与基线比对通过。
+Skill 1 生成后所有 test-runner 已运行并与基线比对通过（自验证时间：2026-04-22）。
 
-| 模块 | 基线结果 | 验证结果 | 匹配 |
-|------|---------|---------|------|
-| agent_manager | 19/19 | 19/19 passed | ✅ |
-| irc_manager | 3/4 | 3/4 (1 WSL2) | ✅ |
-| auth | 15/15 | 15/15 passed | ✅ |
-| ergo_auth_script | 4/4 | 4/4 passed | ✅ |
-| project | 22/22 | 22/22 passed | ✅ |
-| layout | 8/8 | 8/8 passed | ✅ |
-| zellij | 22/22 | 22/22 passed | ✅ |
-| config_cmd | 11/11 | 11/11 passed | ✅ |
-| defaults | 6/6 | 6/6 passed | ✅ |
-| paths | 24/24 | 24/24 passed | ✅ |
-| runner | 16/16 | 16/16 passed | ✅ |
-| template_loader | 8/8 | 8/8 passed | ✅ |
-| migrate | 4/4 | 4/4 passed | ✅ |
-| update | 19/19 | 23/23 passed | ⬆️ 新增 4 个测试 |
-| app | 11/11 | 11/11 passed | ✅ |
-| channel-server | 12/12 | 12/12 passed | ✅ |
-| protocol | 7/9 | 7/9 (2 bugs) | ✅ |
+| test-runner | 基线结果 | 验证结果 | 匹配 |
+|-------------|---------|---------|------|
+| test-agent_manager.sh | 25 passed | 25 passed | ✅ |
+| test-app.sh | 52 passed | 52 passed | ✅ |
+| test-auth.sh | 19 passed | 19 passed | ✅ |
+| test-doctor_update.sh | 43 passed | 43 passed | ✅ |
+| test-irc_manager.sh | 32 passed | 32 passed | ✅ |
+| test-project.sh | 65 passed | 65 passed | ✅ |
+| test-routing.sh | 67 passed | 67 passed | ✅ |
+| test-runner.sh | 11 passed | 11 passed | ✅ |
+| test-templates.sh | 11 passed | 11 passed | ✅ |
+| test-zellij.sh | 31 passed | 31 passed | ✅ |
+| test-unit-all.sh | 304 passed | 304 passed | ✅ |
 
-验证时间：2026-04-10，全部 17 个 test-runner 已运行。
+E2E + pre_release + submodule tests 未在 Skill 1 生成期跑（需外部服务），请按 test-runner 基线命令手动验证。
 
 ## 环境依赖
 
-运行 E2E 测试所需的环境：
-
 | 依赖 | 状态 | 说明 |
 |------|------|------|
-| ergo IRC server (port 6667) | 必需 | E2E 测试需要 IRC 连接，fixture 自动在随机高端口启动 |
-| zellij ≥0.44 | 必需 | E2E 测试通过 zellij 管理 session/tab/pane |
-| WeeChat | 必需 | E2E 测试 test_weechat_connects 需要 WeeChat 二进制 |
-| uv ≥0.7 | 必需 | 项目依赖管理 + 测试运行 |
-| asciinema | 可选 | pre-release walkthrough 录制，不影响 E2E |
-| docker | 可选 | 当前无测试依赖 docker |
+| uv | 必需 | Python 依赖管理 |
+| Python 3.12+ | 必需 | 项目运行时 |
+| zellij | 必需（E2E）| Session/tab 管理，E2E 测试依赖 |
+| claude (Claude Code CLI) | 必需（agent 运行）| agent 后端 |
+| zchat-channel-server | 必需（运行时）| 安装为 CLI tool 或 submodule uv sync |
+| ergo | 可选（本地 IRC）| 可用外部 IRC server 替代 |
+| weechat | 可选（GUI）| 用户监控 IRC；无 GUI 不影响 API |
+| jq | 可选（scripting）| audit JSON 解析，非必需 |
+| asciinema + agg | 可选（pre_release）| 录制 walkthrough，仅验收阶段用 |
+| tmux | 已废弃 | V5+ 迁移到 zellij，`migrate.py` 保留兼容转换 |
 
-## 已知问题
+## 关联文档
 
-1. **protocol scoped_name 双前缀 bug**：`scoped_name("alice-helper", "alice")` 返回 `"alice-alice-helper"` 而非 `"alice-helper"`；`scoped_name("bob-helper", "alice")` 返回 `"alice-bob-helper"` 而非 `"bob-helper"`。测试文件：`zchat-protocol/tests/test_naming.py`，2/9 failed。
-2. **test_irc_check 环境敏感**：`test_unreachable_server_raises` 在 WSL2 下失败——192.0.2.1 连接被快速拒绝而非超时。测试文件：`tests/unit/test_irc_check.py`，1/4 failed。
-3. **4 个 E2E MCP 超时**：test_agent_send_to_channel, test_mention_triggers_reply, test_second_agent, test_agent_to_agent 均因 Claude Code MCP reply 在 30s 内未完成而超时。根因是 MCP channel-server 需要 Claude Code 实际响应，CI 环境下无法保证响应时间。
+`docs/guide/` 是面向用户的阅读顺序（新 V6 整理）：
+- 001 architecture / 002 quick-start / 003 e2e-pre-release / 004 migrate (AutoService)
+- 005 dev-guide (Q&A 红线) / 006 routing-config / 007 plugin-guide
+
+设计历史 `docs/discuss/`，归档 `docs/archive/`。

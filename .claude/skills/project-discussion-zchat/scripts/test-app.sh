@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# 运行 app 模块的单元测试。
+# Run unit tests for the app module (CLI entry + channel/bot/agent commands).
+# Baseline: 52 passed (2026-04-22)
 
 PROJECT="/home/yaosh/projects/zchat"
 DRY_RUN=false
@@ -10,7 +11,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [--dry-run] [--help]
 
-Run app module unit tests (test_list_commands, test_plugin_integration).
+Run app module unit tests (test_channel_cmd + test_list_commands + test_project_cli_flow + test_project_create_params + test_project_use_command).
 
 Options:
   --dry-run   Show the test command without executing
@@ -27,11 +28,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-CMD="cd $PROJECT && uv run pytest tests/unit/test_list_commands.py tests/unit/test_plugin_integration.py -v"
+CMD="cd $PROJECT && uv run pytest tests/unit/test_channel_cmd.py tests/unit/test_list_commands.py tests/unit/test_project_cli_flow.py tests/unit/test_project_create_params.py tests/unit/test_project_use_command.py -v"
 
 if $DRY_RUN; then
     echo "[dry-run] $CMD"
     exit 0
 fi
 
-cd "$PROJECT" && uv run pytest tests/unit/test_list_commands.py tests/unit/test_plugin_integration.py -v
+cd "$PROJECT" && uv run pytest tests/unit/test_channel_cmd.py tests/unit/test_list_commands.py tests/unit/test_project_cli_flow.py tests/unit/test_project_create_params.py tests/unit/test_project_use_command.py -v
