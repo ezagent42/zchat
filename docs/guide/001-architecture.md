@@ -78,7 +78,8 @@
    │ - 查 routing.toml entry_agent → "yaosh-fast-001"
    │ - check IRC NAMES：fast-001 是否在 #conv-001 → 在
    │ - irc_connection.privmsg("#conv-001", "@yaosh-fast-001 __msg:...")
-   │ - 同时 ws_server.broadcast(msg) → 所有 plugin 订阅 (audit/csat/sla...)
+   │ - 同时 plugin_registry.broadcast_message(msg) → 所有 plugin 订阅 (audit/csat/sla...)
+   │   （注：plugin 是 in-process 订阅，不走 WS；bridge 入站的 msg 不回广播给 WS）
    │
 6. ergo IRC server 转发 PRIVMSG 给 #conv-001 channel
    │
@@ -98,7 +99,8 @@
    │ - irc_connection.privmsg("#conv-001", "__msg:...")
    │
 10. ergo 转发 PRIVMSG → CS irc_connection on_pubmsg → router.forward_inbound_irc
-    │ - ws_server.broadcast → bridge 订阅
+    │ - ws_server.broadcast → 所有 bridge 订阅
+    │ - plugin_registry.broadcast_message → 所有 plugin 订阅
     │
 11. customer bridge 收 WS message (kind=msg) → outbound.route → 
     │ sender.send_text(customer_chat_id, "您好，发货时间是...")
@@ -199,7 +201,8 @@ plugin.emit_event(channel, "name", data) →
 
 ```
 zellij session: zchat-<project>
-├── tab: weechat        — IRC 客户端 (用户监控)
+├── tab: ctl            — 空 CLI pane (session 初始化时创建)
+├── tab: chat           — 内含 pane name=weechat (IRC 客户端，用户监控)
 ├── tab: cs             — channel-server 进程
 ├── tab: bridge-customer — feishu_bridge --bot customer
 ├── tab: bridge-admin    — feishu_bridge --bot admin  

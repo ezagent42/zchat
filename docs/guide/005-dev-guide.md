@@ -220,7 +220,7 @@ deep 收到（mention 触发）→ 处理 → reply edit_of
 如果**确实**需要 1:1 私聊（不让 channel 其它 agent 看到）：
 
 **改哪里**:
-- `irc_connection.py` 重新加回 `on_privmsg` handler + `add_global_handler("privmsg", ...)`（V6 R2 删了，restore 注释见 git `726540d^`）
+- `irc_connection.py` 加 `on_privmsg` handler + `add_global_handler("privmsg", ...)`（当前仅 `on_pubmsg` 订阅 channel PRIVMSG；DM wiring 历史上从未实装，见 git log）
 - `router.py` 加 DM 路由分支：target 是 nick 而不是 #channel 时走不同路径
 - `agent_mcp.py` 加 DM 入站处理 + 新 MCP tool `dm(nick, text)`
 
@@ -228,7 +228,7 @@ deep 收到（mention 触发）→ 处理 → reply edit_of
 - ❌ 别用 channel + invite-only 模拟 DM —— 配置膨胀
 - ❌ zchat-protocol 不需要新前缀（DM 还是 `__msg:` / `__side:`，target 区别在 IRC 层）
 
-**当前状态**：`on_privmsg` wiring 已删；V7 真做 DM 时 router + agent_mcp + irc_connection 都要动，不只恢复 wiring。
+**当前状态**：V6 仅支持 channel PRIVMSG (`on_pubmsg`)，无 DM 入口；V7 真做 DM 时 router + agent_mcp + irc_connection 三处都要动，不只加 handler。
 
 ---
 
@@ -243,7 +243,7 @@ peers = list_peers(channel="#conv-001")
 deep_peer = next((p for p in peers if "-deep-" in p), None)
 ```
 
-`list_peers` 是 MCP tool（agent_mcp.py 注册），底层用 IRC NAMES 缓存（irc_connection.py `_members` dict）。
+`list_peers` 是 MCP tool（`zchat-channel-server/agent_mcp.py` 注册），底层查 `state["members"]` dict（由 irc_connection 的 `_on_namreply` / `_on_join/part/quit/nick` 维护并通过 `_publish_members` 镜像到 agent_mcp 的 state）。
 
 **不要做**：
 - ❌ 通过 routing.toml 查 agent 列表 —— V6 起 routing 不存 channel→agents 列表（roster 由 IRC NAMES 实时反映）

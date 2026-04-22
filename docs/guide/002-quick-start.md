@@ -31,7 +31,8 @@ echo "alias zchat='uv --project ~/projects/zchat run zchat'" >> ~/.bashrc
 
 ```bash
 zchat doctor
-# 期望 9 个绿勾 (uv/python3/claude/zchat-channel/zellij/ergo/weechat/jq + IRC port 自由)
+# 必要依赖（5）: uv / python3 / zellij / claude / zchat-channel
+# 可选依赖 (ergo / weechat / weechat plugin / pytest / jq)
 ```
 
 ## 1. 创建项目
@@ -42,35 +43,36 @@ zchat project use prod
 ls ~/.zchat/projects/prod/   # config.toml + 空 routing.toml
 ```
 
-## 2. 注册 bot（只演示飞书 customer 一个）
+## 2. 注册 bot（3 个）
 
-去飞书开放平台拿到 app_id / app_secret，开通：
+去飞书开放平台拿 3 个应用的 app_id / app_secret（customer / admin / squad），各自开通：
 - 事件订阅：`im.message.receive_v1`、`im.chat.member.bot.added_v1`、`card.action.trigger`
 - 权限：`im:message`、`im:chat`、`im:message.group_at_msg`
 - 启用 WSS 长连接
 
 ```bash
-zchat bot add customer \
-    --app-id  cli_xxxxxxxxxxxx \
-    --app-secret yyyyyyyyyyyyyyyyyy \
-    --template fast-agent \
-    --lazy           # 拉新群自动懒创建 channel + agent
+zchat bot add customer --app-id cli_xxx --app-secret yyy \
+    --template fast-agent --lazy        # lazy: 拉新群自动懒创建 channel + agent
+
+zchat bot add admin --app-id cli_zzz --app-secret www \
+    --template admin-agent
+
+zchat bot add squad --app-id cli_aaa --app-secret bbb \
+    --template squad-agent --supervises customer
 ```
 
 ## 3. 注册 channel
 
-把 customer bot 拉进飞书 `cs-customer` 群，拿群 chat_id（飞书 API 或在群信息查）：
+把 3 个 bot 分别拉进对应飞书群，拿群 chat_id（飞书 API 或群信息页）：
 
 ```bash
+# customer bot 所在群
 zchat channel create conv-001 \
     --bot customer \
     --external-chat oc_4842ab45da40abcdef \
     --entry-agent yaosh-fast-001
-```
 
-可一次性加多 channel；admin / squad 同理：
-
-```bash
+# admin + squad 群
 zchat channel create admin     --bot admin    --external-chat oc_admin_xxx     --entry-agent yaosh-admin-0
 zchat channel create squad-001 --bot squad    --external-chat oc_squad_xxx     --entry-agent yaosh-squad-0
 ```
@@ -115,12 +117,12 @@ zellij attach zchat-prod
 | Detach（保留 session 后台运行） | `Ctrl-o` 后按 `d` |
 | 完全杀掉 session | `Ctrl-q` |
 
-8 个 tab 应都活着：`weechat / cs / bridge-customer / bridge-admin / bridge-squad / yaosh-fast-001 / yaosh-admin-0 / yaosh-squad-0`。
+9 个 tab 应都活着：`chat / ctl / cs / bridge-customer / bridge-admin / bridge-squad / yaosh-fast-001 / yaosh-admin-0 / yaosh-squad-0`。其中 `chat` tab 内含 pane name=weechat；`ctl` 是空 CLI pane。
 
 每个 tab 切进去看：
 - **`cs`**: `[boot] joined #conv-001 / #admin / #squad-001`
 - **`bridge-*`**: `Feishu WSS connected`
-- **`weechat`**: 切到 `#conv-001` (`/buffer 3`) 看 `/names` 应有 `cs-bot + yaosh-fast-001 + 你`
+- **`chat`** (pane=weechat): 切到 `#conv-001` (`/buffer 3`) 看 `/names` 应有 `cs-bot + yaosh-fast-001 + 你`
 
 ## 6. 跑一轮真实对话
 
