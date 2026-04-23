@@ -151,6 +151,23 @@ class AgentManager:
         self.stop(name)
         self.create(name, channels=channels, agent_type=agent_type)
 
+    def start(self, name: str):
+        """Bring an offline agent back online (uses config persisted in state.json)."""
+        scoped = self.scoped(name)
+        agent = self._agents.get(scoped)
+        if not agent:
+            raise ValueError(
+                f"Unknown agent: {scoped}. Use `agent create` to register a new one."
+            )
+        if agent["status"] != "offline":
+            raise ValueError(
+                f"{scoped} is not offline (status={agent['status']}). "
+                f"Use `agent restart` to recreate."
+            )
+        channels = list(agent.get("channels", self.default_channels))
+        agent_type = agent.get("type", self.default_type)
+        self.create(name, channels=channels, agent_type=agent_type)
+
     def list_agents(self) -> dict[str, dict]:
         """Return all agents with refreshed status."""
         for name, info in self._agents.items():

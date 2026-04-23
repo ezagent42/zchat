@@ -1170,6 +1170,16 @@ def cmd_agent_restart(ctx: typer.Context, name: str = typer.Argument(...)):
     mgr.restart(name)
     typer.echo(f"Restarted {scoped}")
 
+
+@agent_app.command("start")
+def cmd_agent_start(ctx: typer.Context, name: str = typer.Argument(...)):
+    """Bring an offline agent back online (uses config from state.json)."""
+
+    mgr = _get_agent_manager(ctx)
+    scoped = mgr.scoped(name)
+    mgr.start(name)
+    typer.echo(f"Started {scoped}")
+
 @agent_app.command("focus")
 def cmd_agent_focus(
     ctx: typer.Context,

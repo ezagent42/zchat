@@ -21,6 +21,62 @@ def test_scope_agent_name():
     assert mgr.scoped("alice-helper") == "alice-alice-helper"
 
 
+def test_start_brings_offline_agent_online(tmp_path, monkeypatch):
+    """`agent start` 应该用 state.json 里的 channels/type 重新拉起 offline agent。"""
+    import pytest
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    mgr._agents["alice-helper"] = {
+        "type": "fast-agent",
+        "status": "offline",
+        "channels": ["#conv-001"],
+        "workspace": str(tmp_path / "agents" / "alice-helper"),
+        "created_at": 0,
+    }
+    seen = {}
+
+    def fake_create(name, channels, agent_type):
+        seen["name"] = name
+        seen["channels"] = channels
+        seen["agent_type"] = agent_type
+        return mgr._agents[mgr.scoped(name)]
+
+    monkeypatch.setattr(mgr, "create", fake_create)
+    mgr.start("helper")
+    assert seen == {
+        "name": "helper",
+        "channels": ["#conv-001"],
+        "agent_type": "fast-agent",
+    }
+
+
+def test_start_rejects_running_agent(tmp_path):
+    """start 不应该在 agent 还 running 时拉，应该报错让用户用 restart。"""
+    import pytest
+    mgr = _make_manager(
+        state_file=str(tmp_path / "agents.json"),
+        project_dir=str(tmp_path),
+    )
+    mgr._agents["alice-helper"] = {
+        "type": "claude",
+        "status": "running",
+        "channels": ["#general"],
+        "workspace": str(tmp_path / "agents" / "alice-helper"),
+        "created_at": 0,
+    }
+    with pytest.raises(ValueError, match="not offline"):
+        mgr.start("helper")
+
+
+def test_start_unknown_agent_raises(tmp_path):
+    import pytest
+    mgr = _make_manager(state_file=str(tmp_path / "agents.json"))
+    with pytest.raises(ValueError, match="Unknown agent"):
+        mgr.start("ghost")
+
+
 def test_create_workspace_exists():
     """create_workspace should create a directory."""
     mgr = _make_manager(state_file="/tmp/test-agents-ws2.json")
