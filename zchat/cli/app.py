@@ -42,6 +42,7 @@ auth_app = typer.Typer(help="Authentication management")
 config_app = typer.Typer(help="Global configuration management")
 channel_app = typer.Typer(help="Channel registration and management")
 bot_app = typer.Typer(help="External bot registration and management")
+voice_app = typer.Typer(help="Voice overlay — 临时语音通话 bridge")
 
 app.add_typer(project_app, name="project")
 app.add_typer(irc_app, name="irc")
@@ -54,6 +55,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(channel_app, name="channel")
 app.add_typer(bot_app, name="bot")
 app.add_typer(audit_app, name="audit")
+app.add_typer(voice_app, name="voice")
 
 
 def _get_config(ctx: typer.Context) -> dict:
@@ -1869,6 +1871,104 @@ def cmd_config_list():
         if isinstance(values, dict):
             for k, v in values.items():
                 typer.echo(f"{section}.{k} = {v}")
+
+
+# ============================================================
+# voice commands
+# ============================================================
+
+@voice_app.command("test")
+def cmd_voice_test(
+    ctx: typer.Context,
+    channel: str = typer.Option("#test-voice", "--channel",
+                                  help="临时绑死的 IRC channel（dev-mode 跳过 JWT）"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+    loopback: bool = typer.Option(True, "--loopback/--no-loopback",
+                                    help="L0：mic→ASR→TTS→speaker 本地回环，不连 CS"),
+    asr: str = typer.Option("stub", "--asr",
+                              help="ASR engine: stub | whisper_cpp | volcengine"),
+    tts: str = typer.Option("stub", "--tts",
+                              help="TTS engine: stub | piper | edge_tts"),
+    open_browser: bool = typer.Option(True, "--open/--no-open",
+                                        help="自动打开浏览器"),
+    verbose: bool = typer.Option(False, "-v", "--verbose"),
+):
+    """启动 voice_bridge 测试实例 (L0 loopback / L1 with agent)。
+
+    示例：
+      # L0：说啥听啥，验证 ASR/TTS pipeline
+      zchat voice test --loopback --channel '#test-voice'
+
+      # L1：连 CS，绑到现有 channel（需先 zchat up 起 CS + agent）
+      zchat voice test --no-loopback --channel '#conv-001'
+    """
+    import shutil
+    import subprocess
+    import webbrowser
+    from pathlib import Path
+
+    cmd_bin = shutil.which("zchat-voice-bridge")
+    args: list[str] = []
+    if cmd_bin:
+        args = [cmd_bin]
+    else:
+        # fallback: python -m voice_bridge via uv run
+        project_cs = Path(__file__).resolve().parent.parent.parent / "zchat-channel-server"
+        args = ["uv", "run", "--project", str(project_cs), "python", "-m", "voice_bridge"]
+
+    args += [
+        "--host", host,
+        "--port", str(port),
+        "--asr", asr,
+        "--tts", tts,
+        "--dev-mode",
+    ]
+    if channel:
+        args += ["--channel", channel.lstrip("#")]
+    if loopback:
+        args += ["--loopback"]
+    if verbose:
+        args += ["-v"]
+
+    url = f"http://{host}:{port}/?channel={channel.lstrip('#')}&customer=dev-user"
+    typer.echo(f"Starting voice_bridge: {' '.join(args)}")
+    typer.echo(f"Open in browser: {url}")
+
+    if open_browser:
+        # 延迟 1s 打开，等 server 监听就绪
+        import threading
+        import time
+        def _open_later():
+            time.sleep(1.0)
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+        threading.Thread(target=_open_later, daemon=True).start()
+
+    try:
+        proc = subprocess.run(args)
+        raise typer.Exit(proc.returncode)
+    except KeyboardInterrupt:
+        raise typer.Exit(0)
+
+
+@voice_app.command("status")
+def cmd_voice_status(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+):
+    """查 voice_bridge health endpoint。"""
+    import urllib.request
+    import urllib.error
+    url = f"http://{host}:{port}/health"
+    try:
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            typer.echo(f"{url} → {resp.status} {resp.read().decode().strip()}")
+    except urllib.error.URLError as e:
+        typer.echo(f"{url} unreachable: {e}")
+        raise typer.Exit(1)
 
 
 # ============================================================
