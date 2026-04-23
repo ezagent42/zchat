@@ -53,13 +53,13 @@ def test_load_routing_missing_file(tmp_path):
 
 def test_save_and_load_roundtrip(tmp_path):
     original = {
-        "bots": {"customer": {"app_id": "cli_x", "lazy_create_enabled": True}},
+        "bots": {"customer": {"credential_file": "credentials/customer.json", "lazy_create_enabled": True}},
         "channels": {"#ch-1": {"bot": "customer", "external_chat_id": "oc_abc", "agents": {}}},
     }
     save_routing(tmp_path, original)
     loaded = load_routing(tmp_path)
     assert loaded["channels"]["#ch-1"]["external_chat_id"] == "oc_abc"
-    assert loaded["bots"]["customer"]["app_id"] == "cli_x"
+    assert loaded["bots"]["customer"]["credential_file"] == "credentials/customer.json"
 
 
 def test_save_routing_atomic(tmp_path):
@@ -191,7 +191,7 @@ def test_remove_channel_leaves_others(tmp_path):
 
 def test_add_channel_with_entry_agent_and_bot(tmp_path):
     from zchat.cli.routing import add_bot
-    add_bot(tmp_path, "customer", app_id="cli_app1")
+    add_bot(tmp_path, "customer", credential_file="credentials/customer.json")
     add_channel(
         tmp_path, "#ch",
         external_chat_id="oc_xxx",
@@ -219,7 +219,6 @@ def test_add_bot_writes_routing(tmp_path):
     from zchat.cli.routing import add_bot, list_bots
     add_bot(
         tmp_path, "customer",
-        app_id="cli_x",
         credential_file="credentials/customer.json",
         default_agent_template="fast-agent",
         lazy_create_enabled=True,
@@ -227,20 +226,22 @@ def test_add_bot_writes_routing(tmp_path):
     bots = list_bots(tmp_path)
     assert len(bots) == 1
     assert bots[0]["name"] == "customer"
-    assert bots[0]["app_id"] == "cli_x"
+    assert bots[0]["credential_file"] == "credentials/customer.json"
     assert bots[0]["lazy_create_enabled"] is True
+    # V7: app_id 不再写 routing.toml
+    assert "app_id" not in bots[0]
 
 
 def test_add_bot_duplicate_raises(tmp_path):
     from zchat.cli.routing import add_bot
-    add_bot(tmp_path, "customer", app_id="cli_x")
+    add_bot(tmp_path, "customer", credential_file="credentials/customer.json")
     with pytest.raises(ValueError, match="already exists"):
-        add_bot(tmp_path, "customer", app_id="cli_y")
+        add_bot(tmp_path, "customer", credential_file="credentials/customer.json")
 
 
 def test_remove_bot_idempotent(tmp_path):
     from zchat.cli.routing import add_bot, remove_bot, list_bots
-    add_bot(tmp_path, "customer", app_id="cli_x")
+    add_bot(tmp_path, "customer", credential_file="credentials/customer.json")
     remove_bot(tmp_path, "customer")
     remove_bot(tmp_path, "customer")  # 不存在不抛
     assert list_bots(tmp_path) == []

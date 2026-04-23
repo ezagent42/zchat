@@ -1,13 +1,12 @@
-"""routing.toml 读写 API — CLI 视角（V6）。
+"""routing.toml 读写 API — CLI 视角（V7）。
 
 routing.toml 是动态运行时配置（与静态 config.toml 分离）。
 由 zchat bot/channel/agent 命令写入，由 channel-server / bridge 读取。
 
-V6 schema：
+V7 schema（V7 起 credential_file 是 app_id 的唯一来源；routing.toml 不再写 app_id）：
 
     [bots."<bot_name>"]                   # 由 zchat bot add 写入
-    app_id = "cli_..."
-    credential_file = "credentials/<bot_name>.json"
+    credential_file = "credentials/<bot_name>.json"   # 必填
     default_agent_template = "fast-agent"
     lazy_create_enabled = true
 
@@ -74,13 +73,14 @@ def add_bot(
     project_dir: str | Path,
     name: str,
     *,
-    app_id: str,
-    credential_file: str | None = None,
+    credential_file: str,
     default_agent_template: str | None = None,
     lazy_create_enabled: bool = False,
     supervises: list[str] | None = None,
 ) -> None:
     """注册一个 bot 到 routing.toml [bots] 表。已存在抛 ValueError。
+
+    V7：credential_file 必填（app_id + app_secret 的唯一来源）。
 
     supervises: 该 bot 监管哪些 bot 的 channels（V6 按 bot 名；V7+ 支持 tag:/pattern:）。
     """
@@ -88,9 +88,10 @@ def add_bot(
     bots = data.setdefault("bots", {})
     if name in bots:
         raise ValueError(f"Bot '{name}' already exists")
-    entry: dict = {"app_id": app_id, "lazy_create_enabled": lazy_create_enabled}
-    if credential_file:
-        entry["credential_file"] = credential_file
+    entry: dict = {
+        "credential_file": credential_file,
+        "lazy_create_enabled": lazy_create_enabled,
+    }
     if default_agent_template:
         entry["default_agent_template"] = default_agent_template
     if supervises:

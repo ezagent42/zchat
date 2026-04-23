@@ -72,11 +72,7 @@ zchat bot add squad    --template squad-agent --supervises customer
 zchat bot add customer --credential /path/to/customer.json --template fast-agent --lazy
 ```
 
-**老用法**（兼容保留，secret 进 shell history 不推荐）：
-
-```bash
-zchat bot add customer --app-id cli_xxx --app-secret yyy --template fast-agent --lazy
-```
+> V7 起 `--app-id`/`--app-secret` 参数已移除。`app_id` 仅从 credential JSON 读取，`routing.toml` 不再写 `app_id` 字段。**升级时若 routing.toml 残留 `app_id` 字段会启动失败**（CS/bridge 抛 ValueError），按错误提示删掉 `app_id = ...` 一行即可。
 
 ## 3. 注册 channel
 

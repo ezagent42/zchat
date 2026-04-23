@@ -190,14 +190,12 @@ routing.toml 的字段集见 `006-routing-config.md` 完整规范。AutoService 
 
 ```toml
 [bots.autoservice]
-app_id = "autoservice-prod-1"                    # 必填，bridge 注册时的逻辑 ID
-credential_file = "credentials/autoservice.json"  # schema 由 bridge 自己定义（见下方"注意"）
+credential_file = "credentials/autoservice.json"  # ✅ 必填；含 app_id + app_secret + 任何 bridge 自定义字段
 default_agent_template = "fast-agent"
 lazy_create_enabled = true                        # 新对话自动 onboard channel + agent
 
 [bots.supervisor]
 # 如果 AutoService 有"督导"角色，单独 bot 监管所有客户对话
-app_id = "autoservice-supervisor-1"
 credential_file = "credentials/supervisor.json"
 default_agent_template = "squad-agent"
 supervises = ["autoservice"]                      # V6 仅支持 bot 名列表；V7 计划扩展 tag:/pattern:
@@ -209,15 +207,15 @@ entry_agent = "yaosh-fast-001"
 ```
 
 **注意 — credential 文件内容 schema**：
-- routing.toml **没有** `api_endpoint` / `app_secret` / `host` 等字段
+- routing.toml **没有** `app_id` / `api_endpoint` / `app_secret` / `host` 等字段；V7 起 `app_id` 也归 credential 文件
 - credential 文件 schema 由**你的 bridge 自己决定**，routing 只引文件路径
 - `feishu_bridge` 目前的 `credentials/<bot>.json` 实际只含 2 个字段：
   ```json
   {"app_id": "cli_xxx...", "app_secret": "yyy..."}
   ```
   lark_oapi SDK 自己知道飞书 endpoint，所以 credential 不用含 URL
-- 你的 `autoservice_bridge` 若需要 endpoint / OAuth / CA cert 等，**自行**在 credential schema 里定义（例如 `{"api_base": "...", "token": "..."}`），bridge 读文件时解析即可
-- routing.toml 里的 `app_id` 字段是**外部平台侧的应用/bridge 业务 ID**（如飞书 `cli_xxx`）。bridge 用它做自发回环过滤（`sender.app_id == self.config.app_id` 跳过）。如 credential 文件里也有 `app_id`，以 credential 为准（防止 routing 与 credential 不一致，见 `routing_reader.py` L149-151）
+- 你的 `autoservice_bridge` 若需要 endpoint / OAuth / CA cert 等，**自行**在 credential schema 里定义（例如 `{"app_id": "...", "api_base": "...", "token": "..."}`），bridge 读文件时解析即可
+- bridge 用 `app_id`（从 credential 读）做自发回环过滤（`sender.app_id == self.config.app_id` 跳过）
 
 ## 4. agent 模板配置
 
