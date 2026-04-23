@@ -58,6 +58,7 @@ jq -n \
         "mcp__zchat-agent-mcp__join_channel",
         "mcp__zchat-agent-mcp__run_zchat_cli",
         "mcp__zchat-agent-mcp__list_peers",
+        "mcp__zchat-agent-mcp__voice_issue_link",
         "Skill"
       ]
     },
