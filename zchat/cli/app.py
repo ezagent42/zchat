@@ -1401,10 +1401,6 @@ def cmd_bot_add(
     credential: Optional[str] = typer.Option(None, "--credential", "-c",
                                               help="Path to credential JSON (with app_id + app_secret). "
                                                    "Relative to project dir; defaults to credentials/<name>.json if exists."),
-    app_id: Optional[str] = typer.Option(None, "--app-id",
-                                          help="External platform app id (alternative to --credential; legacy)"),
-    app_secret: Optional[str] = typer.Option(None, "--app-secret",
-                                              help="App secret (only with --app-id; writes credentials/<name>.json)"),
     template: Optional[str] = typer.Option(None, "--template",
                                             help="Default agent template for lazy-create"),
     lazy: bool = typer.Option(False, "--lazy",
@@ -1414,16 +1410,13 @@ def cmd_bot_add(
 ):
     """Register a bot in routing.toml [bots].
 
-    Three ways to provide credentials (in priority order):
+    Credentials must come from a JSON file with `{app_id, app_secret}`:
 
-      1. --credential <path> (recommended): read app_id + app_secret from
-         existing JSON file. Path is relative to project dir.
+      - --credential <path>: explicit path (relative to project dir).
+      - Auto-detect: if --credential omitted, looks for credentials/<name>.json.
 
-      2. Auto-detect: if neither --credential nor --app-id is given, looks
-         for credentials/<name>.json in the project dir.
-
-      3. --app-id <id> [--app-secret <secret>] (legacy): if --app-secret is
-         given, zchat writes credentials/<name>.json for you.
+    V7+: app_id is no longer stored in routing.toml — credential file is the
+    single source of truth.
     """
     from zchat.cli.routing import add_bot as routing_add_bot
     import json as _json
@@ -1435,68 +1428,44 @@ def cmd_bot_add(
         raise typer.Exit(1)
 
     pdir = _Path(project_dir(project_name))
-    cred_rel: Optional[str] = None
-    resolved_app_id: Optional[str] = None
 
-    # Mutual exclusion
-    if credential and (app_id or app_secret):
-        typer.echo("Error: --credential is mutually exclusive with --app-id/--app-secret.", err=True)
-        raise typer.Exit(1)
-
-    # Auto-detect default credential file if neither path is given
-    if not credential and not app_id:
+    # Auto-detect default credential file if --credential omitted
+    if not credential:
         default_cred = pdir / "credentials" / f"{name}.json"
         if default_cred.is_file():
             credential = f"credentials/{name}.json"
             typer.echo(f"Using default credential file: {credential}")
-
-    # Mode 1: --credential (recommended)
-    if credential:
-        cred_path = _Path(credential)
-        if not cred_path.is_absolute():
-            cred_path = pdir / credential
-        if not cred_path.is_file():
-            typer.echo(f"Error: credential file not found: {cred_path}", err=True)
-            raise typer.Exit(1)
-        try:
-            cred_data = _json.loads(cred_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            typer.echo(f"Error: failed to parse credential JSON ({cred_path}): {e}", err=True)
-            raise typer.Exit(1)
-        resolved_app_id = cred_data.get("app_id")
-        if not resolved_app_id:
-            typer.echo(f"Error: credential JSON missing 'app_id' field: {cred_path}", err=True)
-            raise typer.Exit(1)
-        if not cred_data.get("app_secret"):
+        else:
             typer.echo(
-                f"Warning: credential JSON missing 'app_secret'; bridge may fail to authenticate.",
+                f"Error: --credential <path> required (or place credentials/{name}.json in project dir).",
                 err=True,
             )
-        try:
-            cred_rel = str(cred_path.relative_to(pdir))
-        except ValueError:
-            cred_rel = str(cred_path)  # absolute path fallback
+            raise typer.Exit(1)
 
-    # Mode 3: --app-id legacy path
-    elif app_id:
-        resolved_app_id = app_id
-        if app_secret:
-            cred_dir = pdir / "credentials"
-            cred_dir.mkdir(parents=True, exist_ok=True)
-            cred_path = cred_dir / f"{name}.json"
-            cred_path.write_text(
-                _json.dumps({"app_id": app_id, "app_secret": app_secret}, indent=2),
-                encoding="utf-8",
-            )
-            cred_rel = f"credentials/{name}.json"
-            typer.echo(f"Wrote secret to {cred_path}")
-    else:
+    cred_path = _Path(credential)
+    if not cred_path.is_absolute():
+        cred_path = pdir / credential
+    if not cred_path.is_file():
+        typer.echo(f"Error: credential file not found: {cred_path}", err=True)
+        raise typer.Exit(1)
+    try:
+        cred_data = _json.loads(cred_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        typer.echo(f"Error: failed to parse credential JSON ({cred_path}): {e}", err=True)
+        raise typer.Exit(1)
+    resolved_app_id = cred_data.get("app_id")
+    if not resolved_app_id:
+        typer.echo(f"Error: credential JSON missing 'app_id' field: {cred_path}", err=True)
+        raise typer.Exit(1)
+    if not cred_data.get("app_secret"):
         typer.echo(
-            "Error: must provide --credential <path>, or place credentials/"
-            f"{name}.json in project dir, or use legacy --app-id <id>.",
+            f"Warning: credential JSON missing 'app_secret'; bridge may fail to authenticate.",
             err=True,
         )
-        raise typer.Exit(1)
+    try:
+        cred_rel = str(cred_path.relative_to(pdir))
+    except ValueError:
+        cred_rel = str(cred_path)  # absolute path fallback
 
     supervises_list: Optional[list[str]] = None
     if supervises:
@@ -1504,7 +1473,6 @@ def cmd_bot_add(
     try:
         routing_add_bot(
             pdir, name,
-            app_id=resolved_app_id,
             credential_file=cred_rel,
             default_agent_template=template,
             lazy_create_enabled=lazy,
@@ -1523,21 +1491,35 @@ def cmd_bot_add(
 def cmd_bot_list(ctx: typer.Context):
     """List all registered bots in current project."""
     from zchat.cli.routing import list_bots as routing_list_bots
+    import json as _json
+    from pathlib import Path as _Path
     project_name = ctx.obj.get("project") if ctx.obj else None
     if not project_name:
         typer.echo("Error: No project selected.", err=True)
         raise typer.Exit(1)
 
-    pdir = project_dir(project_name)
+    pdir = _Path(project_dir(project_name))
     bots = routing_list_bots(pdir)
     if not bots:
-        typer.echo("No bots registered. Run 'zchat bot add <name> --app-id ... --app-secret ...'.")
+        typer.echo("No bots registered. Run 'zchat bot add <name> --credential <path>'.")
         return
     for b in bots:
         sup = b.get("supervises") or []
         sup_str = f"\tsupervises={sup}" if sup else ""
+        cred_rel = b.get("credential_file") or ""
+        # 显示 app_id：从 credential JSON 读，读不到显示 "?"
+        app_id_disp = "?"
+        if cred_rel:
+            cred_path = _Path(cred_rel)
+            if not cred_path.is_absolute():
+                cred_path = pdir / cred_rel
+            if cred_path.is_file():
+                try:
+                    app_id_disp = _json.loads(cred_path.read_text(encoding="utf-8")).get("app_id", "?")
+                except Exception:
+                    pass
         typer.echo(
-            f"  {b['name']}\tapp_id={b.get('app_id','')}"
+            f"  {b['name']}\tapp_id={app_id_disp}\tcred={cred_rel}"
             f"\ttemplate={b.get('default_agent_template','')}{sup_str}"
             f"\tlazy={b.get('lazy_create_enabled', False)}"
         )
