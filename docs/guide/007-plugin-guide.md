@@ -157,7 +157,7 @@ V6 时代的 `CS_DATA_DIR` 环境变量兜底在 V7 **删除**（eval-doc-014 D-
 ~/.zchat/projects/<proj>/
 ├── config.toml             ← CLI 写，CLI 读
 ├── routing.toml            ← CLI 写；CS routing_watcher 读 + hot-reload
-├── credentials/            ← CLI 写（zchat bot add --app-secret）；bridge 读
+├── credentials/            ← 用户或 CLI 写（V7+ `zchat bot add --credential` / 兼容 `--app-secret`）；bridge 读
 ├── audit.json              ← AuditPlugin 读写
 ├── activation-state.json   ← ActivationPlugin 读写
 ├── cs.log / bridge-*.log   ← 各自进程 stdout redirect

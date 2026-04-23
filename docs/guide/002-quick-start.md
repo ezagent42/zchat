@@ -50,15 +50,32 @@ ls ~/.zchat/projects/prod/   # config.toml + 空 routing.toml
 - 权限：`im:message`、`im:chat`、`im:message.group_at_msg`
 - 启用 WSS 长连接
 
+**推荐 V7+ 用法**（先准备 credential 文件再注册，secret 不进 shell history）：
+
 ```bash
-zchat bot add customer --app-id cli_xxx --app-secret yyy \
-    --template fast-agent --lazy        # lazy: 拉新群自动懒创建 channel + agent
+# 1. 写 credential 文件
+mkdir -p ~/.zchat/projects/prod/credentials
+cat > ~/.zchat/projects/prod/credentials/customer.json <<'EOF'
+{"app_id": "cli_xxx", "app_secret": "yyy"}
+EOF
+# 同理写 admin.json / squad.json
 
-zchat bot add admin --app-id cli_zzz --app-secret www \
-    --template admin-agent
+# 2. 注册 bot（自动检测 credentials/<name>.json）
+zchat bot add customer --template fast-agent --lazy   # lazy: 拉新群自动懒创建 channel + agent
+zchat bot add admin    --template admin-agent
+zchat bot add squad    --template squad-agent --supervises customer
+```
 
-zchat bot add squad --app-id cli_aaa --app-secret bbb \
-    --template squad-agent --supervises customer
+**显式指定 credential 路径**：
+
+```bash
+zchat bot add customer --credential /path/to/customer.json --template fast-agent --lazy
+```
+
+**老用法**（兼容保留，secret 进 shell history 不推荐）：
+
+```bash
+zchat bot add customer --app-id cli_xxx --app-secret yyy --template fast-agent --lazy
 ```
 
 ## 3. 注册 channel

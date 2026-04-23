@@ -421,3 +421,78 @@ def test_agent_join_normalizes_channel_name(project_with_channel, monkeypatch):
     state = _read_agent_state(str(project_with_channel / "projects"))
     channels = state["agents"]["alice-helper"]["channels"]
     assert "#support" in channels
+
+
+# ---------------------------------------------------------------------------
+# CLI: bot add credential modes (V7)
+# ---------------------------------------------------------------------------
+
+def test_bot_add_with_credential_file(project):
+    """--credential <path>: 从 JSON 读 app_id + app_secret，routing.toml 写 credential_file。"""
+    pdir = project / "projects" / "testproj"
+    cred_dir = pdir / "credentials"
+    cred_dir.mkdir(parents=True, exist_ok=True)
+    (cred_dir / "customer.json").write_text(
+        json.dumps({"app_id": "cli_credapp", "app_secret": "secret123"}), encoding="utf-8"
+    )
+    result = runner.invoke(
+        app,
+        ["bot", "add", "customer", "--credential", "credentials/customer.json",
+         "--template", "fast-agent", "--lazy"],
+    )
+    assert result.exit_code == 0, result.output
+    data = load_routing(pdir)
+    bot = data["bots"]["customer"]
+    assert bot["app_id"] == "cli_credapp"
+    assert bot["credential_file"] == "credentials/customer.json"
+    assert bot["default_agent_template"] == "fast-agent"
+    assert bot["lazy_create_enabled"] is True
+
+
+def test_bot_add_auto_detects_default_credential(project):
+    """既不传 --credential 也不传 --app-id 时，自动检测 credentials/<name>.json。"""
+    pdir = project / "projects" / "testproj"
+    cred_dir = pdir / "credentials"
+    cred_dir.mkdir(parents=True, exist_ok=True)
+    (cred_dir / "admin.json").write_text(
+        json.dumps({"app_id": "cli_autoapp", "app_secret": "autosecret"}), encoding="utf-8"
+    )
+    result = runner.invoke(app, ["bot", "add", "admin", "--template", "admin-agent"])
+    assert result.exit_code == 0, result.output
+    assert "Using default credential file" in result.output
+    data = load_routing(pdir)
+    bot = data["bots"]["admin"]
+    assert bot["app_id"] == "cli_autoapp"
+    assert bot["credential_file"] == "credentials/admin.json"
+
+
+def test_bot_add_credential_mutex_with_app_id(project):
+    """--credential 和 --app-id 互斥。"""
+    pdir = project / "projects" / "testproj"
+    cred_dir = pdir / "credentials"
+    cred_dir.mkdir(parents=True, exist_ok=True)
+    (cred_dir / "x.json").write_text(json.dumps({"app_id": "a"}), encoding="utf-8")
+    result = runner.invoke(
+        app,
+        ["bot", "add", "x", "--credential", "credentials/x.json",
+         "--app-id", "cli_otherone"],
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output
+
+
+def test_bot_add_no_credential_no_app_id_fails(project):
+    """既无 --credential 又无 --app-id 又无默认 credential 文件 → 报错。"""
+    result = runner.invoke(app, ["bot", "add", "missing"])
+    assert result.exit_code != 0
+    assert "must provide" in result.output
+
+
+def test_bot_add_credential_file_missing_fails(project):
+    """--credential 指向的文件不存在 → 报错。"""
+    result = runner.invoke(
+        app,
+        ["bot", "add", "ghost", "--credential", "credentials/ghost.json"],
+    )
+    assert result.exit_code != 0
+    assert "credential file not found" in result.output

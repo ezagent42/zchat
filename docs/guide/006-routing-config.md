@@ -85,8 +85,14 @@ supervises = [
 zchat CLI 是 routing.toml 唯一合法 writer：
 
 ```bash
-zchat bot add <name> --app-id X --app-secret Y \
-    --template fast-agent --lazy [--supervises a,b]
+# 推荐: 先写 credentials/<name>.json {"app_id":"X","app_secret":"Y"}，再注册
+zchat bot add <name> --template fast-agent --lazy [--supervises a,b]
+
+# 或显式指定 credential 路径
+zchat bot add <name> --credential <path>.json --template fast-agent --lazy
+
+# 老用法兼容（secret 进 shell history，不推荐）
+zchat bot add <name> --app-id X --app-secret Y --template fast-agent --lazy
 
 zchat bot list
 zchat bot remove <name>
