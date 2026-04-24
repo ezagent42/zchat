@@ -49,8 +49,7 @@ jq -n \
       allow: [
         "mcp__zchat-agent-mcp__reply",
         "mcp__zchat-agent-mcp__join_channel",
-        "mcp__zchat-agent-mcp__run_zchat_cli",
-        "mcp__zchat-agent-mcp__voice_issue_link"
+        "mcp__zchat-agent-mcp__run_zchat_cli"
       ]
     },
     enabledPlugins: {
