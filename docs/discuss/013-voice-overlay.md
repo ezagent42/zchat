@@ -303,7 +303,16 @@ OpenAI Realtime API (GPT-4o)
 
 ### 7.4 MVP 默认
 
-**本地档（7.1）**，接口预留插件化（`asr_engine = "whisper_cpp"` / `"volcengine"`）。
+**云端档（7.2）Volcengine**，已实装：
+
+- ASR: `voice_bridge/asr/volcengine.py` — v3 BigModel (`wss://openspeech.bytedance.com/api/v3/sauc/bigmodel`)，
+  全双工 WebSocket，bilingual `zh-CN` + `en-US`，partial/final + 自带 VAD
+- TTS: `voice_bridge/tts/volcengine.py` — Doubao 流式 TTS (`wss://openspeech.bytedance.com/api/v1/tts/ws_binary`)，
+  voice_type 默认 `BV700_streaming`（bilingual 通用女声）
+- 共享协议帧编解码：`voice_bridge/_volc_proto.py`（4-byte header + gzip + JSON/raw payload）
+
+凭证：`voice.env.example` 模板，一对 `VOLC_APP_ID + VOLC_ACCESS_TOKEN` 同时供 ASR 和 TTS 用。
+启动：`zchat voice test --asr volcengine --tts volcengine --channel '#xxx'`。
 
 ## 8. MVP 切片
 
