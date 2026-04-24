@@ -42,7 +42,6 @@ auth_app = typer.Typer(help="Authentication management")
 config_app = typer.Typer(help="Global configuration management")
 channel_app = typer.Typer(help="Channel registration and management")
 bot_app = typer.Typer(help="External bot registration and management")
-voice_app = typer.Typer(help="Voice overlay — 临时语音通话 bridge")
 
 app.add_typer(project_app, name="project")
 app.add_typer(irc_app, name="irc")
@@ -55,7 +54,6 @@ app.add_typer(config_app, name="config")
 app.add_typer(channel_app, name="channel")
 app.add_typer(bot_app, name="bot")
 app.add_typer(audit_app, name="audit")
-app.add_typer(voice_app, name="voice")
 
 
 def _get_config(ctx: typer.Context) -> dict:
@@ -1576,11 +1574,12 @@ def cmd_bot_remove(
 def cmd_up(
     ctx: typer.Context,
     only: Optional[str] = typer.Option(None, "--only",
-                                        help="Comma-separated subset to start: irc,weechat,cs,bridges,agents"),
+                                        help="Comma-separated subset to start: irc,weechat,cs,bridges,agents,voice"),
 ):
-    """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents).
+    """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents + voice).
 
     The set of bridges = unique bots in [bots]; the set of agents = unique entry_agent in [channels].
+    `voice` tab 只在项目目录下有 voice.env（且 plugins.toml 启用 voice_portal）时启动。
     Idempotent: safe to re-run.
     """
     from zchat.cli.routing import load_routing as _load_routing
@@ -1593,7 +1592,7 @@ def cmd_up(
         typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
         raise typer.Exit(1)
 
-    parts = set((only or "irc,weechat,cs,bridges,agents").split(","))
+    parts = set((only or "irc,weechat,cs,bridges,agents,voice").split(","))
     from pathlib import Path as _P
     pdir = _P(project_dir(project_name))
     routing = _load_routing(pdir)
@@ -1629,6 +1628,13 @@ def cmd_up(
     cs_dir = str(_Path(__file__).resolve().parent.parent.parent / "zchat-channel-server")
     routing_file = str(_routing_path(pdir))
 
+    # voice.env（可选）：含 VOICE_JWT_SECRET（plugin 签 URL + bridge 验 URL）+
+    # Volcengine 凭证。CS / voice_bridge tab 都需要 source 它。
+    voice_env_file = pdir / "voice.env"
+    env_prefix = ""  # 插在 tab command 前的 shell 片段，source voice.env 若存在
+    if voice_env_file.is_file():
+        env_prefix = f"set -a && . {voice_env_file} && set +a; "
+
     def _ensure_tab(tab: str, cmd: str, label: str,
                      kill_pattern: str | None = None,
                      kill_port: int | None = None) -> None:
@@ -1656,6 +1662,7 @@ def cmd_up(
     if "cs" in parts:
         cs_log = pdir / "cs.log"
         cs_cmd = (
+            f"{env_prefix}"
             f"export IRC_SERVER=127.0.0.1 IRC_PORT=6667 "
             f"WS_HOST=127.0.0.1 WS_PORT=9999 CS_NICK=cs-bot "
             f"CS_ROUTING_CONFIG={routing_file}; "
@@ -1716,6 +1723,27 @@ def cmd_up(
                 typer.echo(f"agent {short}: started in #{clean_ch} (type={template})")
             except Exception as e:
                 typer.echo(f"agent {short}: failed ({e})", err=True)
+
+    # 5. voice_bridge tab（可选，需要 voice.env）
+    #    浏览器访问 http://127.0.0.1:8787/?t=<JWT>，JWT 由 voice_portal plugin 签发。
+    #    每条客户的 /call 都会得到含 JWT 的 URL，bridge 用同一 VOICE_JWT_SECRET 验证。
+    if "voice" in parts:
+        if not voice_env_file.is_file():
+            typer.echo(f"voice: skip (no {voice_env_file})")
+        else:
+            voice_log = pdir / "voice.log"
+            voice_cmd = (
+                f"{env_prefix}"
+                f'cd {cs_dir} && uv run python -m voice_bridge '
+                f"--host 127.0.0.1 --port 8787 "
+                f"--cs-url ws://127.0.0.1:9999 "
+                f"--asr volcengine --tts volcengine "
+                f'--jwt-secret "$VOICE_JWT_SECRET" '
+                f"-v 2>&1 | tee {voice_log}"
+            )
+            _ensure_tab("voice", voice_cmd, "voice",
+                        kill_pattern="python.*-m voice_bridge",
+                        kill_port=8787)
 
     typer.echo("up: complete")
 
@@ -1871,113 +1899,6 @@ def cmd_config_list():
         if isinstance(values, dict):
             for k, v in values.items():
                 typer.echo(f"{section}.{k} = {v}")
-
-
-# ============================================================
-# voice commands
-# ============================================================
-
-@voice_app.command("test")
-def cmd_voice_test(
-    ctx: typer.Context,
-    channel: str = typer.Option("#test-voice", "--channel",
-                                  help="临时绑死的 IRC channel（dev-mode 跳过 JWT）"),
-    host: str = typer.Option("127.0.0.1", "--host"),
-    port: int = typer.Option(8787, "--port"),
-    loopback: bool = typer.Option(True, "--loopback/--no-loopback",
-                                    help="L0：mic→ASR→TTS→speaker 本地回环，不连 CS"),
-    asr: str = typer.Option("stub", "--asr",
-                              help="ASR engine: stub | whisper_cpp | volcengine"),
-    tts: str = typer.Option("stub", "--tts",
-                              help="TTS engine: stub | volcengine | piper | edge_tts"),
-    open_browser: bool = typer.Option(True, "--open/--no-open",
-                                        help="自动打开浏览器"),
-    jwt_secret: str = typer.Option("", "--jwt-secret",
-                                     help="JWT 验签密钥；为空自动读 $VOICE_JWT_SECRET"),
-    cs_url: str = typer.Option("ws://127.0.0.1:9999", "--cs-url",
-                                 help="channel_server WS 地址（非 loopback 模式下必填）"),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
-):
-    """启动 voice_bridge 测试实例 (L0 loopback / L1 with agent)。
-
-    示例：
-      # L0：说啥听啥，验证 ASR/TTS pipeline
-      zchat voice test --loopback --channel '#test-voice'
-
-      # L1：连 CS，绑到现有 channel（需先 zchat up 起 CS + agent）
-      zchat voice test --no-loopback --channel '#conv-001'
-    """
-    import os as _os
-    import shutil
-    import subprocess
-    import webbrowser
-    from pathlib import Path
-
-    cmd_bin = shutil.which("zchat-voice-bridge")
-    args: list[str] = []
-    if cmd_bin:
-        args = [cmd_bin]
-    else:
-        # fallback: python -m voice_bridge via uv run
-        project_cs = Path(__file__).resolve().parent.parent.parent / "zchat-channel-server"
-        args = ["uv", "run", "--project", str(project_cs), "python", "-m", "voice_bridge"]
-
-    args += [
-        "--host", host,
-        "--port", str(port),
-        "--cs-url", cs_url,
-        "--asr", asr,
-        "--tts", tts,
-        "--dev-mode",
-    ]
-    if channel:
-        args += ["--channel", channel.lstrip("#")]
-    if loopback:
-        args += ["--loopback"]
-    effective_secret = jwt_secret or _os.environ.get("VOICE_JWT_SECRET", "")
-    if effective_secret:
-        args += ["--jwt-secret", effective_secret]
-    if verbose:
-        args += ["-v"]
-
-    url = f"http://{host}:{port}/?channel={channel.lstrip('#')}&customer=dev-user"
-    typer.echo(f"Starting voice_bridge: {' '.join(args)}")
-    typer.echo(f"Open in browser: {url}")
-
-    if open_browser:
-        # 延迟 1s 打开，等 server 监听就绪
-        import threading
-        import time
-        def _open_later():
-            time.sleep(1.0)
-            try:
-                webbrowser.open(url)
-            except Exception:
-                pass
-        threading.Thread(target=_open_later, daemon=True).start()
-
-    try:
-        proc = subprocess.run(args)
-        raise typer.Exit(proc.returncode)
-    except KeyboardInterrupt:
-        raise typer.Exit(0)
-
-
-@voice_app.command("status")
-def cmd_voice_status(
-    host: str = typer.Option("127.0.0.1", "--host"),
-    port: int = typer.Option(8787, "--port"),
-):
-    """查 voice_bridge health endpoint。"""
-    import urllib.request
-    import urllib.error
-    url = f"http://{host}:{port}/health"
-    try:
-        with urllib.request.urlopen(url, timeout=2) as resp:
-            typer.echo(f"{url} → {resp.status} {resp.read().decode().strip()}")
-    except urllib.error.URLError as e:
-        typer.echo(f"{url} unreachable: {e}")
-        raise typer.Exit(1)
 
 
 # ============================================================
