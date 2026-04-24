@@ -1889,9 +1889,13 @@ def cmd_voice_test(
     asr: str = typer.Option("stub", "--asr",
                               help="ASR engine: stub | whisper_cpp | volcengine"),
     tts: str = typer.Option("stub", "--tts",
-                              help="TTS engine: stub | piper | edge_tts"),
+                              help="TTS engine: stub | volcengine | piper | edge_tts"),
     open_browser: bool = typer.Option(True, "--open/--no-open",
                                         help="自动打开浏览器"),
+    jwt_secret: str = typer.Option("", "--jwt-secret",
+                                     help="JWT 验签密钥；为空自动读 $VOICE_JWT_SECRET"),
+    cs_url: str = typer.Option("ws://127.0.0.1:9999", "--cs-url",
+                                 help="channel_server WS 地址（非 loopback 模式下必填）"),
     verbose: bool = typer.Option(False, "-v", "--verbose"),
 ):
     """启动 voice_bridge 测试实例 (L0 loopback / L1 with agent)。
@@ -1903,6 +1907,7 @@ def cmd_voice_test(
       # L1：连 CS，绑到现有 channel（需先 zchat up 起 CS + agent）
       zchat voice test --no-loopback --channel '#conv-001'
     """
+    import os as _os
     import shutil
     import subprocess
     import webbrowser
@@ -1920,6 +1925,7 @@ def cmd_voice_test(
     args += [
         "--host", host,
         "--port", str(port),
+        "--cs-url", cs_url,
         "--asr", asr,
         "--tts", tts,
         "--dev-mode",
@@ -1928,6 +1934,9 @@ def cmd_voice_test(
         args += ["--channel", channel.lstrip("#")]
     if loopback:
         args += ["--loopback"]
+    effective_secret = jwt_secret or _os.environ.get("VOICE_JWT_SECRET", "")
+    if effective_secret:
+        args += ["--jwt-secret", effective_secret]
     if verbose:
         args += ["-v"]
 
