@@ -1628,12 +1628,13 @@ def cmd_up(
     cs_dir = str(_Path(__file__).resolve().parent.parent.parent / "zchat-channel-server")
     routing_file = str(_routing_path(pdir))
 
-    # voice.env（可选）：含 VOICE_JWT_SECRET（plugin 签 URL + bridge 验 URL）+
-    # Volcengine 凭证。CS / voice_bridge tab 都需要 source 它。
-    voice_env_file = pdir / "voice.env"
-    env_prefix = ""  # 插在 tab command 前的 shell 片段，source voice.env 若存在
-    if voice_env_file.is_file():
-        env_prefix = f"set -a && . {voice_env_file} && set +a; "
+    # 项目 log 目录（所有服务 tee 日志到这里，不散落到项目根）
+    log_dir = pdir / "log"
+    log_dir.mkdir(exist_ok=True)
+
+    # voice 凭证（可选）：credentials/voice.json 含 jwt_secret + volcengine.*
+    # 由 voice_portal plugin 签 URL，voice_bridge --creds 加载
+    voice_creds_file = pdir / "credentials" / "voice.json"
 
     def _ensure_tab(tab: str, cmd: str, label: str,
                      kill_pattern: str | None = None,
@@ -1660,9 +1661,8 @@ def cmd_up(
 
     # 2. channel-server tab
     if "cs" in parts:
-        cs_log = pdir / "cs.log"
+        cs_log = log_dir / "cs.log"
         cs_cmd = (
-            f"{env_prefix}"
             f"export IRC_SERVER=127.0.0.1 IRC_PORT=6667 "
             f"WS_HOST=127.0.0.1 WS_PORT=9999 CS_NICK=cs-bot "
             f"CS_ROUTING_CONFIG={routing_file}; "
@@ -1677,7 +1677,7 @@ def cmd_up(
     if "bridges" in parts:
         for bot_name in bots:
             tab = f"bridge-{bot_name}"
-            log_file = pdir / f"bridge-{bot_name}.log"
+            log_file = log_dir / f"bridge-{bot_name}.log"
             br_cmd = (
                 f"cd {cs_dir} && uv run python -u -m feishu_bridge "
                 f"--bot {bot_name} --routing {routing_file} 2>&1 | tee {log_file}"
@@ -1724,21 +1724,20 @@ def cmd_up(
             except Exception as e:
                 typer.echo(f"agent {short}: failed ({e})", err=True)
 
-    # 5. voice_bridge tab（可选，需要 voice.env）
-    #    浏览器访问 http://127.0.0.1:8787/?t=<JWT>，JWT 由 voice_portal plugin 签发。
-    #    每条客户的 /call 都会得到含 JWT 的 URL，bridge 用同一 VOICE_JWT_SECRET 验证。
+    # 5. voice_bridge tab（可选，需要 credentials/voice.json）
+    #    浏览器访问 http://127.0.0.1:8787/?t=<JWT>，JWT 由 voice_portal plugin 签发
+    #    并用 voice.json.jwt_secret 验证。Volcengine ASR/TTS 凭证同一文件。
     if "voice" in parts:
-        if not voice_env_file.is_file():
-            typer.echo(f"voice: skip (no {voice_env_file})")
+        if not voice_creds_file.is_file():
+            typer.echo(f"voice: skip (no {voice_creds_file})")
         else:
-            voice_log = pdir / "voice.log"
+            voice_log = log_dir / "voice.log"
             voice_cmd = (
-                f"{env_prefix}"
-                f'cd {cs_dir} && uv run python -m voice_bridge '
+                f"cd {cs_dir} && uv run python -m voice_bridge "
                 f"--host 127.0.0.1 --port 8787 "
                 f"--cs-url ws://127.0.0.1:9999 "
                 f"--asr volcengine --tts volcengine "
-                f'--jwt-secret "$VOICE_JWT_SECRET" '
+                f"--creds {voice_creds_file} "
                 f"-v 2>&1 | tee {voice_log}"
             )
             _ensure_tab("voice", voice_cmd, "voice",
