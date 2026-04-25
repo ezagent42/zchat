@@ -1579,7 +1579,7 @@ def cmd_up(
     """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents + voice).
 
     The set of bridges = unique bots in [bots]; the set of agents = unique entry_agent in [channels].
-    `voice` tab 只在项目目录下有 voice.env（且 plugins.toml 启用 voice_portal）时启动。
+    voice tab 只在 credentials/voice.json 存在时启动。
     Idempotent: safe to re-run.
     """
     from zchat.cli.routing import load_routing as _load_routing
@@ -1632,9 +1632,7 @@ def cmd_up(
     log_dir = pdir / "log"
     log_dir.mkdir(exist_ok=True)
 
-    # voice 凭证（可选）：credentials/voice.json 含 jwt_secret + volcengine.*
-    # 由 voice_portal plugin 签 URL，voice_bridge --creds 加载
-    voice_creds_file = pdir / "credentials" / "voice.json"
+    voice_config_file = pdir / "credentials" / "voice.json"
 
     def _ensure_tab(tab: str, cmd: str, label: str,
                      kill_pattern: str | None = None,
@@ -1724,21 +1722,15 @@ def cmd_up(
             except Exception as e:
                 typer.echo(f"agent {short}: failed ({e})", err=True)
 
-    # 5. voice_bridge tab（可选，需要 credentials/voice.json）
-    #    浏览器访问 http://127.0.0.1:8787/?t=<JWT>，JWT 由 voice_portal plugin 签发
-    #    并用 voice.json.jwt_secret 验证。Volcengine ASR/TTS 凭证同一文件。
+    # 5. voice_bridge tab — credentials/voice.json 存在则启
     if "voice" in parts:
-        if not voice_creds_file.is_file():
-            typer.echo(f"voice: skip (no {voice_creds_file})")
+        if not voice_config_file.is_file():
+            typer.echo(f"voice: skip (no {voice_config_file})")
         else:
             voice_log = log_dir / "voice.log"
             voice_cmd = (
                 f"cd {cs_dir} && uv run python -m voice_bridge "
-                f"--host 127.0.0.1 --port 8787 "
-                f"--cs-url ws://127.0.0.1:9999 "
-                f"--asr volcengine --tts volcengine "
-                f"--creds {voice_creds_file} "
-                f"-v 2>&1 | tee {voice_log}"
+                f"--config {voice_config_file} -v 2>&1 | tee {voice_log}"
             )
             _ensure_tab("voice", voice_cmd, "voice",
                         kill_pattern="python.*-m voice_bridge",
