@@ -17,7 +17,7 @@
 | 011 | [v7-entry-as-coordinator](011-v7-entry-as-coordinator.md) | V7 entry-as-coordinator | 子集已实施（list_peers + NAMES 熔断） |
 | 012 | [v7-roadmap-supervision](012-v7-roadmap-supervision.md) | V7 多实例监管扩展 | 设计期 |
 | 013 | [voice-overlay](013-voice-overlay.md) | voice 接入初版设计 | ⚠️ §6/§7/§8 被 014 取代 |
-| 014 | [voice-redesign](014-voice-redesign.md) | voice 接入重设计（删 plugin + JWT 内化 + dialog 协议）| draft |
+| 014 | [voice-redesign](014-voice-redesign.md) | voice 接入重设计（删 plugin + JWT 内化 + dialog 协议）| ✅ 已实施 |
 
 ## 编号规则
 

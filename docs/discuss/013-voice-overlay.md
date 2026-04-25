@@ -1,6 +1,11 @@
 # 013 · Voice Overlay — 给 zchat channel 加临时语音通话能力
 
-> **状态**：draft，等拍板后动代码
+> **状态**：⚠️ §6 / §7 / §8 部分被 [014-voice-redesign.md](014-voice-redesign.md) 取代
+>   - §6 JWT 模型 (MCP tool 签发 + plugin 分发) → 014 改为 `/issue` HTTP + agent_mcp `voice_link` tool（plugin 删除）
+>   - §7 ASR/TTS 选型 → 014 切换至 Doubao realtime/dialogue (volc.speech.dialog)
+>   - §8 MVP 切片 → Phase 1-3 已实现并被 014 Phase A-D 大幅重构
+>
+> **保留**：§1 设计立场（voice 是 channel overlay，非独立实体）/ §2 总架构 / §3 进程结构 / §4 延迟预算 / §5 三级测试模型
 > **分支**：`feat/voice-bridge`
 > **目标**：达到 cc-openclaw 的"打电话的感觉" — 客户点链接进浏览器，<1s 端到端延迟的实时语音对话；同一段对话在飞书群文字 transcript 同步可见；不依赖飞书即可独立测试。
 

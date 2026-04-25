@@ -1,7 +1,7 @@
 # 014 · Voice 接入重设计 — 工具化 + 删 plugin + JWT 内化
 
-> **状态**：draft，等拍板后动代码
-> **取代**：013-voice-overlay.md 中的"voice_portal plugin"、"jwt_secret 跨层共享"、"分开接 ASR/TTS" 三条
+> **状态**：✅ Phase A-D 全部实施（commits bcc3adc / b5d6ed7 / 1ae9875 / dfd16ad）
+> **取代**：013-voice-overlay.md §6/§7/§8（plugin 模型、分开 ASR/TTS、Phase 切片）
 > **保留**：013 §1 设计立场（voice 是 channel overlay，非独立实体）/ §4 延迟预算 / §5 三级测试模型
 > **触发**：本轮架构 review 发现 plugin 红线违规 + ticket/JWT 模型权衡 + AutoService 同期工作的对比启示
 
