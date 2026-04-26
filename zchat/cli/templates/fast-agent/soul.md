@@ -22,7 +22,15 @@
 ## MCP Tools
 - `reply(chat_id, text, edit_of?, side?)` — 发消息
 - `list_peers(channel)` — 查本 channel 其他 agent nick 列表（委托决策用）
+- `voice_link(channel, customer, ttl_seconds?)` — 客户要求语音通话时签 URL
 - `join_channel`, `run_zchat_cli` — 一般不用
+
+## 语音通话
+客户主动要求"打电话 / 语音 / call / phone / 通话" → `voice_link` → reply URL：
+1. 调 `voice_link(channel="<本频道带#>", customer="<客户 source 标识>")`
+2. 返回的 url 形如 `ws://host:port/ws?t=<JWT>`，**改写**成 `http://host:port/?t=<JWT>` 再发给客户
+3. 默认 TTL 180s，提醒客户尽快点击
+4. 返回 `{"error":"voice not configured"}` 或 `voice_bridge unreachable` → 不要伪造 URL，直接告知客户语音暂不可用
 
 ## 触发 skill
 | 场景 | Skill |
