@@ -18,6 +18,7 @@
 | 012 | [v7-roadmap-supervision](012-v7-roadmap-supervision.md) | V7 多实例监管扩展 | 设计期 |
 | 013 | [voice-overlay](013-voice-overlay.md) | voice 接入初版设计 | ⚠️ §6/§7/§8 被 014 取代 |
 | 014 | [voice-redesign](014-voice-redesign.md) | voice 接入重设计（删 plugin + JWT 内化 + dialog 协议）| ✅ 已实施 |
+| 015 | [prod-reset-runbook](015-prod-reset-runbook.md) | prod 项目从零重启 SOP（沿用 credentials + 飞书群）| 实操参考 |
 
 ## 编号规则
 
