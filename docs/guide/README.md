@@ -11,6 +11,7 @@
 | 005 | [dev-guide](005-dev-guide.md) | 想改 zchat 内部的开发者 | 20 min（Q&A 形式可索引查询） |
 | 006 | [routing-config](006-routing-config.md) | 配 / 改 routing.toml 的人 | 15 min |
 | 007 | [plugin-guide](007-plugin-guide.md) | 想写新 plugin / 对接外部系统的人 | 25 min |
+| 008 | [voice-setup](008-voice-setup.md) | 接入 voice 通话能力 | 10 min |
 
 ## 常见入口
 

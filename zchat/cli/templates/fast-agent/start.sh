@@ -58,6 +58,7 @@ jq -n \
         "mcp__zchat-agent-mcp__join_channel",
         "mcp__zchat-agent-mcp__run_zchat_cli",
         "mcp__zchat-agent-mcp__list_peers",
+        "mcp__zchat-agent-mcp__voice_link",
         "Skill"
       ]
     },
@@ -99,6 +100,11 @@ if [ -n "${HTTP_PROXY:-}" ]; then
 fi
 if [ -n "${HTTPS_PROXY:-}" ]; then
   ENV_JSON=$(echo "$ENV_JSON" | jq --arg v "$HTTPS_PROXY" '. + {HTTPS_PROXY: $v}')
+fi
+
+# voice_link tool gating — agent_mcp 只在此 env 存在时注册 voice_link tool
+if [ -n "${VOICE_BRIDGE_ISSUE_URL:-}" ]; then
+  ENV_JSON=$(echo "$ENV_JSON" | jq --arg v "$VOICE_BRIDGE_ISSUE_URL" '. + {VOICE_BRIDGE_ISSUE_URL: $v}')
 fi
 
 # Build server config object

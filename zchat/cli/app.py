@@ -1574,11 +1574,12 @@ def cmd_bot_remove(
 def cmd_up(
     ctx: typer.Context,
     only: Optional[str] = typer.Option(None, "--only",
-                                        help="Comma-separated subset to start: irc,weechat,cs,bridges,agents"),
+                                        help="Comma-separated subset to start: irc,weechat,cs,bridges,agents,voice"),
 ):
-    """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents).
+    """Start all services declared in routing.toml (ergo + WeeChat + cs + N bridges + missing agents + voice).
 
     The set of bridges = unique bots in [bots]; the set of agents = unique entry_agent in [channels].
+    voice tab 只在 credentials/voice.json 存在时启动。
     Idempotent: safe to re-run.
     """
     from zchat.cli.routing import load_routing as _load_routing
@@ -1591,7 +1592,7 @@ def cmd_up(
         typer.echo("Error: No project selected. Run 'zchat project create <name>'.", err=True)
         raise typer.Exit(1)
 
-    parts = set((only or "irc,weechat,cs,bridges,agents").split(","))
+    parts = set((only or "irc,weechat,cs,bridges,agents,voice").split(","))
     from pathlib import Path as _P
     pdir = _P(project_dir(project_name))
     routing = _load_routing(pdir)
@@ -1627,6 +1628,12 @@ def cmd_up(
     cs_dir = str(_Path(__file__).resolve().parent.parent.parent / "zchat-channel-server")
     routing_file = str(_routing_path(pdir))
 
+    # 项目 log 目录（所有服务 tee 日志到这里，不散落到项目根）
+    log_dir = pdir / "log"
+    log_dir.mkdir(exist_ok=True)
+
+    voice_config_file = pdir / "credentials" / "voice.json"
+
     def _ensure_tab(tab: str, cmd: str, label: str,
                      kill_pattern: str | None = None,
                      kill_port: int | None = None) -> None:
@@ -1652,7 +1659,7 @@ def cmd_up(
 
     # 2. channel-server tab
     if "cs" in parts:
-        cs_log = pdir / "cs.log"
+        cs_log = log_dir / "cs.log"
         cs_cmd = (
             f"export IRC_SERVER=127.0.0.1 IRC_PORT=6667 "
             f"WS_HOST=127.0.0.1 WS_PORT=9999 CS_NICK=cs-bot "
@@ -1668,7 +1675,7 @@ def cmd_up(
     if "bridges" in parts:
         for bot_name in bots:
             tab = f"bridge-{bot_name}"
-            log_file = pdir / f"bridge-{bot_name}.log"
+            log_file = log_dir / f"bridge-{bot_name}.log"
             br_cmd = (
                 f"cd {cs_dir} && uv run python -u -m feishu_bridge "
                 f"--bot {bot_name} --routing {routing_file} 2>&1 | tee {log_file}"
@@ -1714,6 +1721,20 @@ def cmd_up(
                 typer.echo(f"agent {short}: started in #{clean_ch} (type={template})")
             except Exception as e:
                 typer.echo(f"agent {short}: failed ({e})", err=True)
+
+    # 5. voice_bridge tab — credentials/voice.json 存在则启
+    if "voice" in parts:
+        if not voice_config_file.is_file():
+            typer.echo(f"voice: skip (no {voice_config_file})")
+        else:
+            voice_log = log_dir / "voice.log"
+            voice_cmd = (
+                f"cd {cs_dir} && uv run python -m voice_bridge "
+                f"--config {voice_config_file} -v 2>&1 | tee {voice_log}"
+            )
+            _ensure_tab("voice", voice_cmd, "voice",
+                        kill_pattern="python.*-m voice_bridge",
+                        kill_port=8787)
 
     typer.echo("up: complete")
 
