@@ -63,7 +63,7 @@ def test_generate_layout_has_zchat_status_plugin_when_wasm_present():
     """Layout 包含 zchat-status wasm 插件（仅当 wasm 文件存在时）。"""
     config = {}
     state = {"agents": {}}
-    with patch("zchat.cli.layout.os.path.isfile", return_value=True):
+    with patch("zchat.cli.layout._wasm_present", return_value=True):
         kdl = generate_layout(config, state)
     assert "zchat-status.wasm" in kdl
 
@@ -72,7 +72,7 @@ def test_generate_layout_skips_zchat_status_when_wasm_missing():
     """Layout 不包含 wasm 插件（wasm 文件不存在）。"""
     config = {}
     state = {"agents": {}}
-    with patch("zchat.cli.layout.os.path.isfile", return_value=False):
+    with patch("zchat.cli.layout._wasm_present", return_value=False):
         kdl = generate_layout(config, state)
     assert "zchat-status.wasm" not in kdl
 

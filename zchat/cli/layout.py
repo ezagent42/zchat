@@ -17,6 +17,17 @@ def _plugins_dir() -> str:
     return str(paths.plugins_dir())
 
 
+def _wasm_present(wasm_path: str) -> bool:
+    """Indirection over os.path.isfile so tests can mock this narrowly.
+
+    Patching `os.path.isfile` directly leaks into pathlib.Path.is_file()
+    on Python 3.14+ (which now delegates to os.path.isfile internally),
+    breaking other code paths that incidentally check Path.is_file (e.g.
+    paths._load_config_paths). Patch this helper instead.
+    """
+    return os.path.isfile(wasm_path)
+
+
 def generate_layout(
     config: dict,
     state: dict,
@@ -39,7 +50,7 @@ def generate_layout(
     lines.append("        children")
     plugins = _plugins_dir()
     wasm_path = os.path.join(plugins, "zchat-status.wasm")
-    if os.path.isfile(wasm_path):
+    if _wasm_present(wasm_path):
         lines.append('        pane size=1 borderless=true {')
         lines.append(f'            plugin location="file:{wasm_path}"')
         lines.append("        }")
