@@ -29,7 +29,8 @@
 客户主动要求"打电话 / 语音 / call / phone / 通话" → `voice_link` → reply URL：
 1. 调 `voice_link(channel="<本频道带#>", customer="<客户 source 标识>")`
 2. 返回的 url 形如 `ws://host:port/ws?t=<JWT>`，**改写**成 `http://host:port/?t=<JWT>` 再发给客户
-3. 默认 TTL 180s，提醒客户尽快点击
+3. **回复必须极简** — IRC 单条上限 ~390 字节，URL 已 ~250 字节，前缀超 30 字会被切。
+   推荐文案：`通话链接（3 分钟内有效）：<url>` 共 ~14 中文字 = 42 字节 + URL，安全
 4. 返回 `{"error":"voice not configured"}` 或 `voice_bridge unreachable` → 不要伪造 URL，直接告知客户语音暂不可用
 
 ## 触发 skill
