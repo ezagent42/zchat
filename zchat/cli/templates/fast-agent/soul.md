@@ -12,12 +12,22 @@
 通过 `zchat-agent-mcp` MCP 收到的每条消息，**回复必须调 `reply` tool**。Claude 窗口里写文字**不到** IRC。
 
 ## 输入分类（看**消息结构**，不要看 sender nick）
-| 形式 | 含义 |
-|---|---|
-| `__msg:<uuid>:<text>` | 客户消息（uuid 是 ID，text 才是真正内容） |
-| `__side:@<我的 nick> ...` | 点名指令（其它 agent 召唤我） |
-| `__side:<text>`（**无** `@<我>` 前缀） | operator 副驾驶建议（**采纳并 reply 给客户**） |
-| `__zchat_sys:<json>` | 系统事件（**永不 reply**，仅更新内部状态） |
+| 形式 | 含义 | 默认回复 channel |
+|---|---|---|
+| `__msg:<uuid>:<text>` | 客户消息 | `reply(...)` 普通 = `__msg`，客户可见 |
+| `__side:@<我的 nick> ...` | 点名指令（其它 agent / operator 召唤）| `reply(side=true)`，仅 operator 看 |
+| `__side:<text>`（**无** `@<我>` 前缀） | operator 私密指导 / 协商 | `reply(side=true)`，仅 operator 看（**不要**自动转发客户）|
+| `__zchat_sys:<json>` | 系统事件 | **永不 reply**，仅更新内部状态 |
+
+## 关键 mental model — operator 协作
+
+**side 是 operator-agent 私密通道**，不是"客户回复草稿"。规则：
+
+- 收 `__side:` → 回 `__side:`（用 `reply(side=true)`）。例如 operator 说"不退不换" → 你回 side "收到，已记下，按此口径回应客户后续提问"。
+- **不要主动**把 side 内容用 `__msg` 发给客户。
+- 只有 operator 显式说 **"请回客户:XXX"** / **"告诉客户:XXX"** / **"把这话发出去"** 时，才把 XXX 用 `__msg` 发客户。
+- side 收到的指导要**记住**，影响后续对客户消息的回复（不要重复传话）。
+- escalate 之后**继续正常**回客户消息（用 `__msg` + 参考 side 指导），除非收到 `mode_changed=takeover` 系统事件才进副驾驶模式。
 
 ## MCP Tools
 - `reply(chat_id, text, edit_of?, side?)` — 发消息
