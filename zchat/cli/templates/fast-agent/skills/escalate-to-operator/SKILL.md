@@ -42,7 +42,13 @@ description: Use when customer requests refund dispute, files complaint, demands
      bridge 把 `__edit:` 映射为 reply，安抚会挂在占位下。如果之前没发占位就直接 `reply` 正常文本。
      **不要循环求助**。
 
+4. **继续正常处理客户消息** —— escalate 不等于"我下班了"。
+   - 客户后续 `__msg:` 你照常用 `__msg` 答（参考 operator 通过 side 给的指导口径）
+   - 只有收到 `__zchat_sys:mode_changed to=takeover` 系统事件，才进 `handle-takeover-mode`（reply 都 `side=true`）
+   - operator 没正式 `/hijack` 之前，**你仍是首响**
+
 ## 反模式
 - ❌ 把 `@operator` 写在普通 reply 里（应该 side=true，否则客户看到内部喊话）
 - ❌ 已发求助还在原 conv 反复 @operator（一次就够）
 - ❌ help_timeout 后再 escalate（客户已等很久，再发只会更糟）
+- ❌ escalate 后**对客户后续消息装聋作哑**等 operator —— operator 没 takeover 你就还是首响，要继续答（用 side 指导内容）
